@@ -1,10 +1,16 @@
 import Store from 'electron-store'
 import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
 
+interface StoredDomainBinding {
+  siteId: string
+  domain: string
+}
+
 interface StoreSchema {
   sites: StoredSite[]
   auth: StoredAuth | null
   tunnels: StoredTunnel[]
+  domainBindings: StoredDomainBinding[]
 }
 
 const store = new Store<StoreSchema>({
@@ -12,7 +18,8 @@ const store = new Store<StoreSchema>({
   defaults: {
     sites: [],
     auth: null,
-    tunnels: []
+    tunnels: [],
+    domainBindings: []
   }
 })
 
@@ -110,5 +117,36 @@ export function removeTunnel(siteId: string): void {
     store.set('tunnels', tunnels.filter((t) => t.siteId !== siteId))
   } catch (err) {
     console.error('[Store] Failed to remove tunnel:', err)
+  }
+}
+
+// --- Domain Bindings ---
+
+export function getDomainBinding(siteId: string): StoredDomainBinding | null {
+  try {
+    const bindings = store.get('domainBindings') || []
+    return bindings.find((b) => b.siteId === siteId) || null
+  } catch (err) {
+    console.error('[Store] Failed to read domain binding:', err)
+    return null
+  }
+}
+
+export function saveDomainBinding(siteId: string, domain: string): void {
+  try {
+    const bindings = (store.get('domainBindings') || []).filter((b) => b.siteId !== siteId)
+    bindings.push({ siteId, domain })
+    store.set('domainBindings', bindings)
+  } catch (err) {
+    console.error('[Store] Failed to save domain binding:', err)
+  }
+}
+
+export function removeDomainBinding(siteId: string): void {
+  try {
+    const bindings = store.get('domainBindings') || []
+    store.set('domainBindings', bindings.filter((b) => b.siteId !== siteId))
+  } catch (err) {
+    console.error('[Store] Failed to remove domain binding:', err)
   }
 }

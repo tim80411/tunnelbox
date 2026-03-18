@@ -9,6 +9,7 @@ export {
   hasTunnel
 } from './quick-tunnel'
 export { login as loginCloudflare, logout as logoutCloudflare, getAuthStatus } from './auth-manager'
+export { bindDomain, unbindDomain, getDomainBindingInfo } from './dns-manager'
 export {
   initNamedTunnel,
   createNamedTunnel,
