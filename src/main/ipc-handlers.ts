@@ -1,7 +1,8 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
-import type { SiteInfo } from '../shared/types'
+import { detectCloudflared, installCloudflared } from './cloudflared'
+import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
 let serverManager: ServerManager
 
@@ -27,6 +28,13 @@ function broadcastSiteUpdate(): void {
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
     win.webContents.send('site-updated', sites)
+  }
+}
+
+function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    win.webContents.send('cloudflared-status-changed', env)
   }
 }
 
@@ -148,6 +156,32 @@ export function registerIpcHandlers(manager: ServerManager): void {
       return result.filePaths[0]
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to select folder')
+    }
+  })
+
+  // --- Cloudflared Environment ---
+
+  ipcMain.handle('get-cloudflared-status', async () => {
+    try {
+      return await detectCloudflared()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '偵測 cloudflared 失敗')
+    }
+  })
+
+  ipcMain.handle('install-cloudflared', async () => {
+    try {
+      broadcastCloudflaredStatus({ status: 'installing' })
+      await installCloudflared()
+      const env = await detectCloudflared()
+      broadcastCloudflaredStatus(env)
+    } catch (err) {
+      const errorEnv: CloudflaredEnv = {
+        status: 'install_failed',
+        errorMessage: err instanceof Error ? err.message : '安裝 cloudflared 失敗'
+      }
+      broadcastCloudflaredStatus(errorEnv)
+      throw new Error(errorEnv.errorMessage)
     }
   })
 
