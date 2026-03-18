@@ -8,3 +8,4 @@ export {
   getTunnelInfo,
   hasTunnel
 } from './quick-tunnel'
+export { login as loginCloudflare, logout as logoutCloudflare, getAuthStatus } from './auth-manager'

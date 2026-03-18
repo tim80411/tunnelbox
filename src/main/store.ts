@@ -1,14 +1,18 @@
 import Store from 'electron-store'
-import type { StoredSite } from '../shared/types'
+import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
 
 interface StoreSchema {
   sites: StoredSite[]
+  auth: StoredAuth | null
+  tunnels: StoredTunnel[]
 }
 
 const store = new Store<StoreSchema>({
   name: 'site-holder-data',
   defaults: {
-    sites: []
+    sites: [],
+    auth: null,
+    tunnels: []
   }
 })
 
@@ -45,4 +49,66 @@ export function addSite(site: StoredSite): void {
 export function removeSite(id: string): void {
   const sites = getSites()
   saveSites(sites.filter((s) => s.id !== id))
+}
+
+// --- Auth ---
+
+export function getAuth(): StoredAuth | null {
+  try {
+    return store.get('auth') || null
+  } catch (err) {
+    console.error('[Store] Failed to read auth:', err)
+    return null
+  }
+}
+
+export function saveAuth(auth: StoredAuth): void {
+  try {
+    store.set('auth', auth)
+  } catch (err) {
+    console.error('[Store] Failed to save auth:', err)
+  }
+}
+
+export function clearAuth(): void {
+  try {
+    store.set('auth', null)
+  } catch (err) {
+    console.error('[Store] Failed to clear auth:', err)
+  }
+}
+
+// --- Named Tunnels ---
+
+export function getTunnels(): StoredTunnel[] {
+  try {
+    const tunnels = store.get('tunnels')
+    if (!Array.isArray(tunnels)) {
+      store.set('tunnels', [])
+      return []
+    }
+    return tunnels
+  } catch (err) {
+    console.error('[Store] Failed to read tunnels:', err)
+    return []
+  }
+}
+
+export function saveTunnel(tunnel: StoredTunnel): void {
+  const tunnels = getTunnels().filter((t) => t.siteId !== tunnel.siteId)
+  tunnels.push(tunnel)
+  try {
+    store.set('tunnels', tunnels)
+  } catch (err) {
+    console.error('[Store] Failed to save tunnel:', err)
+  }
+}
+
+export function removeTunnel(siteId: string): void {
+  const tunnels = getTunnels()
+  try {
+    store.set('tunnels', tunnels.filter((t) => t.siteId !== siteId))
+  } catch (err) {
+    console.error('[Store] Failed to remove tunnel:', err)
+  }
 }

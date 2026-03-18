@@ -7,7 +7,10 @@ import {
   startQuickTunnel,
   stopQuickTunnel,
   getTunnelInfo,
-  hasTunnel
+  hasTunnel,
+  loginCloudflare,
+  logoutCloudflare,
+  getAuthStatus
 } from './cloudflared'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
@@ -227,6 +230,32 @@ export function registerIpcHandlers(manager: ServerManager): void {
       }
       broadcastCloudflaredStatus(errorEnv)
       throw new Error(errorEnv.errorMessage)
+    }
+  })
+
+  // --- Cloudflare Auth ---
+
+  ipcMain.handle('login-cloudflare', async () => {
+    try {
+      return await loginCloudflare()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '登入 Cloudflare 失敗')
+    }
+  })
+
+  ipcMain.handle('logout-cloudflare', async () => {
+    try {
+      logoutCloudflare()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '登出 Cloudflare 失敗')
+    }
+  })
+
+  ipcMain.handle('get-auth-status', async () => {
+    try {
+      return getAuthStatus()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得認證狀態失敗')
     }
   })
 
