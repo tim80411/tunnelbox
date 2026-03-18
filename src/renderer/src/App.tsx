@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
-import type { SiteInfo, CloudflaredEnv } from '../../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
+import AuthPanel from './components/AuthPanel'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cloudflaredEnv, setCloudflaredEnv] = useState<CloudflaredEnv>({ status: 'checking' })
+  const [auth, setAuth] = useState<CloudflareAuth>({ status: 'logged_out' })
 
   // Confirm remove modal state
   const [confirmRemove, setConfirmRemove] = useState<SiteInfo | null>(null)
@@ -33,6 +35,8 @@ function App(): React.ReactElement {
       setCloudflaredEnv({ status: 'error', errorMessage: '無法取得 cloudflared 狀態' })
     })
 
+    window.electron.getAuthStatus?.().then(setAuth).catch(() => {})
+
     const unsubSites = window.electron.onSiteUpdated((updatedSites) => {
       setSites(updatedSites)
     })
@@ -49,11 +53,14 @@ function App(): React.ReactElement {
       )
     })
 
+    const unsubAuth = window.electron.onAuthStatusChanged?.(setAuth)
+
     return () => {
       unsubSites()
       unsubFiles()
       unsubCloudflared?.()
       unsubTunnel?.()
+      unsubAuth?.()
     }
   }, [loadSites])
 
@@ -181,13 +188,47 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleLogin = useCallback(async () => {
+    try {
+      setError(null)
+      setAuth({ status: 'logging_in' })
+      const result = await window.electron.loginCloudflare()
+      setAuth(result)
+    } catch (err) {
+      setAuth({ status: 'logged_out' })
+      setError(err instanceof Error ? err.message : '登入失敗')
+    }
+  }, [])
+
+  const handleLogout = useCallback(async () => {
+    try {
+      setError(null)
+      await window.electron.logoutCloudflare()
+      setAuth({ status: 'logged_out' })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '登出失敗')
+    }
+  }, [])
+
+  const hasRunningNamedTunnels = sites.some(
+    (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
+  )
+
   return (
     <div className="app-container">
       <header className="app-header">
         <h1>Site Holder</h1>
-        <button className="btn btn-primary" onClick={openAddModal}>
-          + Add Site
-        </button>
+        <div className="app-header-actions">
+          <AuthPanel
+            auth={auth}
+            hasRunningNamedTunnels={hasRunningNamedTunnels}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+          />
+          <button className="btn btn-primary" onClick={openAddModal}>
+            + Add Site
+          </button>
+        </div>
       </header>
 
       {error && (

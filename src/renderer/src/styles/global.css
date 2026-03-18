@@ -38,6 +38,13 @@ html, body, #root {
   -webkit-app-region: no-drag;
 }
 
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  -webkit-app-region: no-drag;
+}
+
 .app-body {
   display: flex;
   flex: 1;
@@ -435,4 +442,50 @@ html, body, #root {
 
 .btn-tunnel-stop:hover {
   background: #ffebee;
+}
+
+/* Auth panel */
+.auth-panel {
+  display: flex;
+  align-items: center;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.auth-logging-in {
+  color: #1565c0;
+}
+
+.auth-logged-in {
+  color: #2e7d32;
+}
+
+.auth-email {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-expired {
+  color: #f57f17;
+}
+
+.auth-expired-text {
+  font-size: 12px;
+}
+
+.btn-auth-login {
+  background: #f57c00;
+  color: #fff;
+  border-color: #f57c00;
+}
+
+.btn-auth-login:hover {
+  background: #e65100;
 }
