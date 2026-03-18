@@ -76,10 +76,24 @@ function TunnelControls({ site, cloudflaredAvailable, onShare, onStopSharing }: 
       )}
 
       {tunnel.status === 'reconnecting' && (
-        <span className="tunnel-status-text tunnel-reconnecting">
-          <span className="cloudflared-spinner" />
-          Tunnel 重連中...
-        </span>
+        <>
+          {tunnel.publicUrl && (
+            <div className="tunnel-url-row">
+              <span className="tunnel-url tunnel-url-dimmed">{tunnel.publicUrl}</span>
+            </div>
+          )}
+          <span className="tunnel-status-text tunnel-reconnecting">
+            <span className="cloudflared-spinner" />
+            Tunnel 重連中...
+          </span>
+          <button
+            className="btn btn-sm btn-tunnel-stop"
+            onClick={() => onStopSharing(site.id)}
+            disabled
+          >
+            停止公開
+          </button>
+        </>
       )}
 
       {tunnel.status === 'error' && (
@@ -88,10 +102,10 @@ function TunnelControls({ site, cloudflaredAvailable, onShare, onStopSharing }: 
             {tunnel.errorMessage || 'Tunnel 發生錯誤'}
           </span>
           <button
-            className="btn btn-sm"
+            className="btn btn-sm btn-tunnel-share"
             onClick={() => onShare(site.id)}
           >
-            重試
+            {tunnel.errorMessage?.includes('已斷線') ? '重新啟動' : '重試'}
           </button>
         </div>
       )}

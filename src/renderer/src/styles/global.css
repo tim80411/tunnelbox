@@ -389,6 +389,10 @@ html, body, #root {
   text-decoration: underline;
 }
 
+.tunnel-url-dimmed {
+  opacity: 0.5;
+}
+
 .tunnel-status-text {
   display: flex;
   align-items: center;
