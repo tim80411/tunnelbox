@@ -363,3 +363,72 @@ html, body, #root {
 @keyframes cloudflared-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Tunnel controls */
+.tunnel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tunnel-url-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tunnel-url {
+  font-size: 12px;
+  color: #1976d2;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.tunnel-url:hover {
+  text-decoration: underline;
+}
+
+.tunnel-status-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.tunnel-starting {
+  color: #1565c0;
+}
+
+.tunnel-reconnecting {
+  color: #f57f17;
+}
+
+.tunnel-error-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tunnel-error-text {
+  color: #c62828;
+}
+
+.btn-tunnel-share {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #2e7d32;
+}
+
+.btn-tunnel-share:hover {
+  background: #1b5e20;
+}
+
+.btn-tunnel-stop {
+  color: #c62828;
+  border-color: #ef9a9a;
+}
+
+.btn-tunnel-stop:hover {
+  background: #ffebee;
+}

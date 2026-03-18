@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv } from '../../shared/types'
+import TunnelControls from './components/TunnelControls'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -42,10 +43,17 @@ function App(): React.ReactElement {
 
     const unsubCloudflared = window.electron.onCloudflaredStatusChanged?.(setCloudflaredEnv)
 
+    const unsubTunnel = window.electron.onTunnelStatusChanged?.((siteId, tunnel) => {
+      setSites((prev) =>
+        prev.map((s) => (s.id === siteId ? { ...s, tunnel: tunnel ?? undefined } : s))
+      )
+    })
+
     return () => {
       unsubSites()
       unsubFiles()
       unsubCloudflared?.()
+      unsubTunnel?.()
     }
   }, [loadSites])
 
@@ -155,6 +163,24 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleShareSite = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.startQuickTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
+    }
+  }, [])
+
+  const handleStopSharing = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.stopTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '停止 Tunnel 失敗')
+    }
+  }, [])
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -258,6 +284,12 @@ function App(): React.ReactElement {
                   ) : (
                     <span className="site-item-url site-item-url-unavailable">網址不可用</span>
                   )}
+                  <TunnelControls
+                    site={site}
+                    cloudflaredAvailable={cloudflaredEnv.status === 'available'}
+                    onShare={handleShareSite}
+                    onStopSharing={handleStopSharing}
+                  />
                 </div>
                 <span className={`site-item-status ${site.status}`}>
                   {site.status === 'running'
