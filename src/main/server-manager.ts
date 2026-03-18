@@ -1,4 +1,5 @@
 import http from 'node:http'
+import path from 'node:path'
 import fs from 'node:fs'
 import handler from 'serve-handler'
 import { watch, type FSWatcher } from 'chokidar'
@@ -216,6 +217,21 @@ export class ServerManager {
         }
         return (originalEnd as (...a: unknown[]) => http.ServerResponse)(...args)
       } as typeof res.end
+
+      // Serve .html files directly to avoid serve-handler's cleanUrls redirect
+      // (which breaks iframe-based sites by redirecting .html to clean URLs).
+      // Uses writeHead so the hot reload script injection interceptor activates.
+      if (req.url) {
+        const decoded = decodeURIComponent(req.url.split('?')[0])
+        if (decoded.endsWith('.html')) {
+          const filePath = path.join(site.folderPath, decoded)
+          if (fs.existsSync(filePath)) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            fs.createReadStream(filePath).pipe(res)
+            return
+          }
+        }
+      }
 
       handler(req, res, {
         public: site.folderPath,
