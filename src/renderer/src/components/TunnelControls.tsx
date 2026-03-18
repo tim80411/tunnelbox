@@ -152,19 +152,32 @@ function TunnelControls({
         </>
       )}
 
-      {tunnel.status === 'error' && (
-        <div className="tunnel-error-row">
-          <span className="tunnel-status-text tunnel-error-text">
-            {tunnel.errorMessage || 'Tunnel 發生錯誤'}
-          </span>
-          <button
-            className="btn btn-sm btn-tunnel-share"
-            onClick={() => isNamed ? onStartNamedTunnel(site.id) : onShare(site.id)}
-          >
-            {tunnel.errorMessage?.includes('已斷線') ? '重新啟動' : '重試'}
-          </button>
-        </div>
-      )}
+      {tunnel.status === 'error' && (() => {
+        const msg = tunnel.errorMessage || ''
+        const isAuthExpired = msg.includes('認證已過期') || msg.includes('過期')
+        const isQuotaExceeded = msg.includes('數量上限') || msg.includes('配額')
+        const isDisconnected = msg.includes('已斷線')
+
+        return (
+          <div className="tunnel-error-row">
+            <span className="tunnel-status-text tunnel-error-text">
+              {tunnel.errorMessage || 'Tunnel 發生錯誤'}
+            </span>
+            {isAuthExpired ? (
+              <button className="btn btn-sm btn-auth-login" onClick={onLogin}>
+                重新登入
+              </button>
+            ) : isQuotaExceeded ? null : (
+              <button
+                className="btn btn-sm btn-tunnel-share"
+                onClick={() => isNamed ? onStartNamedTunnel(site.id) : onShare(site.id)}
+              >
+                {isDisconnected ? '重新啟動' : '重試'}
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {tunnel.status === 'stopped' && (
         <>
