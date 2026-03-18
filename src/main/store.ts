@@ -14,7 +14,7 @@ interface StoreSchema {
 }
 
 const store = new Store<StoreSchema>({
-  name: 'site-holder-data',
+  name: 'tunnelbox-data',
   defaults: {
     sites: [],
     auth: null,

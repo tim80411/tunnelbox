@@ -41,7 +41,7 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.site-holder')
+  electronApp.setAppUserModelId('com.tunnelbox')
 
   // Default open or close DevTools by F12 in development
   app.on('browser-window-created', (_, window) => {

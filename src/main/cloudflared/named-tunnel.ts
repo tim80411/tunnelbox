@@ -180,7 +180,7 @@ export async function createNamedTunnel(
     stopQuickTunnel(siteId)
   }
 
-  const tunnelName = `site-holder-${siteId.slice(0, 8)}`
+  const tunnelName = `tunnelbox-${siteId.slice(0, 8)}`
 
   // Create tunnel
   const createOutput = await runCloudflared(binaryPath, ['tunnel', 'create', tunnelName])

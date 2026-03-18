@@ -1,5 +1,5 @@
 {
-  "name": "site-holder",
+  "name": "tunnelbox",
   "version": "1.0.0",
   "description": "Local static website management desktop application",
   "main": "./out/main/index.js",
@@ -16,8 +16,8 @@
     "dist:win": "electron-builder --win"
   },
   "build": {
-    "appId": "com.site-holder.app",
-    "productName": "Site Holder",
+    "appId": "com.tunnelbox.app",
+    "productName": "TunnelBox",
     "directories": {
       "output": "dist"
     },

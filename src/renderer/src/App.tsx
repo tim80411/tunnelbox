@@ -281,7 +281,7 @@ function App(): React.ReactElement {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Site Holder</h1>
+        <h1>TunnelBox</h1>
         <div className="app-header-actions">
           <AuthPanel
             auth={auth}
