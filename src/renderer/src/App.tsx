@@ -210,6 +210,42 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleCreateNamedTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.createNamedTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '建立 Named Tunnel 失敗')
+    }
+  }, [])
+
+  const handleStartNamedTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.startNamedTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '啟動 Named Tunnel 失敗')
+    }
+  }, [])
+
+  const handleStopNamedTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.stopNamedTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
+    }
+  }, [])
+
+  const handleDeleteNamedTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.deleteNamedTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '刪除 Named Tunnel 失敗')
+    }
+  }, [])
+
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
@@ -328,8 +364,14 @@ function App(): React.ReactElement {
                   <TunnelControls
                     site={site}
                     cloudflaredAvailable={cloudflaredEnv.status === 'available'}
+                    authStatus={auth.status}
                     onShare={handleShareSite}
                     onStopSharing={handleStopSharing}
+                    onCreateNamedTunnel={handleCreateNamedTunnel}
+                    onStartNamedTunnel={handleStartNamedTunnel}
+                    onStopNamedTunnel={handleStopNamedTunnel}
+                    onDeleteNamedTunnel={handleDeleteNamedTunnel}
+                    onLogin={handleLogin}
                   />
                 </div>
                 <span className={`site-item-status ${site.status}`}>
