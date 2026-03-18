@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
+import DomainBinding from './components/DomainBinding'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -246,6 +247,25 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleBindDomain = useCallback(async (siteId: string, domain: string) => {
+    try {
+      setError(null)
+      await window.electron.bindDomain(siteId, domain)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '綁定網域失敗')
+      throw err
+    }
+  }, [])
+
+  const handleUnbindDomain = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.unbindDomain(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '解除綁定失敗')
+    }
+  }, [])
+
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
@@ -373,6 +393,13 @@ function App(): React.ReactElement {
                     onDeleteNamedTunnel={handleDeleteNamedTunnel}
                     onLogin={handleLogin}
                   />
+                  {auth.status === 'logged_in' && (
+                    <DomainBinding
+                      site={site}
+                      onBind={handleBindDomain}
+                      onUnbind={handleUnbindDomain}
+                    />
+                  )}
                 </div>
                 <span className={`site-item-status ${site.status}`}>
                   {site.status === 'running'

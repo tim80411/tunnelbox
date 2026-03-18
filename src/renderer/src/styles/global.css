@@ -529,3 +529,67 @@ html, body, #root {
 .btn-auth-login:hover {
   background: #e65100;
 }
+
+/* Domain binding */
+.domain-binding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.domain-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.domain-input {
+  width: 180px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.domain-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.domain-name {
+  font-size: 12px;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.domain-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.domain-status-pending {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.domain-status-active {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.domain-status-error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.domain-hint {
+  font-size: 11px;
+  color: #999;
+}
+
+.domain-error {
+  font-size: 11px;
+  color: #c62828;
+}
