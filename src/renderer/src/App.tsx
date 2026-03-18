@@ -49,9 +49,17 @@ function App(): React.ReactElement {
     const unsubCloudflared = window.electron.onCloudflaredStatusChanged?.(setCloudflaredEnv)
 
     const unsubTunnel = window.electron.onTunnelStatusChanged?.((siteId, tunnel) => {
-      setSites((prev) =>
-        prev.map((s) => (s.id === siteId ? { ...s, tunnel: tunnel ?? undefined } : s))
-      )
+      try {
+        // Ensure tunnel.errorMessage is always a string if present
+        if (tunnel && tunnel.errorMessage && typeof tunnel.errorMessage !== 'string') {
+          tunnel.errorMessage = String(tunnel.errorMessage)
+        }
+        setSites((prev) =>
+          prev.map((s) => (s.id === siteId ? { ...s, tunnel: tunnel ?? undefined } : s))
+        )
+      } catch (err) {
+        console.error('[App] Error processing tunnel status change:', err)
+      }
     })
 
     const unsubAuth = window.electron.onAuthStatusChanged?.(setAuth)

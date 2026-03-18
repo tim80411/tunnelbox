@@ -152,32 +152,16 @@ function TunnelControls({
         </>
       )}
 
-      {tunnel.status === 'error' && (() => {
-        const msg = tunnel.errorMessage || ''
-        const isAuthExpired = msg.includes('認證已過期') || msg.includes('過期')
-        const isQuotaExceeded = msg.includes('數量上限') || msg.includes('配額')
-        const isDisconnected = msg.includes('已斷線')
-
-        return (
-          <div className="tunnel-error-row">
-            <span className="tunnel-status-text tunnel-error-text">
-              {tunnel.errorMessage || 'Tunnel 發生錯誤'}
-            </span>
-            {isAuthExpired ? (
-              <button className="btn btn-sm btn-auth-login" onClick={onLogin}>
-                重新登入
-              </button>
-            ) : isQuotaExceeded ? null : (
-              <button
-                className="btn btn-sm btn-tunnel-share"
-                onClick={() => isNamed ? onStartNamedTunnel(site.id) : onShare(site.id)}
-              >
-                {isDisconnected ? '重新啟動' : '重試'}
-              </button>
-            )}
-          </div>
-        )
-      })()}
+      {tunnel.status === 'error' && (
+        <TunnelErrorRow
+          tunnel={tunnel}
+          isNamed={isNamed}
+          siteId={site.id}
+          onLogin={onLogin}
+          onStartNamedTunnel={onStartNamedTunnel}
+          onShare={onShare}
+        />
+      )}
 
       {tunnel.status === 'stopped' && (
         <>
@@ -241,6 +225,47 @@ function TunnelControls({
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+function TunnelErrorRow({
+  tunnel,
+  isNamed,
+  siteId,
+  onLogin,
+  onStartNamedTunnel,
+  onShare
+}: {
+  tunnel: { errorMessage?: string }
+  isNamed: boolean
+  siteId: string
+  onLogin: () => void
+  onStartNamedTunnel: (id: string) => Promise<void>
+  onShare: (id: string) => Promise<void>
+}): React.ReactElement {
+  const msg = typeof tunnel.errorMessage === 'string' ? tunnel.errorMessage : ''
+  const isAuthExpired = msg.includes('認證已過期') || msg.includes('過期')
+  const isQuotaExceeded = msg.includes('數量上限') || msg.includes('配額')
+  const isDisconnected = msg.includes('已斷線')
+
+  return (
+    <div className="tunnel-error-row">
+      <span className="tunnel-status-text tunnel-error-text">
+        {msg || 'Tunnel 發生錯誤'}
+      </span>
+      {isAuthExpired ? (
+        <button className="btn btn-sm btn-auth-login" onClick={onLogin}>
+          重新登入
+        </button>
+      ) : isQuotaExceeded ? null : (
+        <button
+          className="btn btn-sm btn-tunnel-share"
+          onClick={() => isNamed ? onStartNamedTunnel(siteId) : onShare(siteId)}
+        >
+          {isDisconnected ? '重新啟動' : '重試'}
+        </button>
       )}
     </div>
   )
