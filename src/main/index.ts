@@ -2,11 +2,13 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
+import { ProcessManager } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
 import * as siteStore from './store'
 
 let mainWindow: BrowserWindow | null = null
 const serverManager = new ServerManager()
+export const processManager = new ProcessManager()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -95,11 +97,12 @@ app.whenReady().then(async () => {
 // ---------- Cleanup on Quit ----------
 
 app.on('before-quit', async () => {
-  console.log('[Main] Application quitting, stopping all servers...')
+  console.log('[Main] Application quitting, stopping all servers and tunnel processes...')
   try {
+    await processManager.killAll()
     await serverManager.stopAll()
   } catch (err) {
-    console.error('[Main] Error stopping servers on quit:', err)
+    console.error('[Main] Error during quit cleanup:', err)
   }
 })
 
@@ -129,14 +132,14 @@ process.on('exit', () => {
 
 process.on('SIGTERM', () => {
   console.log('[Main] Received SIGTERM, cleaning up...')
-  serverManager.stopAll().finally(() => {
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
   console.log('[Main] Received SIGINT, cleaning up...')
-  serverManager.stopAll().finally(() => {
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })
 })
