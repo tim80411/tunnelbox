@@ -1,7 +1,14 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
-import { detectCloudflared, installCloudflared } from './cloudflared'
+import {
+  detectCloudflared,
+  installCloudflared,
+  startQuickTunnel,
+  stopQuickTunnel,
+  getTunnelInfo,
+  hasTunnel
+} from './cloudflared'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
 let serverManager: ServerManager
@@ -13,7 +20,7 @@ function toSiteInfo(server: {
   port: number
   status: 'running' | 'stopped' | 'error'
 }): SiteInfo {
-  return {
+  const info: SiteInfo = {
     id: server.id,
     name: server.name,
     folderPath: server.folderPath,
@@ -21,6 +28,11 @@ function toSiteInfo(server: {
     status: server.status,
     url: server.status === 'running' ? `http://localhost:${server.port}` : ''
   }
+  const tunnel = getTunnelInfo(server.id)
+  if (tunnel) {
+    info.tunnel = tunnel
+  }
+  return info
 }
 
 function broadcastSiteUpdate(): void {
@@ -86,6 +98,10 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('remove-site', async (_event, id: string) => {
     try {
+      // Auto-stop tunnel when site is removed
+      if (hasTunnel(id)) {
+        stopQuickTunnel(id)
+      }
       await serverManager.removeServer(id)
       siteStore.removeSite(id)
       broadcastSiteUpdate()
@@ -123,6 +139,10 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('stop-server', async (_event, id: string) => {
     try {
+      // Auto-stop tunnel when server stops (Story 22)
+      if (hasTunnel(id)) {
+        stopQuickTunnel(id)
+      }
       await serverManager.stopServer(id)
       broadcastSiteUpdate()
     } catch (err) {
@@ -156,6 +176,31 @@ export function registerIpcHandlers(manager: ServerManager): void {
       return result.filePaths[0]
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to select folder')
+    }
+  })
+
+  // --- Quick Tunnel ---
+
+  ipcMain.handle('start-quick-tunnel', async (_event, siteId: string) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      const url = await startQuickTunnel(siteId, server.port)
+      broadcastSiteUpdate()
+      return url
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '啟動 Quick Tunnel 失敗')
+    }
+  })
+
+  ipcMain.handle('stop-tunnel', async (_event, siteId: string) => {
+    try {
+      stopQuickTunnel(siteId)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '停止 Tunnel 失敗')
     }
   })
 

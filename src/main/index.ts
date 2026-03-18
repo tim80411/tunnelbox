@@ -2,13 +2,14 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
-import { ProcessManager } from './cloudflared'
+import { ProcessManager, initQuickTunnel } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
 import * as siteStore from './store'
 
 let mainWindow: BrowserWindow | null = null
 const serverManager = new ServerManager()
 export const processManager = new ProcessManager()
+initQuickTunnel(processManager)
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
