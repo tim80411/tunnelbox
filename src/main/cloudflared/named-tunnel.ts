@@ -10,10 +10,42 @@ import type { TunnelInfo, StoredTunnel } from '../../shared/types'
 /** Active named tunnels in memory: siteId -> TunnelInfo */
 const activeNamedTunnels: Map<string, TunnelInfo> = new Map()
 
+/** Track port per site for reconnect */
+const namedTunnelPorts: Map<string, number> = new Map()
+
+/** Track reconnect attempts */
+const reconnectAttempts: Map<string, number> = new Map()
+
+const MAX_RECONNECT_ATTEMPTS = 3
+const BACKOFF_BASE_MS = 2000
+
+/** Error patterns for named tunnel operations */
+const NAMED_TUNNEL_ERRORS: Array<{ pattern: RegExp; message: string }> = [
+  { pattern: /certificate.*expired/i, message: '認證已過期，請重新登入' },
+  { pattern: /auth.*expired/i, message: '認證已過期，請重新登入' },
+  { pattern: /unauthorized/i, message: '認證已過期，請重新登入' },
+  { pattern: /tunnel limit/i, message: '已達 Tunnel 數量上限' },
+  { pattern: /quota/i, message: '已達 Tunnel 數量上限' },
+  { pattern: /connection refused/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
+  { pattern: /no such host/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
+  { pattern: /failed to connect to edge/i, message: 'Cloudflare 服務暫時不可用，請稍後重試' },
+  { pattern: /timeout/i, message: '連線逾時，請檢查網路連線' }
+]
+
 let processManager: ProcessManager
+let lastStderrError: Map<string, string> = new Map()
 
 export function initNamedTunnel(pm: ProcessManager): void {
   processManager = pm
+
+  // Capture stderr errors for diagnostics
+  pm.on('stderr', (id: string, data: string) => {
+    if (!id.startsWith('named-tunnel-')) return
+    const errorMsg = parseNamedTunnelError(data)
+    if (errorMsg) {
+      lastStderrError.set(id, errorMsg)
+    }
+  })
 
   pm.on('exit', (id: string, code: number | null) => {
     if (!id.startsWith('named-tunnel-')) return
@@ -21,16 +53,91 @@ export function initNamedTunnel(pm: ProcessManager): void {
     const tunnel = activeNamedTunnels.get(siteId)
     if (!tunnel) return
 
-    if (tunnel.status !== 'stopped') {
-      if (code !== 0 && code !== null) {
-        tunnel.status = 'error'
-        tunnel.errorMessage = 'Named Tunnel 程序意外退出'
-      } else {
-        tunnel.status = 'stopped'
+    // If explicitly stopped, don't reconnect
+    if (tunnel.status === 'stopped') return
+
+    // Check for auth-related errors (no reconnect, prompt re-login)
+    const stderrMsg = lastStderrError.get(id)
+    lastStderrError.delete(id)
+
+    if (stderrMsg && (stderrMsg.includes('認證已過期') || stderrMsg.includes('數量上限'))) {
+      tunnel.status = 'error'
+      tunnel.errorMessage = stderrMsg
+      reconnectAttempts.delete(siteId)
+      broadcastTunnelStatus(siteId, tunnel)
+
+      // Broadcast auth expired if applicable
+      if (stderrMsg.includes('認證已過期')) {
+        broadcastAuthExpired()
       }
+      return
+    }
+
+    // Unexpected exit with non-zero code -> attempt reconnect
+    if (code !== 0 && code !== null) {
+      const attempts = reconnectAttempts.get(siteId) || 0
+      if (attempts < MAX_RECONNECT_ATTEMPTS) {
+        attemptReconnect(siteId)
+      } else {
+        tunnel.status = 'error'
+        tunnel.errorMessage = 'Tunnel 已斷線，請手動重新啟動'
+        reconnectAttempts.delete(siteId)
+        broadcastTunnelStatus(siteId, tunnel)
+      }
+    } else {
+      tunnel.status = 'stopped'
       broadcastTunnelStatus(siteId, tunnel)
     }
   })
+}
+
+function parseNamedTunnelError(data: string): string | null {
+  for (const { pattern, message } of NAMED_TUNNEL_ERRORS) {
+    if (pattern.test(data)) return message
+  }
+  return null
+}
+
+async function attemptReconnect(siteId: string): Promise<void> {
+  const port = namedTunnelPorts.get(siteId)
+  const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
+  if (!port || !stored) return
+
+  const attempts = (reconnectAttempts.get(siteId) || 0) + 1
+  reconnectAttempts.set(siteId, attempts)
+
+  const tunnel = activeNamedTunnels.get(siteId)
+  if (tunnel) {
+    tunnel.status = 'reconnecting'
+    tunnel.errorMessage = undefined
+    broadcastTunnelStatus(siteId, tunnel)
+  }
+
+  const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
+  console.log(
+    `[NamedTunnel] Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`
+  )
+
+  await new Promise((resolve) => setTimeout(resolve, delay))
+
+  // Check if tunnel was stopped during the delay
+  const currentTunnel = activeNamedTunnels.get(siteId)
+  if (!currentTunnel || currentTunnel.status === 'stopped') return
+
+  try {
+    const binaryPath = await findBinary()
+    if (!binaryPath) return
+    startTunnelProcess(siteId, stored.tunnelId, binaryPath, port)
+  } catch (err) {
+    console.error(`[NamedTunnel] Reconnect failed for ${siteId}:`, err)
+  }
+}
+
+function broadcastAuthExpired(): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    win.webContents.send('auth-status-changed', { status: 'expired' })
+  }
 }
 
 function requireAuth(): void {
@@ -45,7 +152,9 @@ function runCloudflared(binaryPath: string, args: string[]): Promise<string> {
     execFile(binaryPath, args, { timeout: 30_000 }, (err, stdout, stderr) => {
       if (err) {
         const output = (stderr || stdout || err.message).trim()
-        reject(new Error(output))
+        // Map known errors to Chinese messages
+        const friendlyMsg = parseNamedTunnelError(output)
+        reject(new Error(friendlyMsg || output))
         return
       }
       resolve((stdout || stderr).trim())
@@ -78,9 +187,9 @@ export async function createNamedTunnel(
   console.log(`[NamedTunnel] Create output: ${createOutput}`)
 
   // Parse tunnel ID from output (format: "Created tunnel <name> with id <uuid>")
-  const idMatch = createOutput.match(
-    /with id ([a-f0-9-]{36})/i
-  ) || createOutput.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i)
+  const idMatch =
+    createOutput.match(/with id ([a-f0-9-]{36})/i) ||
+    createOutput.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i)
   if (!idMatch) {
     throw new Error('無法解析 Tunnel ID')
   }
@@ -99,6 +208,8 @@ export async function createNamedTunnel(
     tunnelId
   }
   activeNamedTunnels.set(siteId, tunnelInfo)
+  namedTunnelPorts.set(siteId, port)
+  reconnectAttempts.delete(siteId)
   broadcastTunnelStatus(siteId, tunnelInfo)
 
   startTunnelProcess(siteId, tunnelId, binaryPath, port)
@@ -125,6 +236,8 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
     tunnelId: stored.tunnelId
   }
   activeNamedTunnels.set(siteId, tunnelInfo)
+  namedTunnelPorts.set(siteId, port)
+  reconnectAttempts.delete(siteId)
   broadcastTunnelStatus(siteId, tunnelInfo)
 
   startTunnelProcess(siteId, stored.tunnelId, binaryPath, port)
@@ -142,6 +255,7 @@ export function stopNamedTunnel(siteId: string): void {
     broadcastTunnelStatus(siteId, tunnel)
   }
 
+  reconnectAttempts.delete(siteId)
   processManager.kill(processId)
 }
 
@@ -158,7 +272,6 @@ export async function deleteNamedTunnel(siteId: string): Promise<void> {
   const processId = `named-tunnel-${siteId}`
   if (processManager.isRunning(processId)) {
     processManager.kill(processId)
-    // Wait briefly for process to exit
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 
@@ -173,11 +286,12 @@ export async function deleteNamedTunnel(siteId: string): Promise<void> {
     if (!msg.includes('not found') && !msg.includes('does not exist')) {
       throw new Error(`刪除 Tunnel 失敗：${msg}`)
     }
-    // If not found, it was already deleted externally - continue cleanup
   }
 
   // Clean up local state
   activeNamedTunnels.delete(siteId)
+  namedTunnelPorts.delete(siteId)
+  reconnectAttempts.delete(siteId)
   siteStore.removeTunnel(siteId)
   broadcastTunnelStatus(siteId, null)
 }
@@ -215,7 +329,6 @@ export async function restoreNamedTunnels(
     const port = getSitePort(tunnel.siteId)
     if (!port) {
       console.log(`[NamedTunnel] Skipping restore for ${tunnel.siteId} - site not running`)
-      // Still register as stopped so UI shows it
       activeNamedTunnels.set(tunnel.siteId, {
         type: 'named',
         status: 'stopped',
@@ -233,6 +346,7 @@ export async function restoreNamedTunnels(
         tunnelId: tunnel.tunnelId
       }
       activeNamedTunnels.set(tunnel.siteId, tunnelInfo)
+      namedTunnelPorts.set(tunnel.siteId, port)
       startTunnelProcess(tunnel.siteId, tunnel.tunnelId, binaryPath, port)
       console.log(`[NamedTunnel] Restored tunnel for site ${tunnel.siteId}`)
     } catch (err) {
@@ -263,7 +377,6 @@ function startTunnelProcess(
 ): void {
   const processId = `named-tunnel-${siteId}`
 
-  // Listen for the tunnel to become ready (cloudflared logs "Connection ... registered")
   const onStderr = (id: string, data: string): void => {
     if (id !== processId) return
 
@@ -271,6 +384,8 @@ function startTunnelProcess(
       const tunnel = activeNamedTunnels.get(siteId)
       if (tunnel && tunnel.status === 'starting') {
         tunnel.status = 'running'
+        tunnel.errorMessage = undefined
+        reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, tunnel)
         processManager.removeListener('stderr', onStderr)
       }
@@ -283,6 +398,8 @@ function startTunnelProcess(
     const tunnel = activeNamedTunnels.get(siteId)
     if (tunnel && tunnel.status === 'starting') {
       tunnel.status = 'running'
+      tunnel.errorMessage = undefined
+      reconnectAttempts.delete(siteId)
       broadcastTunnelStatus(siteId, tunnel)
       processManager.removeListener('stderr', onStderr)
     }
