@@ -10,7 +10,13 @@ import {
   hasTunnel,
   loginCloudflare,
   logoutCloudflare,
-  getAuthStatus
+  getAuthStatus,
+  createNamedTunnel,
+  startNamedTunnel,
+  stopNamedTunnel,
+  deleteNamedTunnel,
+  getNamedTunnelInfo,
+  stopAllNamedTunnels
 } from './cloudflared'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
@@ -31,7 +37,7 @@ function toSiteInfo(server: {
     status: server.status,
     url: server.status === 'running' ? `http://localhost:${server.port}` : ''
   }
-  const tunnel = getTunnelInfo(server.id)
+  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
   if (tunnel) {
     info.tunnel = tunnel
   }
@@ -245,7 +251,10 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('logout-cloudflare', async () => {
     try {
+      // Stop all named tunnels before logout (Story 26)
+      stopAllNamedTunnels()
       logoutCloudflare()
+      broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '登出 Cloudflare 失敗')
     }
@@ -256,6 +265,53 @@ export function registerIpcHandlers(manager: ServerManager): void {
       return getAuthStatus()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '取得認證狀態失敗')
+    }
+  })
+
+  // --- Named Tunnel ---
+
+  ipcMain.handle('create-named-tunnel', async (_event, siteId: string) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      const url = await createNamedTunnel(siteId, server.port)
+      broadcastSiteUpdate()
+      return url
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '建立 Named Tunnel 失敗')
+    }
+  })
+
+  ipcMain.handle('start-named-tunnel', async (_event, siteId: string) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      await startNamedTunnel(siteId, server.port)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '啟動 Named Tunnel 失敗')
+    }
+  })
+
+  ipcMain.handle('stop-named-tunnel', async (_event, siteId: string) => {
+    try {
+      stopNamedTunnel(siteId)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
+    }
+  })
+
+  ipcMain.handle('delete-named-tunnel', async (_event, siteId: string) => {
+    try {
+      await deleteNamedTunnel(siteId)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '刪除 Named Tunnel 失敗')
     }
   })
 

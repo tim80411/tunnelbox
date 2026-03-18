@@ -9,3 +9,14 @@ export {
   hasTunnel
 } from './quick-tunnel'
 export { login as loginCloudflare, logout as logoutCloudflare, getAuthStatus } from './auth-manager'
+export {
+  initNamedTunnel,
+  createNamedTunnel,
+  startNamedTunnel,
+  stopNamedTunnel,
+  deleteNamedTunnel,
+  getNamedTunnelInfo,
+  hasStoredNamedTunnel,
+  restoreNamedTunnels,
+  stopAllNamedTunnels
+} from './named-tunnel'

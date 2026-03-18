@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
-import { ProcessManager, initQuickTunnel } from './cloudflared'
+import { ProcessManager, initQuickTunnel, initNamedTunnel, restoreNamedTunnels } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
 import * as siteStore from './store'
 
@@ -10,6 +10,7 @@ let mainWindow: BrowserWindow | null = null
 const serverManager = new ServerManager()
 export const processManager = new ProcessManager()
 initQuickTunnel(processManager)
+initNamedTunnel(processManager)
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -70,6 +71,14 @@ app.whenReady().then(async () => {
         serverManager.registerStopped(site)
       }
     }
+
+    // Restore named tunnels (Story 27: auto-reconnect on boot)
+    restoreNamedTunnels((siteId) => {
+      const server = serverManager.getServer(siteId)
+      return server && server.status === 'running' ? server.port : null
+    }).catch((err) => {
+      console.error('[Main] Failed to restore named tunnels:', err)
+    })
 
     createWindow()
   } catch (err) {
