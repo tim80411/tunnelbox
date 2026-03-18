@@ -295,3 +295,71 @@ html, body, #root {
   line-height: 1.5;
   margin-bottom: 4px;
 }
+
+/* cloudflared status bar */
+.cloudflared-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px 20px;
+  font-size: 13px;
+}
+
+.cloudflared-bar-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cloudflared-bar-btn {
+  margin-left: 4px;
+}
+
+.cloudflared-bar-link {
+  color: #1976d2;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.cloudflared-checking {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.cloudflared-not_installed {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.cloudflared-installing {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.cloudflared-install_failed {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.cloudflared-outdated {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.cloudflared-error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.cloudflared-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: cloudflared-spin 0.75s linear infinite;
+}
+
+@keyframes cloudflared-spin {
+  to { transform: rotate(360deg); }
+}

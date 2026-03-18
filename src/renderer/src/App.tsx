@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
-import type { SiteInfo } from '../../shared/types'
+import type { SiteInfo, CloudflaredEnv } from '../../shared/types'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [cloudflaredEnv, setCloudflaredEnv] = useState<CloudflaredEnv>({ status: 'checking' })
 
   // Confirm remove modal state
   const [confirmRemove, setConfirmRemove] = useState<SiteInfo | null>(null)
@@ -27,6 +28,10 @@ function App(): React.ReactElement {
   useEffect(() => {
     loadSites()
 
+    window.electron.getCloudflaredStatus?.().then(setCloudflaredEnv).catch(() => {
+      setCloudflaredEnv({ status: 'error', errorMessage: '無法取得 cloudflared 狀態' })
+    })
+
     const unsubSites = window.electron.onSiteUpdated((updatedSites) => {
       setSites(updatedSites)
     })
@@ -35,9 +40,12 @@ function App(): React.ReactElement {
       // File change events are handled by WebSocket hot reload on the browser side.
     })
 
+    const unsubCloudflared = window.electron.onCloudflaredStatusChanged?.(setCloudflaredEnv)
+
     return () => {
       unsubSites()
       unsubFiles()
+      unsubCloudflared?.()
     }
   }, [loadSites])
 
@@ -135,6 +143,18 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleInstallCloudflared = useCallback(async () => {
+    try {
+      setCloudflaredEnv({ status: 'installing' })
+      await window.electron.installCloudflared()
+    } catch (err) {
+      setCloudflaredEnv({
+        status: 'install_failed',
+        errorMessage: err instanceof Error ? err.message : '安裝失敗'
+      })
+    }
+  }, [])
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -148,6 +168,60 @@ function App(): React.ReactElement {
         <div className="error-bar">
           {error}
           <button className="error-close" onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
+      {cloudflaredEnv.status !== 'available' && (
+        <div className={`cloudflared-bar cloudflared-${cloudflaredEnv.status}`}>
+          {cloudflaredEnv.status === 'checking' && (
+            <span className="cloudflared-bar-text">
+              <span className="cloudflared-spinner" />
+              正在檢查 cloudflared 環境...
+            </span>
+          )}
+          {cloudflaredEnv.status === 'not_installed' && (
+            <span className="cloudflared-bar-text">
+              cloudflared 尚未安裝，無法使用 Tunnel 功能
+              <button className="btn btn-sm btn-primary cloudflared-bar-btn" onClick={handleInstallCloudflared}>
+                安裝
+              </button>
+            </span>
+          )}
+          {cloudflaredEnv.status === 'installing' && (
+            <span className="cloudflared-bar-text">
+              <span className="cloudflared-spinner" />
+              正在安裝 cloudflared...
+            </span>
+          )}
+          {cloudflaredEnv.status === 'install_failed' && (
+            <span className="cloudflared-bar-text">
+              cloudflared 安裝失敗{cloudflaredEnv.errorMessage ? `：${cloudflaredEnv.errorMessage}` : ''}
+              <a
+                className="cloudflared-bar-link"
+                href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                手動安裝說明
+              </a>
+              <button className="btn btn-sm cloudflared-bar-btn" onClick={handleInstallCloudflared}>
+                重試
+              </button>
+            </span>
+          )}
+          {cloudflaredEnv.status === 'outdated' && (
+            <span className="cloudflared-bar-text">
+              cloudflared 版本過舊{cloudflaredEnv.version ? ` (${cloudflaredEnv.version})` : ''}，建議更新
+              <button className="btn btn-sm btn-primary cloudflared-bar-btn" onClick={handleInstallCloudflared}>
+                更新
+              </button>
+            </span>
+          )}
+          {cloudflaredEnv.status === 'error' && (
+            <span className="cloudflared-bar-text">
+              cloudflared 環境錯誤{cloudflaredEnv.errorMessage ? `：${cloudflaredEnv.errorMessage}` : ''}
+            </span>
+          )}
         </div>
       )}
 
