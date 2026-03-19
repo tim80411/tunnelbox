@@ -3,6 +3,7 @@ import { Command } from 'commander'
 import { handleError } from './errors'
 import { FileStore } from '../core/store-file'
 import { ServerManager } from '../main/server-manager'
+import { registerSiteCommands } from './commands/site'
 import { registerServerCommands } from './commands/server'
 import { registerEnvCommands } from './commands/env'
 import { registerTunnelCommands } from './commands/tunnel'
@@ -35,6 +36,7 @@ const tunnelDeps: TunnelDeps = {
 }
 
 // Register command groups
+registerSiteCommands(program, store)
 registerServerCommands(program, store, serverManager)
 registerEnvCommands(program, detectCloudflared)
 registerTunnelCommands(program, store, serverManager, tunnelDeps)
