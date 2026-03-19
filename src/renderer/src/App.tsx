@@ -135,14 +135,7 @@ function App(): React.ReactElement {
   const handleOpenInBrowser = useCallback(async (site: SiteInfo) => {
     try {
       setError(null)
-      if (site.status !== 'running') {
-        // Prompt: server not running, offer to start
-        await window.electron.startServer(site.id)
-        // After starting, open in browser
-        await window.electron.openInBrowser(site.id)
-      } else {
-        await window.electron.openInBrowser(site.id)
-      }
+      await window.electron.openInBrowser(site.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open in browser')
     }
@@ -412,6 +405,7 @@ function App(): React.ReactElement {
                   <button
                     className="btn btn-sm"
                     onClick={() => handleOpenInBrowser(site)}
+                    disabled={site.status !== 'running'}
                   >
                     Open
                   </button>
