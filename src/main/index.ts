@@ -1,8 +1,15 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
-import { ProcessManager, initQuickTunnel, initNamedTunnel, restoreNamedTunnels } from './cloudflared'
+import {
+  ProcessManager,
+  initQuickTunnel,
+  initNamedTunnel,
+  restoreNamedTunnels,
+  stopAllNamedTunnels,
+  stopAllQuickTunnels
+} from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
 import * as siteStore from './store'
 
@@ -27,6 +34,12 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+  })
+
+  // Open external links in default browser instead of new Electron window
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
   })
 
   // Load renderer
@@ -106,14 +119,31 @@ app.whenReady().then(async () => {
 
 // ---------- Cleanup on Quit ----------
 
-app.on('before-quit', async () => {
+let isQuitting = false
+
+app.on('before-quit', (e) => {
+  if (isQuitting) return
+  isQuitting = true
+  e.preventDefault()
+
   console.log('[Main] Application quitting, stopping all servers and tunnel processes...')
-  try {
-    await processManager.killAll()
-    await serverManager.stopAll()
-  } catch (err) {
-    console.error('[Main] Error during quit cleanup:', err)
-  }
+
+  // Mark all tunnels as stopped first (prevents reconnect timers)
+  stopAllNamedTunnels()
+  stopAllQuickTunnels()
+
+  // Force exit after 5 seconds no matter what
+  const forceExitTimer = setTimeout(() => {
+    console.log('[Main] Cleanup timeout, forcing exit')
+    app.exit(0)
+  }, 5000)
+  forceExitTimer.unref()
+
+  // Clean up processes and servers, then exit
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).then(() => {
+    clearTimeout(forceExitTimer)
+    app.exit(0)
+  })
 })
 
 app.on('window-all-closed', () => {

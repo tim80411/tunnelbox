@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
-import DomainBinding from './components/DomainBinding'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -219,12 +218,22 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  const handleCreateNamedTunnel = useCallback(async (siteId: string) => {
+  const handleBindFixedDomain = useCallback(async (siteId: string, domain: string) => {
     try {
       setError(null)
-      await window.electron.createNamedTunnel(siteId)
+      await window.electron.bindFixedDomain(siteId, domain)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '建立 Named Tunnel 失敗')
+      setError(err instanceof Error ? err.message : '綁定固定網域失敗')
+      throw err
+    }
+  }, [])
+
+  const handleUnbindFixedDomain = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.unbindFixedDomain(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '解除綁定失敗')
     }
   }, [])
 
@@ -243,34 +252,6 @@ function App(): React.ReactElement {
       await window.electron.stopNamedTunnel(siteId)
     } catch (err) {
       setError(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
-    }
-  }, [])
-
-  const handleDeleteNamedTunnel = useCallback(async (siteId: string) => {
-    try {
-      setError(null)
-      await window.electron.deleteNamedTunnel(siteId)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '刪除 Named Tunnel 失敗')
-    }
-  }, [])
-
-  const handleBindDomain = useCallback(async (siteId: string, domain: string) => {
-    try {
-      setError(null)
-      await window.electron.bindDomain(siteId, domain)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '綁定網域失敗')
-      throw err
-    }
-  }, [])
-
-  const handleUnbindDomain = useCallback(async (siteId: string) => {
-    try {
-      setError(null)
-      await window.electron.unbindDomain(siteId)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '解除綁定失敗')
     }
   }, [])
 
@@ -372,10 +353,28 @@ function App(): React.ReactElement {
               <div key={site.id} className="site-item">
                 <div className="site-item-info">
                   <span className="site-item-name">{site.name}</span>
-                  <span className="site-item-path">{site.folderPath}</span>
+                  <div className="site-item-path-row">
+                    <span className="site-item-path">{site.folderPath}</span>
+                    <button
+                      className="btn-copy"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(site.folderPath)
+                      }}
+                      title="複製路徑"
+                    >
+                      📋
+                    </button>
+                  </div>
                   {site.status === 'running' && site.url ? (
                     <div className="site-item-url-row">
-                      <span className="site-item-url">{site.url}</span>
+                      <a
+                        className="site-item-url"
+                        href={site.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {site.url}
+                      </a>
                       <button
                         className="btn-copy"
                         onClick={async () => {
@@ -395,19 +394,12 @@ function App(): React.ReactElement {
                     authStatus={auth.status}
                     onShare={handleShareSite}
                     onStopSharing={handleStopSharing}
-                    onCreateNamedTunnel={handleCreateNamedTunnel}
+                    onBindFixedDomain={handleBindFixedDomain}
+                    onUnbindFixedDomain={handleUnbindFixedDomain}
                     onStartNamedTunnel={handleStartNamedTunnel}
                     onStopNamedTunnel={handleStopNamedTunnel}
-                    onDeleteNamedTunnel={handleDeleteNamedTunnel}
                     onLogin={handleLogin}
                   />
-                  {auth.status === 'logged_in' && (
-                    <DomainBinding
-                      site={site}
-                      onBind={handleBindDomain}
-                      onUnbind={handleUnbindDomain}
-                    />
-                  )}
                 </div>
                 <span className={`site-item-status ${site.status}`}>
                   {site.status === 'running'
