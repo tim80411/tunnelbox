@@ -90,6 +90,9 @@ export interface ElectronAPI {
   // Folder selection
   selectFolder: () => Promise<string | null>
 
+  // Drag-and-drop path resolution
+  getPathForFile: (file: File) => string
+
   // --- Cloudflared Environment ---
   getCloudflaredStatus: () => Promise<CloudflaredEnv>
   installCloudflared: () => Promise<void>

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
+import { useSiteDropZone } from './hooks/useSiteDropZone'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -248,6 +249,8 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const { isDraggingOver, dropZoneHandlers } = useSiteDropZone({ onError: setError })
+
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
@@ -331,12 +334,18 @@ function App(): React.ReactElement {
       )}
 
       <div className="app-body">
-        <div className="site-list">
+        <div
+          className={`site-list${isDraggingOver ? ' site-list-drop-active' : ''}`}
+          {...dropZoneHandlers}
+        >
+          {isDraggingOver && (
+            <div className="site-list-drop-hint">拖曳資料夾至此新增</div>
+          )}
           {sites.length === 0 ? (
             <div className="site-list-empty">
               <div className="empty-icon">📂</div>
               <p className="empty-title">尚未建立任何網頁</p>
-              <p className="empty-desc">點擊下方按鈕，選擇本地資料夾來建立你的第一個靜態網頁</p>
+              <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個靜態網頁</p>
               <button className="btn btn-primary" onClick={openAddModal}>
                 + 新增網頁
               </button>
@@ -379,7 +388,7 @@ function App(): React.ReactElement {
                       </button>
                     </div>
                   ) : (
-                    <span className="site-item-url site-item-url-unavailable">網址不可用</span>
+                    <span className="site-item-url-unavailable">網址不可用</span>
                   )}
                   <TunnelControls
                     site={site}

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, ElectronAPI } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
@@ -32,6 +32,11 @@ const electronAPI: ElectronAPI = {
   // Folder selection
   selectFolder: (): Promise<string | null> => {
     return ipcRenderer.invoke('select-folder')
+  },
+
+  // Drag-and-drop path resolution
+  getPathForFile: (file: File): string => {
+    return webUtils.getPathForFile(file)
   },
 
   // Event listeners

@@ -148,6 +148,7 @@ html, body, #root {
   flex: 1;
   overflow-y: auto;
   padding: var(--sp-6);
+  position: relative;
 }
 
 /* ── Empty State ───────────────────────────────────────────────── */
@@ -860,4 +861,25 @@ html, body, #root {
 .domain-error {
   font-size: 11px;
   color: var(--danger);
+}
+
+/* ── Drop Zone ─────────────────────────────────────────────────── */
+.site-list-drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  background: var(--accent-dim);
+}
+
+.site-list-drop-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
