@@ -6,7 +6,6 @@ export interface SiteInfo {
   status: 'running' | 'stopped' | 'error'
   url: string // e.g., "http://localhost:3001"
   tunnel?: TunnelInfo
-  domain?: DomainBinding
 }
 
 // --- Cloudflared Environment ---
@@ -40,18 +39,8 @@ export type TunnelStatus =
 export interface TunnelInfo {
   type: TunnelType
   status: TunnelStatus
-  publicUrl: string
+  publicUrl?: string
   tunnelId?: string // For named tunnels
-  errorMessage?: string
-}
-
-// --- Custom Domain ---
-
-export type DomainStatus = 'pending' | 'active' | 'error'
-
-export interface DomainBinding {
-  domain: string
-  status: DomainStatus
   errorMessage?: string
 }
 
@@ -71,7 +60,6 @@ export interface StoredTunnel {
   siteId: string
   tunnelId: string
   tunnelName: string
-  publicUrl: string
 }
 
 export interface StoredAuth {
@@ -115,15 +103,11 @@ export interface ElectronAPI {
   logoutCloudflare: () => Promise<void>
   getAuthStatus: () => Promise<CloudflareAuth>
 
-  // --- Named Tunnel ---
-  createNamedTunnel: (siteId: string) => Promise<string>
+  // --- Fixed Domain (Named Tunnel + DNS) ---
+  bindFixedDomain: (siteId: string, domain: string) => Promise<string>
+  unbindFixedDomain: (siteId: string) => Promise<void>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
-  deleteNamedTunnel: (siteId: string) => Promise<void>
-
-  // --- Custom Domain ---
-  bindDomain: (siteId: string, domain: string) => Promise<void>
-  unbindDomain: (siteId: string) => Promise<void>
 
   // Event listeners
   onSiteUpdated: (callback: (sites: SiteInfo[]) => void) => () => void

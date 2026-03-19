@@ -11,15 +11,12 @@ import {
   loginCloudflare,
   logoutCloudflare,
   getAuthStatus,
-  createNamedTunnel,
+  bindFixedDomain,
+  unbindFixedDomain,
   startNamedTunnel,
   stopNamedTunnel,
-  deleteNamedTunnel,
   getNamedTunnelInfo,
-  stopAllNamedTunnels,
-  bindDomain,
-  unbindDomain,
-  getDomainBindingInfo
+  stopAllNamedTunnels
 } from './cloudflared'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
@@ -43,10 +40,6 @@ function toSiteInfo(server: {
   const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
   if (tunnel) {
     info.tunnel = tunnel
-  }
-  const domain = getDomainBindingInfo(server.id)
-  if (domain) {
-    info.domain = domain
   }
   return info
 }
@@ -275,19 +268,28 @@ export function registerIpcHandlers(manager: ServerManager): void {
     }
   })
 
-  // --- Named Tunnel ---
+  // --- Fixed Domain (Named Tunnel + DNS) ---
 
-  ipcMain.handle('create-named-tunnel', async (_event, siteId: string) => {
+  ipcMain.handle('bind-fixed-domain', async (_event, siteId: string, domain: string) => {
     try {
       const server = serverManager.getServer(siteId)
       if (!server) throw new Error('找不到此網頁')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
-      const url = await createNamedTunnel(siteId, server.port)
+      const url = await bindFixedDomain(siteId, server.port, domain)
       broadcastSiteUpdate()
       return url
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '建立 Named Tunnel 失敗')
+      throw new Error(err instanceof Error ? err.message : '綁定固定網域失敗')
+    }
+  })
+
+  ipcMain.handle('unbind-fixed-domain', async (_event, siteId: string) => {
+    try {
+      await unbindFixedDomain(siteId)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '解除綁定失敗')
     }
   })
 
@@ -310,35 +312,6 @@ export function registerIpcHandlers(manager: ServerManager): void {
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
-    }
-  })
-
-  ipcMain.handle('delete-named-tunnel', async (_event, siteId: string) => {
-    try {
-      await deleteNamedTunnel(siteId)
-      broadcastSiteUpdate()
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '刪除 Named Tunnel 失敗')
-    }
-  })
-
-  // --- Custom Domain ---
-
-  ipcMain.handle('bind-domain', async (_event, siteId: string, domain: string) => {
-    try {
-      await bindDomain(siteId, domain)
-      broadcastSiteUpdate()
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '綁定網域失敗')
-    }
-  })
-
-  ipcMain.handle('unbind-domain', async (_event, siteId: string) => {
-    try {
-      await unbindDomain(siteId)
-      broadcastSiteUpdate()
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '解除網域綁定失敗')
     }
   })
 

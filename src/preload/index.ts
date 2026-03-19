@@ -89,10 +89,14 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('get-auth-status')
   },
 
-  // --- Named Tunnel ---
+  // --- Fixed Domain (Named Tunnel + DNS) ---
 
-  createNamedTunnel: (siteId: string): Promise<string> => {
-    return ipcRenderer.invoke('create-named-tunnel', siteId)
+  bindFixedDomain: (siteId: string, domain: string): Promise<string> => {
+    return ipcRenderer.invoke('bind-fixed-domain', siteId, domain)
+  },
+
+  unbindFixedDomain: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('unbind-fixed-domain', siteId)
   },
 
   startNamedTunnel: (siteId: string): Promise<void> => {
@@ -101,20 +105,6 @@ const electronAPI: ElectronAPI = {
 
   stopNamedTunnel: (siteId: string): Promise<void> => {
     return ipcRenderer.invoke('stop-named-tunnel', siteId)
-  },
-
-  deleteNamedTunnel: (siteId: string): Promise<void> => {
-    return ipcRenderer.invoke('delete-named-tunnel', siteId)
-  },
-
-  // --- Custom Domain ---
-
-  bindDomain: (siteId: string, domain: string): Promise<void> => {
-    return ipcRenderer.invoke('bind-domain', siteId, domain)
-  },
-
-  unbindDomain: (siteId: string): Promise<void> => {
-    return ipcRenderer.invoke('unbind-domain', siteId)
   },
 
   // --- Cloudflared Event Listeners ---

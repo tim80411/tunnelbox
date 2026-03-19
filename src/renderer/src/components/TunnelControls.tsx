@@ -7,10 +7,10 @@ interface TunnelControlsProps {
   authStatus: AuthStatus
   onShare: (siteId: string) => Promise<void>
   onStopSharing: (siteId: string) => Promise<void>
-  onCreateNamedTunnel: (siteId: string) => Promise<void>
+  onBindFixedDomain: (siteId: string, domain: string) => Promise<void>
+  onUnbindFixedDomain: (siteId: string) => Promise<void>
   onStartNamedTunnel: (siteId: string) => Promise<void>
   onStopNamedTunnel: (siteId: string) => Promise<void>
-  onDeleteNamedTunnel: (siteId: string) => Promise<void>
   onLogin: () => void
 }
 
@@ -20,20 +20,47 @@ function TunnelControls({
   authStatus,
   onShare,
   onStopSharing,
-  onCreateNamedTunnel,
+  onBindFixedDomain,
+  onUnbindFixedDomain,
   onStartNamedTunnel,
   onStopNamedTunnel,
-  onDeleteNamedTunnel,
   onLogin
 }: TunnelControlsProps): React.ReactElement | null {
   const [copied, setCopied] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDomainModal, setShowDomainModal] = useState(false)
+  const [domainInput, setDomainInput] = useState('')
+  const [domainError, setDomainError] = useState<string | null>(null)
+  const [binding, setBinding] = useState(false)
+  const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
 
   const handleCopyUrl = useCallback(async (url: string) => {
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [])
+
+  const handleBindDomain = useCallback(async () => {
+    const trimmed = domainInput.trim()
+    if (!trimmed) {
+      setDomainError('請輸入網域名稱')
+      return
+    }
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+      setDomainError('請輸入有效的網域名稱，例如 dev.example.com')
+      return
+    }
+    setDomainError(null)
+    setBinding(true)
+    try {
+      await onBindFixedDomain(site.id, trimmed)
+      setShowDomainModal(false)
+      setDomainInput('')
+    } catch (err) {
+      setDomainError(err instanceof Error ? err.message : '綁定失敗')
+    } finally {
+      setBinding(false)
+    }
+  }, [domainInput, site.id, onBindFixedDomain])
 
   // Don't show tunnel controls if site is not running or cloudflared not available
   if (site.status !== 'running' || !cloudflaredAvailable) {
@@ -43,7 +70,6 @@ function TunnelControls({
   const tunnel = site.tunnel
   const isNamed = tunnel?.type === 'named'
   const isLoggedIn = authStatus === 'logged_in'
-  const hasDomain = !!site.domain
 
   // No tunnel active — show share buttons
   if (!tunnel) {
@@ -58,9 +84,9 @@ function TunnelControls({
         {isLoggedIn ? (
           <button
             className="btn btn-sm btn-tunnel-named"
-            onClick={() => onCreateNamedTunnel(site.id)}
+            onClick={() => setShowDomainModal(true)}
           >
-            建立持久 Tunnel
+            公開（固定網域）
           </button>
         ) : (
           <button
@@ -68,8 +94,52 @@ function TunnelControls({
             onClick={onLogin}
             title="需要先登入 Cloudflare"
           >
-            建立持久 Tunnel
+            公開（固定網域）
           </button>
+        )}
+
+        {/* Domain binding modal */}
+        {showDomainModal && (
+          <div className="modal-overlay" onClick={() => setShowDomainModal(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h2 className="modal-title">公開（固定網域）</h2>
+              {domainError && <div className="modal-error">{domainError}</div>}
+              <div className="form-group">
+                <label className="form-label">
+                  網域
+                  <span
+                    className="form-hint"
+                    title="網域需由 Cloudflare 託管 DNS。若尚未設定，請先至 Cloudflare 新增網域。"
+                  >
+                    ⓘ
+                  </span>
+                </label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="dev.example.com"
+                  value={domainInput}
+                  onChange={(e) => {
+                    setDomainInput(e.target.value)
+                    setDomainError(null)
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setShowDomainModal(false)}>
+                  取消
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleBindDomain}
+                  disabled={binding}
+                >
+                  {binding ? '建立中...' : '建立並綁定'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     )
@@ -80,7 +150,7 @@ function TunnelControls({
       {tunnel.status === 'starting' && (
         <span className="tunnel-status-text tunnel-starting">
           <span className="cloudflared-spinner" />
-          {isNamed ? '持久 Tunnel 啟動中...' : '啟動中...'}
+          {isNamed ? '固定網域啟動中...' : '啟動中...'}
         </span>
       )}
 
@@ -88,21 +158,25 @@ function TunnelControls({
         <>
           <div className="tunnel-url-row">
             {isNamed && <span className="tunnel-badge tunnel-badge-named">持久</span>}
-            <a
-              className="tunnel-url"
-              href={tunnel.publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {tunnel.publicUrl}
-            </a>
-            <button
-              className="btn-copy"
-              onClick={() => handleCopyUrl(tunnel.publicUrl)}
-              title="複製公開網址"
-            >
-              {copied ? '已複製' : '📋'}
-            </button>
+            {tunnel.publicUrl && (
+              <>
+                <a
+                  className="tunnel-url"
+                  href={tunnel.publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {tunnel.publicUrl}
+                </a>
+                <button
+                  className="btn-copy"
+                  onClick={() => handleCopyUrl(tunnel.publicUrl!)}
+                  title="複製公開網址"
+                >
+                  {copied ? '已複製' : '📋'}
+                </button>
+              </>
+            )}
           </div>
           {isNamed ? (
             <div className="tunnel-named-actions">
@@ -110,13 +184,13 @@ function TunnelControls({
                 className="btn btn-sm btn-tunnel-stop"
                 onClick={() => onStopNamedTunnel(site.id)}
               >
-                停止 Tunnel
+                停止公開
               </button>
               <button
                 className="btn btn-sm btn-danger"
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={() => setShowUnbindConfirm(true)}
               >
-                刪除 Tunnel
+                解除綁定
               </button>
             </div>
           ) : (
@@ -178,13 +252,13 @@ function TunnelControls({
                   className="btn btn-sm btn-tunnel-share"
                   onClick={() => onStartNamedTunnel(site.id)}
                 >
-                  啟動 Tunnel
+                  啟動
                 </button>
                 <button
                   className="btn btn-sm btn-danger"
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onClick={() => setShowUnbindConfirm(true)}
                 >
-                  刪除 Tunnel
+                  解除綁定
                 </button>
               </div>
             </div>
@@ -199,28 +273,26 @@ function TunnelControls({
         </>
       )}
 
-      {/* Delete Named Tunnel Confirmation */}
-      {showDeleteConfirm && (
-        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+      {/* Unbind Confirmation Modal */}
+      {showUnbindConfirm && (
+        <div className="modal-overlay" onClick={() => setShowUnbindConfirm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">確認刪除 Tunnel</h2>
+            <h2 className="modal-title">確認解除綁定</h2>
             <p className="confirm-text">
-              {hasDomain
-                ? '刪除 Tunnel 將同時解除自訂網域綁定，是否繼續？'
-                : '確定要刪除此 Tunnel？URL 將永久失效。'}
+              確定要解除網域綁定嗎？Tunnel 和 DNS 路由將一併刪除。
             </p>
             <div className="modal-actions">
-              <button className="btn" onClick={() => setShowDeleteConfirm(false)}>
+              <button className="btn" onClick={() => setShowUnbindConfirm(false)}>
                 取消
               </button>
               <button
                 className="btn btn-danger"
                 onClick={async () => {
-                  setShowDeleteConfirm(false)
-                  await onDeleteNamedTunnel(site.id)
+                  setShowUnbindConfirm(false)
+                  await onUnbindFixedDomain(site.id)
                 }}
               >
-                確認刪除
+                確認解除
               </button>
             </div>
           </div>
