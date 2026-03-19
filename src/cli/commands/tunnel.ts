@@ -3,7 +3,7 @@ import type { IStore } from '../../core/store-interface'
 import type { ServerManager } from '../../main/server-manager'
 import type { TunnelInfo } from '../../shared/types'
 import { CLIError } from '../errors'
-import { output } from '../output'
+import { output, link } from '../output'
 import { findSite } from './server'
 
 /**
@@ -142,7 +142,7 @@ export function registerTunnelCommands(
           output(
             json
               ? result
-              : `Tunnel already running: ${result.publicUrl}`,
+              : `Tunnel already running: ${link(result.publicUrl)}`,
             json
           )
         } else {
@@ -150,7 +150,7 @@ export function registerTunnelCommands(
           output(
             json
               ? result
-              : `${prefix}Tunnel started: ${result.publicUrl}`,
+              : `${prefix}Tunnel started: ${link(result.publicUrl)}`,
             json
           )
         }

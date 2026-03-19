@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { output } from '@/cli/output'
+import { output, link } from '@/cli/output'
 
 describe('output', () => {
   it('outputs JSON when json=true with string data', () => {
@@ -67,5 +67,37 @@ describe('output', () => {
 
     expect(logSpy).toHaveBeenCalledWith({ key: 'value' })
     logSpy.mockRestore()
+  })
+})
+
+describe('link', () => {
+  it('returns plain URL when stdout is not a TTY', () => {
+    const origIsTTY = process.stdout.isTTY
+    process.stdout.isTTY = undefined as any
+    expect(link('http://localhost:3000')).toBe('http://localhost:3000')
+    process.stdout.isTTY = origIsTTY
+  })
+
+  it('returns plain custom text when stdout is not a TTY', () => {
+    const origIsTTY = process.stdout.isTTY
+    process.stdout.isTTY = undefined as any
+    expect(link('http://localhost:3000', 'click here')).toBe('click here')
+    process.stdout.isTTY = origIsTTY
+  })
+
+  it('wraps URL with OSC 8 escape sequences when stdout is a TTY', () => {
+    const origIsTTY = process.stdout.isTTY
+    process.stdout.isTTY = true
+    const result = link('http://localhost:3000')
+    expect(result).toBe('\x1b]8;;http://localhost:3000\x07http://localhost:3000\x1b]8;;\x07')
+    process.stdout.isTTY = origIsTTY
+  })
+
+  it('uses custom text with OSC 8 when stdout is a TTY', () => {
+    const origIsTTY = process.stdout.isTTY
+    process.stdout.isTTY = true
+    const result = link('http://localhost:3000', 'click here')
+    expect(result).toBe('\x1b]8;;http://localhost:3000\x07click here\x1b]8;;\x07')
+    process.stdout.isTTY = origIsTTY
   })
 })

@@ -3,7 +3,7 @@ import type { IStore } from '../../core/store-interface'
 import type { ServerManager } from '../../main/server-manager'
 import type { StoredSite } from '../../shared/types'
 import { CLIError } from '../errors'
-import { output } from '../output'
+import { output, link } from '../output'
 
 /**
  * Look up a site by name or id. Throws CLIError (exit 1) if not found.
@@ -118,14 +118,14 @@ export function registerServerCommands(
           output(
             json
               ? result
-              : `Server already running at ${result.url}`,
+              : `Server already running at ${link(result.url)}`,
             json
           )
         } else {
           output(
             json
               ? result
-              : `Server started at ${result.url}`,
+              : `Server started at ${link(result.url)}`,
             json
           )
         }
