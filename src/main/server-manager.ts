@@ -149,6 +149,9 @@ export class ServerManager {
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
     const httpServer = http.createServer((req, res) => {
+      // Prevent browser caching — different sites may reuse the same port
+      res.setHeader('Cache-Control', 'no-store')
+
       // Intercept HTML responses to inject reload script
       const originalWriteHead = res.writeHead.bind(res)
       const originalEnd = res.end.bind(res)
@@ -164,6 +167,9 @@ export class ServerManager {
           args.length === 2 ? (args[1] as http.OutgoingHttpHeaders) : (args[0] as http.OutgoingHttpHeaders | undefined)
 
         if (headers) {
+          // Enforce no-store even if serve-handler sets its own Cache-Control
+          headers['Cache-Control'] = 'no-store'
+
           const ct = headers['content-type'] || headers['Content-Type']
           if (typeof ct === 'string' && ct.includes('text/html')) {
             isHtml = true
