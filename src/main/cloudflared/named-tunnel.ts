@@ -4,8 +4,11 @@ import { ProcessManager } from './process-manager'
 import { findBinary } from './detector'
 import { getAuthStatus } from './auth-manager'
 import { stopQuickTunnel, hasTunnel as hasQuickTunnel } from './quick-tunnel'
+import { createLogger } from '../logger'
 import * as siteStore from '../store'
 import type { TunnelInfo, StoredTunnel } from '../../shared/types'
+
+const log = createLogger('NamedTunnel')
 
 /** Active named tunnels in memory: siteId -> TunnelInfo */
 const activeNamedTunnels: Map<string, TunnelInfo> = new Map()
@@ -18,6 +21,22 @@ const reconnectAttempts: Map<string, number> = new Map()
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const BACKOFF_BASE_MS = 2000
+
+/** Error patterns for DNS operations */
+const DNS_ERRORS: Array<{ pattern: RegExp; message: string }> = [
+  { pattern: /not found in your account/i, message: '此網域不在你的 Cloudflare 帳號中，請先將網域的 DNS 託管到 Cloudflare' },
+  { pattern: /not.*managed/i, message: '此網域不在你的 Cloudflare 帳號中，請先將網域的 DNS 託管到 Cloudflare' },
+  { pattern: /already.*exist/i, message: '此網域已被其他 Tunnel 使用' },
+  { pattern: /already.*route/i, message: '此網域已被其他 Tunnel 使用' },
+  { pattern: /duplicate/i, message: '此網域已被其他 Tunnel 使用' }
+]
+
+function parseDnsError(output: string): string | null {
+  for (const { pattern, message } of DNS_ERRORS) {
+    if (pattern.test(output)) return message
+  }
+  return null
+}
 
 /** Error patterns for named tunnel operations */
 const NAMED_TUNNEL_ERRORS: Array<{ pattern: RegExp; message: string }> = [
@@ -114,9 +133,7 @@ async function attemptReconnect(siteId: string): Promise<void> {
   }
 
   const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
-  console.log(
-    `[NamedTunnel] Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`
-  )
+  log.info(`Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
 
   await new Promise((resolve) => setTimeout(resolve, delay))
 
@@ -129,8 +146,14 @@ async function attemptReconnect(siteId: string): Promise<void> {
     if (!binaryPath) return
     startTunnelProcess(siteId, stored.tunnelId, binaryPath, port)
   } catch (err) {
-    console.error(`[NamedTunnel] Reconnect failed for ${siteId}:`, err)
+    log.error(`Reconnect failed for ${siteId}:`, err)
   }
+}
+
+/** Resolve public URL from stored domain binding */
+function domainToUrl(siteId: string): string | undefined {
+  const d = siteStore.getDomainBinding(siteId)
+  return d ? `https://${d.domain}` : undefined
 }
 
 function broadcastAuthExpired(): void {
@@ -163,12 +186,12 @@ function runCloudflared(binaryPath: string, args: string[]): Promise<string> {
 }
 
 /**
- * Create a Named Tunnel for a site.
- * Returns the public URL (tunnelId.cfargotunnel.com).
+ * Bind a fixed domain: create tunnel + route DNS + start, all in one step.
  */
-export async function createNamedTunnel(
+export async function bindFixedDomain(
   siteId: string,
-  port: number
+  port: number,
+  domain: string
 ): Promise<string> {
   requireAuth()
 
@@ -182,11 +205,10 @@ export async function createNamedTunnel(
 
   const tunnelName = `tunnelbox-${siteId.slice(0, 8)}`
 
-  // Create tunnel
+  // Step 1: Create tunnel
   const createOutput = await runCloudflared(binaryPath, ['tunnel', 'create', tunnelName])
-  console.log(`[NamedTunnel] Create output: ${createOutput}`)
+  log.info(`Create output: ${createOutput}`)
 
-  // Parse tunnel ID from output (format: "Created tunnel <name> with id <uuid>")
   const idMatch =
     createOutput.match(/with id ([a-f0-9-]{36})/i) ||
     createOutput.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i)
@@ -194,13 +216,28 @@ export async function createNamedTunnel(
     throw new Error('無法解析 Tunnel ID')
   }
   const tunnelId = idMatch[1]
-  const publicUrl = `https://${tunnelId}.cfargotunnel.com`
 
-  // Persist tunnel info
-  const stored: StoredTunnel = { siteId, tunnelId, tunnelName, publicUrl }
+  // Step 2: Route DNS (rollback tunnel on failure)
+  try {
+    await runCloudflared(binaryPath, ['tunnel', 'route', 'dns', tunnelId, domain])
+  } catch (err) {
+    // Rollback: delete the just-created tunnel
+    try {
+      await runCloudflared(binaryPath, ['tunnel', 'delete', tunnelId])
+    } catch {
+      log.error(`Rollback: failed to delete tunnel ${tunnelId}`)
+    }
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(parseDnsError(msg) || `DNS 路由失敗：${msg}`)
+  }
+
+  // Step 3: Persist
+  const stored: StoredTunnel = { siteId, tunnelId, tunnelName }
   siteStore.saveTunnel(stored)
+  siteStore.saveDomainBinding(siteId, domain)
 
-  // Start the tunnel
+  // Step 4: Start tunnel process
+  const publicUrl = `https://${domain}`
   const tunnelInfo: TunnelInfo = {
     type: 'named',
     status: 'starting',
@@ -218,6 +255,44 @@ export async function createNamedTunnel(
 }
 
 /**
+ * Unbind fixed domain: stop tunnel + delete from Cloudflare + clean up DNS + local store.
+ */
+export async function unbindFixedDomain(siteId: string): Promise<void> {
+  requireAuth()
+
+  const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
+  if (!stored) throw new Error('找不到此網頁的 Tunnel')
+
+  // Stop if running
+  const processId = `named-tunnel-${siteId}`
+  if (processManager.isRunning(processId)) {
+    processManager.kill(processId)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+
+  // Delete tunnel from Cloudflare (also removes DNS route)
+  const binaryPath = await findBinary()
+  if (!binaryPath) throw new Error('cloudflared 尚未安裝')
+
+  try {
+    await runCloudflared(binaryPath, ['tunnel', 'delete', stored.tunnelId])
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('not found') && !msg.includes('does not exist') && !msg.includes('already been deleted')) {
+      throw new Error(`刪除 Tunnel 失敗：${msg}`)
+    }
+  }
+
+  // Clean up all local state
+  activeNamedTunnels.delete(siteId)
+  namedTunnelPorts.delete(siteId)
+  reconnectAttempts.delete(siteId)
+  siteStore.removeTunnel(siteId)
+  siteStore.removeDomainBinding(siteId)
+  broadcastTunnelStatus(siteId, null)
+}
+
+/**
  * Start (or restart) a Named Tunnel process.
  */
 export async function startNamedTunnel(siteId: string, port: number): Promise<void> {
@@ -232,7 +307,7 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
   const tunnelInfo: TunnelInfo = {
     type: 'named',
     status: 'starting',
-    publicUrl: stored.publicUrl,
+    publicUrl: domainToUrl(siteId),
     tunnelId: stored.tunnelId
   }
   activeNamedTunnels.set(siteId, tunnelInfo)
@@ -260,54 +335,10 @@ export function stopNamedTunnel(siteId: string): void {
 }
 
 /**
- * Delete a Named Tunnel entirely from Cloudflare + local store.
- */
-export async function deleteNamedTunnel(siteId: string): Promise<void> {
-  requireAuth()
-
-  const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
-  if (!stored) throw new Error('找不到此網頁的 Named Tunnel')
-
-  // Stop if running
-  const processId = `named-tunnel-${siteId}`
-  if (processManager.isRunning(processId)) {
-    processManager.kill(processId)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-  }
-
-  // Delete from Cloudflare
-  const binaryPath = await findBinary()
-  if (!binaryPath) throw new Error('cloudflared 尚未安裝')
-
-  try {
-    await runCloudflared(binaryPath, ['tunnel', 'delete', stored.tunnelId])
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (!msg.includes('not found') && !msg.includes('does not exist')) {
-      throw new Error(`刪除 Tunnel 失敗：${msg}`)
-    }
-  }
-
-  // Clean up local state
-  activeNamedTunnels.delete(siteId)
-  namedTunnelPorts.delete(siteId)
-  reconnectAttempts.delete(siteId)
-  siteStore.removeTunnel(siteId)
-  broadcastTunnelStatus(siteId, null)
-}
-
-/**
  * Get named tunnel info for a site.
  */
 export function getNamedTunnelInfo(siteId: string): TunnelInfo | undefined {
   return activeNamedTunnels.get(siteId)
-}
-
-/**
- * Check if site has a stored named tunnel (even if not running).
- */
-export function hasStoredNamedTunnel(siteId: string): boolean {
-  return siteStore.getTunnels().some((t) => t.siteId === siteId)
 }
 
 /**
@@ -321,18 +352,18 @@ export async function restoreNamedTunnels(
 
   const binaryPath = await findBinary()
   if (!binaryPath) {
-    console.log('[NamedTunnel] Cannot restore - cloudflared not found')
+    log.info('Cannot restore - cloudflared not found')
     return
   }
 
   for (const tunnel of stored) {
     const port = getSitePort(tunnel.siteId)
     if (!port) {
-      console.log(`[NamedTunnel] Skipping restore for ${tunnel.siteId} - site not running`)
+      log.info(`Skipping restore for ${tunnel.siteId} - site not running`)
       activeNamedTunnels.set(tunnel.siteId, {
         type: 'named',
         status: 'stopped',
-        publicUrl: tunnel.publicUrl,
+        publicUrl: domainToUrl(tunnel.siteId),
         tunnelId: tunnel.tunnelId
       })
       continue
@@ -342,19 +373,19 @@ export async function restoreNamedTunnels(
       const tunnelInfo: TunnelInfo = {
         type: 'named',
         status: 'starting',
-        publicUrl: tunnel.publicUrl,
+        publicUrl: domainToUrl(tunnel.siteId),
         tunnelId: tunnel.tunnelId
       }
       activeNamedTunnels.set(tunnel.siteId, tunnelInfo)
       namedTunnelPorts.set(tunnel.siteId, port)
       startTunnelProcess(tunnel.siteId, tunnel.tunnelId, binaryPath, port)
-      console.log(`[NamedTunnel] Restored tunnel for site ${tunnel.siteId}`)
+      log.info(`Restored tunnel for site ${tunnel.siteId}`)
     } catch (err) {
-      console.error(`[NamedTunnel] Failed to restore tunnel for ${tunnel.siteId}:`, err)
+      log.error(`Failed to restore tunnel for ${tunnel.siteId}:`, err)
       activeNamedTunnels.set(tunnel.siteId, {
         type: 'named',
         status: 'error',
-        publicUrl: tunnel.publicUrl,
+        publicUrl: domainToUrl(tunnel.siteId),
         tunnelId: tunnel.tunnelId,
         errorMessage: '重啟 Tunnel 失敗'
       })

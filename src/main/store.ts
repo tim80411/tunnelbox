@@ -1,5 +1,8 @@
 import Store from 'electron-store'
+import { createLogger } from './logger'
 import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
+
+const log = createLogger('Store')
 
 interface StoredDomainBinding {
   siteId: string
@@ -33,7 +36,7 @@ export function getSites(): StoredSite[] {
     }
     return sites
   } catch (err) {
-    console.error('[Store] Failed to read sites, resetting to empty:', err)
+    log.error(' Failed to read sites, resetting to empty:', err)
     store.set('sites', [])
     return []
   }
@@ -43,7 +46,7 @@ export function saveSites(sites: StoredSite[]): void {
   try {
     store.set('sites', sites)
   } catch (err) {
-    console.error('[Store] Failed to save sites:', err)
+    log.error(' Failed to save sites:', err)
   }
 }
 
@@ -64,7 +67,7 @@ export function getAuth(): StoredAuth | null {
   try {
     return store.get('auth') || null
   } catch (err) {
-    console.error('[Store] Failed to read auth:', err)
+    log.error(' Failed to read auth:', err)
     return null
   }
 }
@@ -73,7 +76,7 @@ export function saveAuth(auth: StoredAuth): void {
   try {
     store.set('auth', auth)
   } catch (err) {
-    console.error('[Store] Failed to save auth:', err)
+    log.error(' Failed to save auth:', err)
   }
 }
 
@@ -81,7 +84,7 @@ export function clearAuth(): void {
   try {
     store.set('auth', null)
   } catch (err) {
-    console.error('[Store] Failed to clear auth:', err)
+    log.error(' Failed to clear auth:', err)
   }
 }
 
@@ -96,7 +99,7 @@ export function getTunnels(): StoredTunnel[] {
     }
     return tunnels
   } catch (err) {
-    console.error('[Store] Failed to read tunnels:', err)
+    log.error(' Failed to read tunnels:', err)
     return []
   }
 }
@@ -107,7 +110,7 @@ export function saveTunnel(tunnel: StoredTunnel): void {
   try {
     store.set('tunnels', tunnels)
   } catch (err) {
-    console.error('[Store] Failed to save tunnel:', err)
+    log.error(' Failed to save tunnel:', err)
   }
 }
 
@@ -116,7 +119,7 @@ export function removeTunnel(siteId: string): void {
   try {
     store.set('tunnels', tunnels.filter((t) => t.siteId !== siteId))
   } catch (err) {
-    console.error('[Store] Failed to remove tunnel:', err)
+    log.error(' Failed to remove tunnel:', err)
   }
 }
 
@@ -127,7 +130,7 @@ export function getDomainBinding(siteId: string): StoredDomainBinding | null {
     const bindings = store.get('domainBindings') || []
     return bindings.find((b) => b.siteId === siteId) || null
   } catch (err) {
-    console.error('[Store] Failed to read domain binding:', err)
+    log.error(' Failed to read domain binding:', err)
     return null
   }
 }
@@ -138,7 +141,7 @@ export function saveDomainBinding(siteId: string, domain: string): void {
     bindings.push({ siteId, domain })
     store.set('domainBindings', bindings)
   } catch (err) {
-    console.error('[Store] Failed to save domain binding:', err)
+    log.error(' Failed to save domain binding:', err)
   }
 }
 
@@ -147,6 +150,6 @@ export function removeDomainBinding(siteId: string): void {
     const bindings = store.get('domainBindings') || []
     store.set('domainBindings', bindings.filter((b) => b.siteId !== siteId))
   } catch (err) {
-    console.error('[Store] Failed to remove domain binding:', err)
+    log.error(' Failed to remove domain binding:', err)
   }
 }

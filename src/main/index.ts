@@ -11,7 +11,10 @@ import {
   stopAllQuickTunnels
 } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
+import { createLogger } from './logger'
 import * as siteStore from './store'
+
+const log = createLogger('Main')
 
 let mainWindow: BrowserWindow | null = null
 const serverManager = new ServerManager()
@@ -77,9 +80,9 @@ app.whenReady().then(async () => {
           name: site.name,
           folderPath: site.folderPath
         })
-        console.log(`[Main] Restored and started server for "${site.name}"`)
+        log.info(`Restored and started server for "${site.name}"`)
       } catch (err) {
-        console.error(`[Main] Failed to restore server for "${site.name}":`, err)
+        log.error(`Failed to restore server for "${site.name}":`, err)
         // Register as stopped so it still shows in the list
         serverManager.registerStopped(site)
       }
@@ -90,12 +93,12 @@ app.whenReady().then(async () => {
       const server = serverManager.getServer(siteId)
       return server && server.status === 'running' ? server.port : null
     }).catch((err) => {
-      console.error('[Main] Failed to restore named tunnels:', err)
+      log.error('Failed to restore named tunnels:', err)
     })
 
     createWindow()
   } catch (err) {
-    console.error('[Main] Failed to initialize application:', err)
+    log.error('Failed to initialize application:', err)
     // Show error window if initialization fails
     const errorWin = new BrowserWindow({
       width: 400,
@@ -126,7 +129,7 @@ app.on('before-quit', (e) => {
   isQuitting = true
   e.preventDefault()
 
-  console.log('[Main] Application quitting, stopping all servers and tunnel processes...')
+  log.info('Application quitting, stopping all servers and tunnel processes...')
 
   // Mark all tunnels as stopped first (prevents reconnect timers)
   stopAllNamedTunnels()
@@ -134,7 +137,7 @@ app.on('before-quit', (e) => {
 
   // Force exit after 5 seconds no matter what
   const forceExitTimer = setTimeout(() => {
-    console.log('[Main] Cleanup timeout, forcing exit')
+    log.info('Cleanup timeout, forcing exit')
     app.exit(0)
   }, 5000)
   forceExitTimer.unref()
@@ -171,14 +174,14 @@ process.on('exit', () => {
 })
 
 process.on('SIGTERM', () => {
-  console.log('[Main] Received SIGTERM, cleaning up...')
+  log.info('Received SIGTERM, cleaning up...')
   Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
-  console.log('[Main] Received SIGINT, cleaning up...')
+  log.info('Received SIGINT, cleaning up...')
   Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })

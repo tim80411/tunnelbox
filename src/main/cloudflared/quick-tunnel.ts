@@ -1,7 +1,10 @@
 import { BrowserWindow } from 'electron'
 import { ProcessManager } from './process-manager'
 import { findBinary } from './detector'
+import { createLogger } from '../logger'
 import type { TunnelInfo } from '../../shared/types'
+
+const log = createLogger('QuickTunnel')
 
 /** Active quick tunnels: siteId -> TunnelInfo */
 const activeTunnels: Map<string, TunnelInfo> = new Map()
@@ -42,6 +45,9 @@ export function initQuickTunnel(pm: ProcessManager): void {
 
     // If explicitly stopped, don't reconnect
     if (tunnel.status === 'stopped') return
+
+    // Still in initial start phase — let startQuickTunnel's handler deal with it
+    if (tunnel.status === 'starting') return
 
     // Unexpected exit with non-zero code -> attempt reconnect
     if (code !== 0 && code !== null) {
@@ -87,7 +93,7 @@ async function attemptReconnect(siteId: string): Promise<void> {
   }
 
   const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
-  console.log(`[QuickTunnel] Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
+  log.info(`Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
 
   await new Promise((resolve) => setTimeout(resolve, delay))
 
@@ -102,7 +108,7 @@ async function attemptReconnect(siteId: string): Promise<void> {
     const processId = `quick-tunnel-${siteId}`
     spawnTunnelProcess(siteId, processId, binaryPath, port)
   } catch (err) {
-    console.error(`[QuickTunnel] Reconnect failed for ${siteId}:`, err)
+    log.error(`Reconnect failed for ${siteId}:`, err)
   }
 }
 
@@ -166,22 +172,24 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
   broadcastTunnelStatus(siteId, tunnelInfo)
 
   return new Promise<string>((resolve, reject) => {
-    const timeout = setTimeout(() => {
+    let attempts = 0
+    let lastError: string | null = null
+
+    const totalTimeout = setTimeout(() => {
       cleanup()
       stopQuickTunnel(siteId)
-      reject(new Error('Quick Tunnel 啟動逾時（15 秒），請檢查網路連線'))
-    }, 15_000)
+      reject(new Error('Quick Tunnel 啟動逾時（30 秒），請檢查網路連線'))
+    }, 30_000)
 
     const cleanup = (): void => {
-      clearTimeout(timeout)
+      clearTimeout(totalTimeout)
       processManager.removeListener('stderr', onStderr)
       processManager.removeListener('exit', onExit)
     }
 
-    let lastError: string | null = null
-
     const onStderr = (id: string, data: string): void => {
       if (id !== processId) return
+      log.info(`stderr: ${data.trimEnd()}`)
 
       // Check for URL match
       const match = data.match(TUNNEL_URL_REGEX)
@@ -205,12 +213,48 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
 
     const onExit = (id: string, code: number | null): void => {
       if (id !== processId) return
+
+      // Transient failure — retry with backoff
+      if (code !== 0 && code !== null && attempts < MAX_RECONNECT_ATTEMPTS) {
+        attempts++
+        const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
+        log.info(`Start failed, retrying ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
+        tunnelInfo.status = 'starting'
+        tunnelInfo.errorMessage = undefined
+        broadcastTunnelStatus(siteId, tunnelInfo)
+
+        setTimeout(() => {
+          // Check if tunnel was stopped during the delay
+          const current = activeTunnels.get(siteId)
+          if (!current || current.status === 'stopped') {
+            cleanup()
+            return
+          }
+          try {
+            lastError = null
+            processManager.spawn(processId, binaryPath, [
+              'tunnel',
+              '--url',
+              `http://localhost:${port}`
+            ])
+          } catch (err) {
+            cleanup()
+            activeTunnels.delete(siteId)
+            sitePorts.delete(siteId)
+            broadcastTunnelStatus(siteId, null)
+            reject(new Error(`啟動 cloudflared 失敗：${err instanceof Error ? err.message : String(err)}`))
+          }
+        }, delay)
+        return
+      }
+
+      // All retries exhausted or clean exit
       cleanup()
 
       const errorMessage =
         lastError ||
         (code !== null
-          ? `cloudflared 啟動失敗（錯誤碼 ${code}），請檢查網路連線`
+          ? `cloudflared 啟動失敗（錯誤碼 ${code}），Cloudflare 服務可能暫時不可用，請稍後重試`
           : '無法連線至 Cloudflare，請檢查網路連線')
 
       tunnelInfo.status = 'error'
@@ -255,6 +299,16 @@ export function stopQuickTunnel(siteId: string): void {
   sitePorts.delete(siteId)
   reconnectAttempts.delete(siteId)
   broadcastTunnelStatus(siteId, null)
+}
+
+/**
+ * Stop all quick tunnels (used on app quit).
+ */
+export function stopAllQuickTunnels(): void {
+  const siteIds = Array.from(activeTunnels.keys())
+  for (const siteId of siteIds) {
+    stopQuickTunnel(siteId)
+  }
 }
 
 /**

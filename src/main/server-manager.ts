@@ -6,6 +6,9 @@ import { watch, type FSWatcher } from 'chokidar'
 import { WebSocketServer, type WebSocket } from 'ws'
 import getPort from 'get-port'
 import crypto from 'node:crypto'
+import { createLogger } from './logger'
+
+const log = createLogger('ServerManager')
 
 // ---------- Types ----------
 
@@ -98,10 +101,10 @@ export class ServerManager {
     })
 
     this.globalWsServer.on('error', (err) => {
-      console.error('[ServerManager] WebSocket server error:', err)
+      log.error('WebSocket server error:', err)
     })
 
-    console.log(`[ServerManager] Global WebSocket server started on port ${this.globalWsPort}`)
+    log.info(`Global WebSocket server started on port ${this.globalWsPort}`)
   }
 
   /**
@@ -263,7 +266,7 @@ export class ServerManager {
     }
 
     this.servers.set(site.id, siteServer)
-    console.log(`[ServerManager] Server for "${site.name}" started on http://localhost:${port}`)
+    log.info(`Server for "${site.name}" started on http://localhost:${port}`)
 
     return siteServer
   }
@@ -309,7 +312,7 @@ export class ServerManager {
 
     server.status = 'stopped'
     server.port = 0
-    console.log(`[ServerManager] Server "${server.name}" stopped`)
+    log.info(`Server "${server.name}" stopped`)
   }
 
   /**
@@ -325,7 +328,7 @@ export class ServerManager {
       this.globalWsServer = null
     }
 
-    console.log('[ServerManager] All servers stopped')
+    log.info('All servers stopped')
   }
 
   /**
@@ -411,7 +414,7 @@ export class ServerManager {
     watcher.on('unlinkDir', handleChange)
 
     watcher.on('error', (err) => {
-      console.error(`[ServerManager] Watcher error for site ${siteId}:`, err)
+      log.error(`Watcher error for site ${siteId}:`, err)
       // Stop the watcher on error but don't crash
       watcher.close().catch(() => {})
       const server = this.servers.get(siteId)
@@ -429,7 +432,7 @@ export class ServerManager {
       try {
         cb(siteId)
       } catch (err) {
-        console.error('[ServerManager] File change callback error:', err)
+        log.error('File change callback error:', err)
       }
     }
 
@@ -442,7 +445,7 @@ export class ServerManager {
             ws.send('reload')
           }
         } catch (err) {
-          console.error('[ServerManager] WebSocket send error:', err)
+          log.error('WebSocket send error:', err)
         }
       }
     }

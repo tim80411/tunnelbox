@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { createLogger } from '../logger'
+
+const log = createLogger('ProcessManager')
 
 export interface ManagedProcess {
   id: string
@@ -46,17 +49,25 @@ export class ProcessManager extends EventEmitter {
     })
 
     child.on('exit', (code, signal) => {
-      this.processes.delete(id)
-      this.emit('exit', id, code, signal)
+      // Only act if this is still the current process for this id.
+      // A superseded process (killed by a newer spawn) is silently ignored.
+      const current = this.processes.get(id)
+      if (current && current.process === child) {
+        this.processes.delete(id)
+        this.emit('exit', id, code, signal)
+      }
     })
 
     child.on('error', (err) => {
-      console.error(`[ProcessManager] Process ${id} error:`, err.message)
-      this.processes.delete(id)
-      this.emit('exit', id, 1, null)
+      log.error(`Process ${id} error:`, err.message)
+      const current = this.processes.get(id)
+      if (current && current.process === child) {
+        this.processes.delete(id)
+        this.emit('exit', id, 1, null)
+      }
     })
 
-    console.log(`[ProcessManager] Spawned process ${id}: ${command} ${args.join(' ')} (PID: ${child.pid})`)
+    log.info(`Spawned process ${id}: ${command} ${args.join(' ')} (PID: ${child.pid})`)
     return child
   }
 
@@ -73,14 +84,14 @@ export class ProcessManager extends EventEmitter {
       return
     }
 
-    console.log(`[ProcessManager] Killing process ${id} (PID: ${child.pid})`)
+    log.info(`Killing process ${id} (PID: ${child.pid})`)
 
     child.kill('SIGTERM')
 
     // Force kill after 5 seconds if still alive
     const forceKillTimer = setTimeout(() => {
       if (!child.killed && child.exitCode === null) {
-        console.log(`[ProcessManager] Force killing process ${id}`)
+        log.info(`Force killing process ${id}`)
         child.kill('SIGKILL')
       }
     }, 5000)
@@ -97,7 +108,7 @@ export class ProcessManager extends EventEmitter {
     const ids = Array.from(this.processes.keys())
     if (ids.length === 0) return
 
-    console.log(`[ProcessManager] Killing all ${ids.length} processes`)
+    log.info(`Killing all ${ids.length} processes`)
 
     const exitPromises = ids.map((id) => {
       return new Promise<void>((resolve) => {
@@ -133,7 +144,7 @@ export class ProcessManager extends EventEmitter {
 
     await Promise.allSettled(exitPromises)
     this.processes.clear()
-    console.log('[ProcessManager] All processes cleaned up')
+    log.info('All processes cleaned up')
   }
 
   /**

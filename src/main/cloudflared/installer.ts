@@ -3,6 +3,9 @@ import path from 'node:path'
 import { createWriteStream } from 'node:fs'
 import { net } from 'electron'
 import { getLocalBinaryPath } from './detector'
+import { createLogger } from '../logger'
+
+const log = createLogger('Installer')
 
 /** GitHub releases base URL for cloudflared */
 const RELEASES_BASE = 'https://github.com/cloudflare/cloudflared/releases/latest/download'
@@ -130,7 +133,7 @@ export async function installCloudflared(): Promise<string> {
         return
       }
       const output = (stdout || stderr).trim()
-      console.log(`[Installer] cloudflared installed: ${output}`)
+      log.info(`cloudflared installed: ${output}`)
       resolve(binaryPath)
     })
   })

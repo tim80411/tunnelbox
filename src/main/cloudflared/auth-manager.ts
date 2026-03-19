@@ -4,8 +4,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { findBinary } from './detector'
+import { createLogger } from '../logger'
 import * as siteStore from '../store'
 import type { CloudflareAuth } from '../../shared/types'
+
+const log = createLogger('AuthManager')
 
 /** Default cloudflared cert location */
 function getCertPath(): string {
@@ -94,7 +97,7 @@ export function logout(): void {
     try {
       fs.unlinkSync(certPath)
     } catch (err) {
-      console.error('[AuthManager] Failed to delete cert:', err)
+      log.error('Failed to delete cert:', err)
     }
   }
 
