@@ -27,28 +27,41 @@ export function registerProtocolClient(): void {
 }
 
 /**
- * Set up the open-url event listener.
+ * Set up URL event listeners for all platforms.
+ * - macOS: `open-url` event
+ * - Windows: URL arrives via process.argv (cold start) or `second-instance` event (warm start)
  * Must be called before app.whenReady().
- * URLs that arrive before the app is ready are queued.
  */
 export function setupOpenUrlHandler(): void {
+  // macOS: open-url event
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    log.info(`Received URL: ${url}`)
+    log.info(`Received URL (open-url): ${url}`)
+    handleIncomingUrl(url)
+  })
 
-    if (isReady) {
-      processUrl(url)
-    } else {
-      pendingUrl = url
-      log.info('App not ready yet, queuing URL')
+  // Windows: second-instance event (app already running, new instance launched with URL)
+  app.on('second-instance', (_event, argv) => {
+    log.info('Second instance detected')
+    const url = findTunnelboxUrl(argv)
+    if (url) {
+      log.info(`Received URL (second-instance): ${url}`)
+      handleIncomingUrl(url)
     }
   })
+
+  // Windows: cold start — check process.argv for a tunnelbox:// URL
+  const coldStartUrl = findTunnelboxUrl(process.argv)
+  if (coldStartUrl) {
+    log.info(`Found URL in process.argv: ${coldStartUrl}`)
+    pendingUrl = coldStartUrl
+  }
 }
 
 /**
  * Process any queued URL and switch to live mode.
  * Call after IPC handlers are registered and the window is shown.
- * This is the single transition point — all future open-url events are processed immediately.
+ * This is the single transition point — all future URL events are processed immediately.
  */
 export function flushPendingUrl(): void {
   isReady = true
@@ -57,6 +70,22 @@ export function flushPendingUrl(): void {
     pendingUrl = null
     processUrl(url)
   }
+}
+
+function handleIncomingUrl(url: string): void {
+  if (isReady) {
+    processUrl(url)
+  } else {
+    pendingUrl = url
+    log.info('App not ready yet, queuing URL')
+  }
+}
+
+/**
+ * Find a tunnelbox:// URL in an argv array.
+ */
+function findTunnelboxUrl(argv: string[]): string | null {
+  return argv.find((arg) => arg.startsWith('tunnelbox://')) ?? null
 }
 
 async function processUrl(url: string): Promise<void> {

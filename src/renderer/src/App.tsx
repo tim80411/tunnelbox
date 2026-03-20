@@ -268,7 +268,7 @@ function App(): React.ReactElement {
       setInstallingQuickAction(true)
       await window.electron.installQuickAction()
       setQuickActionInstalled(true)
-      setSuccessMessage('Finder Quick Action installed! Right-click a folder to use it.')
+      setSuccessMessage('Right-click menu installed! Right-click a folder to add it to TunnelBox.')
       setTimeout(() => setSuccessMessage(null), 5000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to install Quick Action')
@@ -301,9 +301,9 @@ function App(): React.ReactElement {
               className="btn btn-sm"
               onClick={handleInstallQuickAction}
               disabled={installingQuickAction}
-              title="Install Finder right-click integration"
+              title="Install right-click context menu integration"
             >
-              {installingQuickAction ? 'Installing...' : 'Setup Finder'}
+              {installingQuickAction ? 'Installing...' : 'Setup Right-Click'}
             </button>
           )}
           <button className="btn btn-primary" onClick={openAddModal}>

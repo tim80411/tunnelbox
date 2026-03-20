@@ -84,7 +84,15 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-win-x64.${ext}"
+      "artifactName": "${productName}-${version}-win-x64.${ext}",
+      "protocols": [
+        {
+          "name": "TunnelBox",
+          "schemes": [
+            "tunnelbox"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
