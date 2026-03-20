@@ -39,6 +39,10 @@
       {
         "from": "resources/quick-action",
         "to": "quick-action"
+      },
+      {
+        "from": "resources/tray",
+        "to": "tray"
       }
     ],
     "mac": {

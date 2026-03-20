@@ -13,6 +13,7 @@ import {
 import { registerIpcHandlers } from './ipc-handlers'
 import { registerQuickActionHandlers } from './quick-action-installer'
 import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
+import { createTray } from './tray-manager'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -121,6 +122,16 @@ app.whenReady().then(async () => {
     })
 
     createWindow()
+
+    // Create system tray (Story 52: Menu Bar integration)
+    createTray(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show()
+        mainWindow.focus()
+      } else {
+        createWindow()
+      }
+    })
   } catch (err) {
     log.error('Failed to initialize application:', err)
     // Show error window if initialization fails
@@ -174,8 +185,8 @@ app.on('before-quit', (e) => {
 })
 
 app.on('window-all-closed', () => {
-  // On macOS, quit when all windows closed (for this app)
-  app.quit()
+  // Keep app running in background with tray icon (Story 52)
+  // User can quit via tray menu "退出" or Cmd+Q
 })
 
 // ---------- Handle forced termination ----------

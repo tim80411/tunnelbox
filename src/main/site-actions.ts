@@ -3,6 +3,7 @@ import { BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import { getTunnelInfo, getNamedTunnelInfo } from './cloudflared'
+import { updateTrayMenu } from './tray-manager'
 import type { SiteInfo } from '../shared/types'
 
 let serverManager: ServerManager
@@ -39,6 +40,8 @@ export function broadcastSiteUpdate(): void {
   for (const win of windows) {
     win.webContents.send('site-updated', sites)
   }
+  // Update tray menu with latest site status (Story 53)
+  updateTrayMenu(sites)
 }
 
 /**
