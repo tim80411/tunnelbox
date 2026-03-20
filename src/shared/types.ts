@@ -72,6 +72,7 @@ export interface StoredSite {
   id: string
   name: string
   folderPath: string
+  providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
 }
 
 export interface ElectronAPI {

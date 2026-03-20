@@ -1,56 +1,10 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
-import {
-  detectCloudflared,
-  installCloudflared,
-  startQuickTunnel,
-  stopQuickTunnel,
-  getTunnelInfo,
-  hasTunnel,
-  loginCloudflare,
-  logoutCloudflare,
-  getAuthStatus,
-  bindFixedDomain,
-  unbindFixedDomain,
-  startNamedTunnel,
-  stopNamedTunnel,
-  getNamedTunnelInfo,
-  stopAllNamedTunnels
-} from './cloudflared'
+import type { TunnelProviderManager } from './tunnel-provider-manager'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 
 let serverManager: ServerManager
-
-function toSiteInfo(server: {
-  id: string
-  name: string
-  folderPath: string
-  port: number
-  status: 'running' | 'stopped' | 'error'
-}): SiteInfo {
-  const info: SiteInfo = {
-    id: server.id,
-    name: server.name,
-    folderPath: server.folderPath,
-    port: server.port,
-    status: server.status,
-    url: server.status === 'running' ? `http://localhost:${server.port}` : ''
-  }
-  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
-  if (tunnel) {
-    info.tunnel = tunnel
-  }
-  return info
-}
-
-function broadcastSiteUpdate(): void {
-  const sites = serverManager.getServers().map(toSiteInfo)
-  const windows = BrowserWindow.getAllWindows()
-  for (const win of windows) {
-    win.webContents.send('site-updated', sites)
-  }
-}
 
 function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
   const windows = BrowserWindow.getAllWindows()
@@ -63,8 +17,54 @@ export function getServerManager(): ServerManager {
   return serverManager
 }
 
-export function registerIpcHandlers(manager: ServerManager): void {
+export function registerIpcHandlers(
+  manager: ServerManager,
+  tunnelManager: TunnelProviderManager
+): void {
   serverManager = manager
+
+  const cfProvider = tunnelManager.get('cloudflare')
+
+  function toSiteInfo(server: {
+    id: string
+    name: string
+    folderPath: string
+    port: number
+    status: 'running' | 'stopped' | 'error'
+  }): SiteInfo {
+    const info: SiteInfo = {
+      id: server.id,
+      name: server.name,
+      folderPath: server.folderPath,
+      port: server.port,
+      status: server.status,
+      url: server.status === 'running' ? `http://localhost:${server.port}` : ''
+    }
+    const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
+    if (providerInfo) {
+      info.tunnel = {
+        type:
+          providerInfo.providerType === 'cloudflare'
+            ? providerInfo.tunnelId
+              ? 'named'
+              : 'quick'
+            : 'quick',
+        status: providerInfo.status,
+        publicUrl: providerInfo.publicUrl,
+        tunnelId: providerInfo.tunnelId,
+        errorMessage: providerInfo.errorMessage
+      }
+    }
+    return info
+  }
+
+  function broadcastSiteUpdate(): void {
+    const sites = serverManager.getServers().map(toSiteInfo)
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      win.webContents.send('site-updated', sites)
+    }
+  }
 
   // --- Site Management ---
 
@@ -107,9 +107,11 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('remove-site', async (_event, id: string) => {
     try {
-      // Auto-stop tunnel when site is removed
-      if (hasTunnel(id)) {
-        stopQuickTunnel(id)
+      // Best-effort tunnel stop — don't block removal
+      try {
+        await tunnelManager.getForSite(id).stopTunnel(id)
+      } catch {
+        /* ignore */
       }
       await serverManager.removeServer(id)
       siteStore.removeSite(id)
@@ -148,9 +150,11 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('stop-server', async (_event, id: string) => {
     try {
-      // Auto-stop tunnel when server stops (Story 22)
-      if (hasTunnel(id)) {
-        stopQuickTunnel(id)
+      // Best-effort tunnel stop — don't block server stop
+      try {
+        await tunnelManager.getForSite(id).stopTunnel(id)
+      } catch {
+        /* ignore */
       }
       await serverManager.stopServer(id)
       broadcastSiteUpdate()
@@ -196,7 +200,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
       if (!server) throw new Error('找不到此網頁')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
-      const url = await startQuickTunnel(siteId, server.port)
+      const url = await cfProvider.startTunnel(siteId, server.port, { mode: 'quick' })
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -206,7 +210,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('stop-tunnel', async (_event, siteId: string) => {
     try {
-      stopQuickTunnel(siteId)
+      await tunnelManager.getForSite(siteId).stopTunnel(siteId)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Tunnel 失敗')
@@ -217,7 +221,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('get-cloudflared-status', async () => {
     try {
-      return await detectCloudflared()
+      return (await cfProvider.detect()) as CloudflaredEnv
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '偵測 cloudflared 失敗')
     }
@@ -226,8 +230,8 @@ export function registerIpcHandlers(manager: ServerManager): void {
   ipcMain.handle('install-cloudflared', async () => {
     try {
       broadcastCloudflaredStatus({ status: 'installing' })
-      await installCloudflared()
-      const env = await detectCloudflared()
+      await cfProvider.install()
+      const env = (await cfProvider.detect()) as CloudflaredEnv
       broadcastCloudflaredStatus(env)
     } catch (err) {
       const errorEnv: CloudflaredEnv = {
@@ -243,7 +247,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('login-cloudflare', async () => {
     try {
-      return await loginCloudflare()
+      return await cfProvider.login()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '登入 Cloudflare 失敗')
     }
@@ -251,9 +255,9 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('logout-cloudflare', async () => {
     try {
-      // Stop all named tunnels before logout (Story 26)
-      stopAllNamedTunnels()
-      logoutCloudflare()
+      // Stop ALL tunnels before logout (not just named)
+      await cfProvider.stopAll()
+      await cfProvider.logout()
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '登出 Cloudflare 失敗')
@@ -262,7 +266,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('get-auth-status', async () => {
     try {
-      return getAuthStatus()
+      return cfProvider.getAuthStatus()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '取得認證狀態失敗')
     }
@@ -276,7 +280,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
       if (!server) throw new Error('找不到此網頁')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
-      const url = await bindFixedDomain(siteId, server.port, domain)
+      const url = await cfProvider.bindDomain!(siteId, server.port, domain)
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -286,7 +290,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('unbind-fixed-domain', async (_event, siteId: string) => {
     try {
-      await unbindFixedDomain(siteId)
+      await cfProvider.unbindDomain!(siteId)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '解除綁定失敗')
@@ -299,7 +303,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
       if (!server) throw new Error('找不到此網頁')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
-      await startNamedTunnel(siteId, server.port)
+      await cfProvider.startTunnel(siteId, server.port, { mode: 'named' })
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '啟動 Named Tunnel 失敗')
@@ -308,7 +312,7 @@ export function registerIpcHandlers(manager: ServerManager): void {
 
   ipcMain.handle('stop-named-tunnel', async (_event, siteId: string) => {
     try {
-      stopNamedTunnel(siteId)
+      await cfProvider.stopTunnel(siteId)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')

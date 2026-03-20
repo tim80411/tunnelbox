@@ -2,14 +2,9 @@ import { app, BrowserWindow, shell } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
-import {
-  ProcessManager,
-  initQuickTunnel,
-  initNamedTunnel,
-  restoreNamedTunnels,
-  stopAllNamedTunnels,
-  stopAllQuickTunnels
-} from './cloudflared'
+import { ProcessManager, initQuickTunnel, initNamedTunnel } from './cloudflared'
+import { TunnelProviderManager } from './tunnel-provider-manager'
+import { CloudflareProvider } from './providers/cloudflare-provider'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import * as siteStore from './store'
@@ -21,6 +16,9 @@ const serverManager = new ServerManager()
 export const processManager = new ProcessManager()
 initQuickTunnel(processManager)
 initNamedTunnel(processManager)
+
+const tunnelManager = new TunnelProviderManager()
+tunnelManager.register(new CloudflareProvider())
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -77,7 +75,7 @@ app.whenReady().then(async () => {
     await serverManager.initWebSocket()
 
     // Register IPC handlers
-    registerIpcHandlers(serverManager)
+    registerIpcHandlers(serverManager, tunnelManager)
 
     // Restore sites from persistent store
     const storedSites = siteStore.getSites()
@@ -97,7 +95,7 @@ app.whenReady().then(async () => {
     }
 
     // Restore named tunnels (Story 27: auto-reconnect on boot)
-    restoreNamedTunnels((siteId) => {
+    tunnelManager.restoreAll((siteId) => {
       const server = serverManager.getServer(siteId)
       return server && server.status === 'running' ? server.port : null
     }).catch((err) => {
@@ -140,8 +138,7 @@ app.on('before-quit', (e) => {
   log.info('Application quitting, stopping all servers and tunnel processes...')
 
   // Mark all tunnels as stopped first (prevents reconnect timers)
-  stopAllNamedTunnels()
-  stopAllQuickTunnels()
+  tunnelManager.stopAll().catch(() => {})
 
   // Force exit after 5 seconds no matter what
   const forceExitTimer = setTimeout(() => {
@@ -151,7 +148,7 @@ app.on('before-quit', (e) => {
   forceExitTimer.unref()
 
   // Clean up processes and servers, then exit
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).then(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).then(() => {
     clearTimeout(forceExitTimer)
     app.exit(0)
   })
@@ -183,14 +180,14 @@ process.on('exit', () => {
 
 process.on('SIGTERM', () => {
   log.info('Received SIGTERM, cleaning up...')
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
   log.info('Received SIGINT, cleaning up...')
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).finally(() => {
     process.exit(0)
   })
 })
