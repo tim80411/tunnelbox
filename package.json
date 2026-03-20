@@ -20,6 +20,7 @@
     "bump:patch": "./scripts/bump-version.sh patch",
     "bump:minor": "./scripts/bump-version.sh minor",
     "bump:major": "./scripts/bump-version.sh major",
+    "setup:quick-action": "bash scripts/install-quick-action.sh",
     "cli:build": "tsup",
     "cli:dev": "tsup --watch",
     "test": "vitest run",
@@ -34,6 +35,12 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources/quick-action",
+        "to": "quick-action"
+      }
+    ],
     "mac": {
       "target": [
         {
@@ -44,7 +51,15 @@
         }
       ],
       "category": "public.app-category.developer-tools",
-      "artifactName": "${productName}-${version}-mac-universal.${ext}"
+      "artifactName": "${productName}-${version}-mac-universal.${ext}",
+      "protocols": [
+        {
+          "name": "TunnelBox",
+          "schemes": [
+            "tunnelbox"
+          ]
+        }
+      ]
     },
     "dmg": {
       "contents": [
@@ -69,7 +84,15 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-win-x64.${ext}"
+      "artifactName": "${productName}-${version}-win-x64.${ext}",
+      "protocols": [
+        {
+          "name": "TunnelBox",
+          "schemes": [
+            "tunnelbox"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

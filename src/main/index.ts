@@ -11,6 +11,8 @@ import {
   stopAllQuickTunnels
 } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
+import { registerQuickActionHandlers } from './quick-action-installer'
+import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -37,6 +39,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+    flushPendingUrl()
   })
 
   // Forward Cmd+V / Ctrl+V to renderer for paste-to-add feature
@@ -61,6 +64,18 @@ function createWindow(): void {
   }
 }
 
+// ---------- URL Scheme Registration (must be before app.whenReady) ----------
+
+registerProtocolClient()
+setupOpenUrlHandler()
+
+// Windows: enforce single instance so second-instance event fires
+// instead of opening a duplicate app window
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+}
+
 // ---------- App Lifecycle ----------
 
 app.whenReady().then(async () => {
@@ -78,6 +93,7 @@ app.whenReady().then(async () => {
 
     // Register IPC handlers
     registerIpcHandlers(serverManager)
+    registerQuickActionHandlers()
 
     // Restore sites from persistent store
     const storedSites = siteStore.getSites()

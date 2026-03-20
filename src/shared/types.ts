@@ -74,6 +74,12 @@ export interface StoredSite {
   folderPath: string
 }
 
+export interface UrlAddResult {
+  success: boolean
+  siteName?: string
+  errorMessage?: string
+}
+
 export interface ElectronAPI {
   // Site management
   addSite: (name: string, folderPath: string) => Promise<SiteInfo>
@@ -115,6 +121,11 @@ export interface ElectronAPI {
   unbindFixedDomain: (siteId: string) => Promise<void>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
+
+  // Finder right-click integration
+  onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void
+  isQuickActionInstalled: () => Promise<boolean>
+  installQuickAction: () => Promise<void>
 
   // Event listeners
   onSiteUpdated: (callback: (sites: SiteInfo[]) => void) => () => void

@@ -374,6 +374,34 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+/* ── Success Bar ──────────────────────────────────────────────── */
+.success-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-6);
+  background: var(--success-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid #c3e6cb;
+}
+
+.success-close {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 var(--sp-1);
+  opacity: 0.7;
+  transition: opacity var(--duration);
+}
+
+.success-close:hover {
+  opacity: 1;
+}
+
 /* ── Error Bar ─────────────────────────────────────────────────── */
 .error-bar {
   display: flex;
