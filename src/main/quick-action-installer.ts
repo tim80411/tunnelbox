@@ -2,6 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
 import { app, ipcMain } from 'electron'
+import { getResourcePath } from './resource-path'
 import { createLogger } from './logger'
 
 const log = createLogger('QuickAction')
@@ -18,10 +19,7 @@ function getMacServicesDir(): string {
 }
 
 function getMacSourcePath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'quick-action', WORKFLOW_NAME)
-  }
-  return path.join(app.getAppPath(), 'resources', 'quick-action', WORKFLOW_NAME)
+  return getResourcePath('quick-action', WORKFLOW_NAME)
 }
 
 function getMacInstalledPath(): string {

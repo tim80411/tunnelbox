@@ -13,7 +13,7 @@ import {
 import { registerIpcHandlers } from './ipc-handlers'
 import { registerQuickActionHandlers } from './quick-action-installer'
 import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
-import { createTray } from './tray-manager'
+import { createTray, destroyTray } from './tray-manager'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -165,6 +165,8 @@ app.on('before-quit', (e) => {
   e.preventDefault()
 
   log.info('Application quitting, stopping all servers and tunnel processes...')
+
+  destroyTray()
 
   // Mark all tunnels as stopped first (prevents reconnect timers)
   stopAllNamedTunnels()

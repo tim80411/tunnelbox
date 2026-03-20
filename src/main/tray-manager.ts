@@ -1,24 +1,23 @@
 import { Tray, Menu, nativeImage, app } from 'electron'
-import path from 'node:path'
 import type { SiteInfo } from '../shared/types'
+import { getResourcePath } from './resource-path'
 import { createLogger } from './logger'
 
 const log = createLogger('TrayManager')
 
+const STATUS_ICONS: Record<SiteInfo['status'], string> = {
+  running: '● ',
+  stopped: '○ ',
+  error: '✕ '
+}
+
 let tray: Tray | null = null
 let showWindowCallback: (() => void) | null = null
-
-function getIconPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'tray', 'iconTemplate.png')
-  }
-  return path.join(app.getAppPath(), 'resources', 'tray', 'iconTemplate.png')
-}
 
 export function createTray(onShowWindow: () => void): void {
   showWindowCallback = onShowWindow
 
-  const icon = nativeImage.createFromPath(getIconPath())
+  const icon = nativeImage.createFromPath(getResourcePath('tray', 'iconTemplate.png'))
   icon.setTemplateImage(true)
 
   tray = new Tray(icon)
@@ -44,10 +43,6 @@ export function updateTrayMenu(sites: SiteInfo[]): void {
     menuItems.push({ label: '尚無站點', enabled: false })
   } else {
     for (const site of sites) {
-      const statusLabel =
-        site.status === 'running' ? '● ' :
-        site.status === 'error' ? '✕ ' : '○ '
-
       let sublabel = ''
       if (site.tunnel?.publicUrl) {
         sublabel = site.tunnel.publicUrl
@@ -56,7 +51,7 @@ export function updateTrayMenu(sites: SiteInfo[]): void {
       }
 
       menuItems.push({
-        label: `${statusLabel}${site.name}`,
+        label: `${STATUS_ICONS[site.status]}${site.name}`,
         sublabel,
         enabled: false
       })
