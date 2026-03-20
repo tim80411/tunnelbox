@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, ElectronAPI } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
@@ -37,6 +37,21 @@ const electronAPI: ElectronAPI = {
   // Drag-and-drop path resolution
   getPathForFile: (file: File): string => {
     return webUtils.getPathForFile(file)
+  },
+
+  // Clipboard
+  readClipboardText: (): string => {
+    return clipboard.readText()
+  },
+
+  onPasteShortcut: (callback: () => void): (() => void) => {
+    const handler = (): void => {
+      callback()
+    }
+    ipcRenderer.on('paste-shortcut', handler)
+    return () => {
+      ipcRenderer.removeListener('paste-shortcut', handler)
+    }
   },
 
   // Event listeners

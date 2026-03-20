@@ -3,6 +3,7 @@ import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/type
 import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
+import { usePasteToAdd } from './hooks/usePasteToAdd'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -250,6 +251,7 @@ function App(): React.ReactElement {
   }, [])
 
   const { isDraggingOver, dropZoneHandlers } = useSiteDropZone({ onError: setError })
+  usePasteToAdd({ onError: setError })
 
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'

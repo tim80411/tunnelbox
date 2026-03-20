@@ -39,6 +39,14 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // Forward Cmd+V / Ctrl+V to renderer for paste-to-add feature
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if ((input.meta || input.control) && input.key.toLowerCase() === 'v' && input.type === 'keyDown') {
+      log.debug('Forwarding paste shortcut to renderer')
+      mainWindow?.webContents.send('paste-shortcut')
+    }
+  })
+
   // Open external links in default browser instead of new Electron window
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)

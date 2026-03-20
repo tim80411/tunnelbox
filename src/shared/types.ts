@@ -93,6 +93,10 @@ export interface ElectronAPI {
   // Drag-and-drop path resolution
   getPathForFile: (file: File) => string
 
+  // Clipboard
+  readClipboardText: () => string
+  onPasteShortcut: (callback: () => void) => () => void
+
   // --- Cloudflared Environment ---
   getCloudflaredStatus: () => Promise<CloudflaredEnv>
   installCloudflared: () => Promise<void>
