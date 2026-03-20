@@ -11,6 +11,7 @@ import {
   stopAllQuickTunnels
 } from './cloudflared'
 import { registerIpcHandlers } from './ipc-handlers'
+import { initApiServer, stopApiServer } from './api-server'
 import { registerQuickActionHandlers } from './quick-action-installer'
 import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
 import { createLogger } from './logger'
@@ -95,6 +96,9 @@ app.whenReady().then(async () => {
     registerIpcHandlers(serverManager)
     registerQuickActionHandlers()
 
+    // Start local HTTP API for CLI communication
+    await initApiServer(serverManager)
+
     // Restore sites from persistent store
     const storedSites = siteStore.getSites()
     for (const site of storedSites) {
@@ -166,8 +170,8 @@ app.on('before-quit', (e) => {
   }, 5000)
   forceExitTimer.unref()
 
-  // Clean up processes and servers, then exit
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).then(() => {
+  // Clean up processes, servers, and API server, then exit
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll(), stopApiServer()]).then(() => {
     clearTimeout(forceExitTimer)
     app.exit(0)
   })
@@ -199,14 +203,14 @@ process.on('exit', () => {
 
 process.on('SIGTERM', () => {
   log.info('Received SIGTERM, cleaning up...')
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
   log.info('Received SIGINT, cleaning up...')
-  Promise.allSettled([processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })

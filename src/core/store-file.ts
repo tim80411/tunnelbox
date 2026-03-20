@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { dirname, join } from 'path'
-import { homedir } from 'os'
 import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
 import type { IStore, StoredDomainBinding } from './store-interface'
+import { getAppDataDir } from './paths'
 
 interface StoreData {
   sites: StoredSite[]
@@ -21,17 +21,7 @@ function getDefaults(): StoreData {
 }
 
 export function getDefaultStorePath(): string {
-  const platform = process.platform
-  if (platform === 'darwin') {
-    return join(homedir(), 'Library', 'Application Support', 'tunnelbox', 'tunnelbox-data.json')
-  } else if (platform === 'win32') {
-    return join(
-      process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'),
-      'tunnelbox',
-      'tunnelbox-data.json',
-    )
-  }
-  return join(homedir(), '.config', 'tunnelbox', 'tunnelbox-data.json')
+  return join(getAppDataDir(), 'tunnelbox-data.json')
 }
 
 export class FileStore implements IStore {
