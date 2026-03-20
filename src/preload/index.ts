@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, ElectronAPI } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -51,6 +51,25 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('paste-shortcut', handler)
     return () => {
       ipcRenderer.removeListener('paste-shortcut', handler)
+    }
+  },
+
+  // Finder right-click integration
+  isQuickActionInstalled: (): Promise<boolean> => {
+    return ipcRenderer.invoke('is-quick-action-installed')
+  },
+
+  installQuickAction: (): Promise<void> => {
+    return ipcRenderer.invoke('install-quick-action')
+  },
+
+  onUrlAddResult: (callback: (result: UrlAddResult) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, result: UrlAddResult): void => {
+      callback(result)
+    }
+    ipcRenderer.on('url-add-result', handler)
+    return () => {
+      ipcRenderer.removeListener('url-add-result', handler)
     }
   },
 

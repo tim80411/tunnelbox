@@ -4,6 +4,7 @@ import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
+import { useUrlAddNotification } from './hooks/useUrlAddNotification'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -13,6 +14,10 @@ function App(): React.ReactElement {
 
   // Confirm remove modal state
   const [confirmRemove, setConfirmRemove] = useState<SiteInfo | null>(null)
+
+  // Quick Action install state
+  const [quickActionInstalled, setQuickActionInstalled] = useState<boolean | null>(null)
+  const [installingQuickAction, setInstallingQuickAction] = useState(false)
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -38,6 +43,7 @@ function App(): React.ReactElement {
     })
 
     window.electron.getAuthStatus?.().then(setAuth).catch(() => {})
+    window.electron.isQuickActionInstalled?.().then(setQuickActionInstalled).catch(() => {})
 
     const unsubSites = window.electron.onSiteUpdated((updatedSites) => {
       setSites(updatedSites)
@@ -250,8 +256,30 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  const handleUrlAddSuccess = useCallback((msg: string) => {
+    setSuccessMessage(msg)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }, [])
+
+  const handleInstallQuickAction = useCallback(async () => {
+    try {
+      setInstallingQuickAction(true)
+      await window.electron.installQuickAction()
+      setQuickActionInstalled(true)
+      setSuccessMessage('Finder Quick Action installed! Right-click a folder to use it.')
+      setTimeout(() => setSuccessMessage(null), 5000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to install Quick Action')
+    } finally {
+      setInstallingQuickAction(false)
+    }
+  }, [])
+
   const { isDraggingOver, dropZoneHandlers } = useSiteDropZone({ onError: setError })
   usePasteToAdd({ onError: setError })
+  useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
@@ -268,11 +296,28 @@ function App(): React.ReactElement {
             onLogin={handleLogin}
             onLogout={handleLogout}
           />
+          {quickActionInstalled === false && (
+            <button
+              className="btn btn-sm"
+              onClick={handleInstallQuickAction}
+              disabled={installingQuickAction}
+              title="Install Finder right-click integration"
+            >
+              {installingQuickAction ? 'Installing...' : 'Setup Finder'}
+            </button>
+          )}
           <button className="btn btn-primary" onClick={openAddModal}>
             + Add Site
           </button>
         </div>
       </header>
+
+      {successMessage && (
+        <div className="success-bar">
+          {successMessage}
+          <button className="success-close" onClick={() => setSuccessMessage(null)}>×</button>
+        </div>
+      )}
 
       {error && (
         <div className="error-bar">

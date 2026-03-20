@@ -6,7 +6,6 @@ import {
   installCloudflared,
   startQuickTunnel,
   stopQuickTunnel,
-  getTunnelInfo,
   hasTunnel,
   loginCloudflare,
   logoutCloudflare,
@@ -15,42 +14,12 @@ import {
   unbindFixedDomain,
   startNamedTunnel,
   stopNamedTunnel,
-  getNamedTunnelInfo,
   stopAllNamedTunnels
 } from './cloudflared'
-import type { SiteInfo, CloudflaredEnv } from '../shared/types'
+import { initSiteActions, toSiteInfo, broadcastSiteUpdate } from './site-actions'
+import type { CloudflaredEnv } from '../shared/types'
 
 let serverManager: ServerManager
-
-function toSiteInfo(server: {
-  id: string
-  name: string
-  folderPath: string
-  port: number
-  status: 'running' | 'stopped' | 'error'
-}): SiteInfo {
-  const info: SiteInfo = {
-    id: server.id,
-    name: server.name,
-    folderPath: server.folderPath,
-    port: server.port,
-    status: server.status,
-    url: server.status === 'running' ? `http://localhost:${server.port}` : ''
-  }
-  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
-  if (tunnel) {
-    info.tunnel = tunnel
-  }
-  return info
-}
-
-function broadcastSiteUpdate(): void {
-  const sites = serverManager.getServers().map(toSiteInfo)
-  const windows = BrowserWindow.getAllWindows()
-  for (const win of windows) {
-    win.webContents.send('site-updated', sites)
-  }
-}
 
 function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
   const windows = BrowserWindow.getAllWindows()
@@ -65,6 +34,7 @@ export function getServerManager(): ServerManager {
 
 export function registerIpcHandlers(manager: ServerManager): void {
   serverManager = manager
+  initSiteActions(manager)
 
   // --- Site Management ---
 
