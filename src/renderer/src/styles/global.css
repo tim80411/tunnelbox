@@ -891,6 +891,77 @@ html, body, #root {
   color: var(--danger);
 }
 
+/* ── Local Domain ─────────────────────────────────────────────── */
+.local-domain-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-1);
+}
+
+.local-domain-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: var(--radius);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.local-domain-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-default);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: text-decoration-color var(--duration);
+}
+
+.local-domain-name:hover {
+  text-decoration-color: var(--accent);
+}
+
+.local-domain-name-dimmed {
+  opacity: 0.45;
+}
+
+.btn-local-domain {
+  margin-top: var(--sp-1);
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
+  border-style: dashed;
+}
+
+.btn-local-domain:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.form-input-error {
+  border-color: var(--danger);
+}
+
+.form-input-error:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px var(--danger-bg);
+}
+
+.form-validation-error {
+  display: block;
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: var(--sp-1);
+}
+
 /* ── Drop Zone ─────────────────────────────────────────────────── */
 .site-list-drop-active {
   outline: 2px dashed var(--accent);

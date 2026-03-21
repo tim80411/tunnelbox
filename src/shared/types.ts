@@ -6,6 +6,7 @@ export interface SiteInfo {
   status: 'running' | 'stopped' | 'error'
   url: string // e.g., "http://localhost:3001"
   tunnel?: TunnelInfo
+  localDomain?: string // e.g., "my-project.local"
 }
 
 // --- Cloudflared Environment ---
@@ -73,6 +74,7 @@ export interface StoredSite {
   name: string
   folderPath: string
   providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  localDomain?: string   // e.g., "my-project.local"
 }
 
 export interface UrlAddResult {
@@ -122,6 +124,10 @@ export interface ElectronAPI {
   unbindFixedDomain: (siteId: string) => Promise<void>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
+
+  // --- Local Domain ---
+  setLocalDomain: (siteId: string, domain: string) => Promise<void>
+  removeLocalDomain: (siteId: string) => Promise<void>
 
   // Finder right-click integration
   onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void

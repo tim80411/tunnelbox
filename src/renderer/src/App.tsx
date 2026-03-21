@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import AuthPanel from './components/AuthPanel'
+import LocalDomainSetting from './components/LocalDomainSetting'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -256,6 +257,25 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleSetLocalDomain = useCallback(async (siteId: string, domain: string) => {
+    try {
+      setError(null)
+      await window.electron.setLocalDomain(siteId, domain)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '設定本地域名失敗')
+      throw err
+    }
+  }, [])
+
+  const handleRemoveLocalDomain = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.removeLocalDomain(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移除本地域名失敗')
+    }
+  }, [])
+
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleUrlAddSuccess = useCallback((msg: string) => {
@@ -437,6 +457,12 @@ function App(): React.ReactElement {
                   ) : (
                     <span className="site-item-url-unavailable">網址不可用</span>
                   )}
+                  <LocalDomainSetting
+                    site={site}
+                    allSites={sites}
+                    onSetDomain={handleSetLocalDomain}
+                    onRemoveDomain={handleRemoveLocalDomain}
+                  />
                   <TunnelControls
                     site={site}
                     cloudflaredAvailable={cloudflaredEnv.status === 'available'}

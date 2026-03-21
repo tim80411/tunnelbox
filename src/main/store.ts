@@ -61,6 +61,14 @@ export function removeSite(id: string): void {
   saveSites(sites.filter((s) => s.id !== id))
 }
 
+export function updateSite(id: string, patch: Partial<StoredSite>): void {
+  const sites = getSites()
+  const idx = sites.findIndex((s) => s.id === id)
+  if (idx === -1) return
+  sites[idx] = { ...sites[idx], ...patch }
+  saveSites(sites)
+}
+
 // --- Auth ---
 
 export function getAuth(): StoredAuth | null {

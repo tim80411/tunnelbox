@@ -54,6 +54,15 @@ const electronAPI: ElectronAPI = {
     }
   },
 
+  // --- Local Domain ---
+  setLocalDomain: (siteId: string, domain: string): Promise<void> => {
+    return ipcRenderer.invoke('set-local-domain', siteId, domain)
+  },
+
+  removeLocalDomain: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('remove-local-domain', siteId)
+  },
+
   // Finder right-click integration
   isQuickActionInstalled: (): Promise<boolean> => {
     return ipcRenderer.invoke('is-quick-action-installed')
