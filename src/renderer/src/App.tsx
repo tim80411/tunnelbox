@@ -479,6 +479,9 @@ function App(): React.ReactElement {
               <div key={site.id} className="site-item">
                 <div className="site-item-info">
                   <div className="site-item-name-row">
+                    <span className={`site-mode-badge site-mode-badge--${site.serveMode}`}>
+                      {site.serveMode}
+                    </span>
                   {renamingId === site.id ? (
                     <form
                       className="site-rename-form"

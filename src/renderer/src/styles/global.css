@@ -302,6 +302,31 @@ html, body, #root {
   gap: var(--sp-1);
 }
 
+/* ── Serve Mode Badges ────────────────────────────────────────── */
+.site-mode-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: var(--radius);
+}
+
+.site-mode-badge--static {
+  color: var(--text-tertiary);
+  background: var(--bg-muted);
+  border-color: var(--border-subtle);
+}
+
+.site-mode-badge--proxy {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
 /* ── Status Badges ─────────────────────────────────────────────── */
 .site-item-status {
   font-family: var(--font-mono);
