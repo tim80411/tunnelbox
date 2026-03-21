@@ -5,6 +5,7 @@ import LanSharingControls from './components/LanSharingControls'
 import LanQrButton from './components/LanQrButton'
 import AuthPanel from './components/AuthPanel'
 import SettingsPanel from './components/SettingsPanel'
+import ShortcutsPanel from './components/ShortcutsPanel'
 import { useSettings } from './hooks/useSettings'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
@@ -29,8 +30,9 @@ function App(): React.ReactElement {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
-  // Settings panel state
+  // Panel state
   const [showSettings, setShowSettings] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const { settings, update: updateSettings } = useSettings()
 
   // Add-site modal state
@@ -360,7 +362,7 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || !!confirmRemove
+  const isModalOpen = showAddModal || showSettings || showShortcuts || !!confirmRemove
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
@@ -368,6 +370,7 @@ function App(): React.ReactElement {
 
   const handleOpenSettings = useCallback(() => setShowSettings(true), [])
   const handleRemoveSiteConfirm = useCallback((site: SiteInfo) => setConfirmRemove(site), [])
+  const handleShowShortcuts = useCallback(() => setShowShortcuts((v) => !v), [])
 
   useMenuCommands({
     sites,
@@ -376,8 +379,22 @@ function App(): React.ReactElement {
     onOpenSettings: handleOpenSettings,
     onOpenInBrowser: handleOpenInBrowser,
     onRestartServer: handleRestartServer,
-    onRemoveSite: handleRemoveSiteConfirm
+    onRemoveSite: handleRemoveSiteConfirm,
+    onShowShortcuts: handleShowShortcuts
   })
+
+  // Esc closes any open modal/panel
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      if (showShortcuts) { setShowShortcuts(false); return }
+      if (showSettings) { setShowSettings(false); return }
+      if (confirmRemove) { setConfirmRemove(null); return }
+      if (showAddModal) { setShowAddModal(false); return }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [showShortcuts, showSettings, confirmRemove, showAddModal])
 
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
@@ -735,6 +752,11 @@ function App(): React.ReactElement {
         settings={settings}
         onClose={() => setShowSettings(false)}
         onUpdate={updateSettings}
+      />
+
+      <ShortcutsPanel
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
       />
 
       {/* Add Site Modal */}

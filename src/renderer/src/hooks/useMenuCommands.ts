@@ -9,6 +9,7 @@ interface UseMenuCommandsOptions {
   onOpenInBrowser: (site: SiteInfo) => void
   onRestartServer: (site: SiteInfo) => void
   onRemoveSite: (site: SiteInfo) => void
+  onShowShortcuts: () => void
 }
 
 export function useMenuCommands(options: UseMenuCommandsOptions): void {
@@ -39,12 +40,15 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
       if (site) optionsRef.current.onRemoveSite(site)
     })
 
+    const unsubShortcuts = window.electron.onMenuShowShortcuts(() => optionsRef.current.onShowShortcuts())
+
     return () => {
       unsubAdd()
       unsubSettings()
       unsubOpen()
       unsubRestart()
       unsubRemove()
+      unsubShortcuts()
     }
   }, [])
 }
