@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { DOMAIN_REGEX } from '../../../shared/types'
 import type { SiteInfo, AuthStatus } from '../../../shared/types'
 import CopyButton from './CopyButton'
 import QrButton from './QrButton'
@@ -34,6 +35,24 @@ function TunnelControls({
   const [binding, setBinding] = useState(false)
   const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
   const [unbinding, setUnbinding] = useState(false)
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
+  const [showDefaultDomainModal, setShowDefaultDomainModal] = useState(false)
+  const [defaultDomainInput, setDefaultDomainInput] = useState('')
+  const [defaultDomainError, setDefaultDomainError] = useState<string | null>(null)
+  const [savingDefaultDomain, setSavingDefaultDomain] = useState(false)
+  const overflowRef = useRef<HTMLDivElement>(null)
+
+  // Close overflow menu on click outside
+  useEffect(() => {
+    if (!showOverflowMenu) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setShowOverflowMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showOverflowMenu])
 
   const handleBindDomain = useCallback(async () => {
     const trimmed = domainInput.trim()
@@ -41,7 +60,7 @@ function TunnelControls({
       setDomainError('請輸入網域名稱')
       return
     }
-    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+    if (!DOMAIN_REGEX.test(trimmed)) {
       setDomainError('請輸入有效的網域名稱，例如 dev.example.com')
       return
     }
@@ -58,11 +77,45 @@ function TunnelControls({
     }
   }, [domainInput, site.id, onBindFixedDomain])
 
+  const handleSaveDefaultDomain = useCallback(async () => {
+    const trimmed = defaultDomainInput.trim()
+    if (!trimmed) {
+      // Clear default domain
+      setSavingDefaultDomain(true)
+      try {
+        await window.electron.clearDefaultDomain(site.id)
+        setShowDefaultDomainModal(false)
+        setDefaultDomainInput('')
+      } catch (err) {
+        setDefaultDomainError(err instanceof Error ? err.message : '清除預設網域失敗')
+      } finally {
+        setSavingDefaultDomain(false)
+      }
+      return
+    }
+    if (!DOMAIN_REGEX.test(trimmed)) {
+      setDefaultDomainError('請輸入有效的網域名稱，例如 dev.example.com')
+      return
+    }
+    setDefaultDomainError(null)
+    setSavingDefaultDomain(true)
+    try {
+      await window.electron.setDefaultDomain(site.id, trimmed)
+      setShowDefaultDomainModal(false)
+      setDefaultDomainInput('')
+    } catch (err) {
+      setDefaultDomainError(err instanceof Error ? err.message : '設定預設網域失敗')
+    } finally {
+      setSavingDefaultDomain(false)
+    }
+  }, [defaultDomainInput, site.id])
+
   const tunnel = site.tunnel
   const isNamed = tunnel?.type === 'named'
   const isLoggedIn = authStatus === 'logged_in'
   const isRunning = site.status === 'running'
   const isAvailable = isRunning && cloudflaredAvailable
+  const hasDefaultDomain = !!site.defaultDomain
 
   // Status light color
   const lightColor = tunnel?.status === 'running'
@@ -78,10 +131,20 @@ function TunnelControls({
   // WAN URL
   const wanUrl = tunnel?.status === 'running' && tunnel.publicUrl ? tunnel.publicUrl : null
 
-  // Play button: start quick tunnel or resume named tunnel
-  const canPlay = isAvailable && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
-  const handlePlay = () => {
+  // Play button: start quick tunnel, resume named tunnel, or use default domain
+  const canPlay = isAvailable && !binding && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
+  const handlePlay = async () => {
     if (!canPlay) return
+    // If site has a default domain and user is logged in, use it to start named tunnel
+    if (hasDefaultDomain && isLoggedIn && !isNamed) {
+      setBinding(true)
+      try {
+        await onBindFixedDomain(site.id, site.defaultDomain!)
+      } finally {
+        setBinding(false)
+      }
+      return
+    }
     if (isNamed) {
       onStartNamedTunnel(site.id)
     } else {
@@ -93,6 +156,13 @@ function TunnelControls({
       }
     }
   }
+
+  // Play button tooltip
+  const playTooltip = hasDefaultDomain && isLoggedIn && !isNamed
+    ? `使用預設網域 ${site.defaultDomain} 公開`
+    : isNamed && tunnel?.status === 'stopped'
+      ? '恢復公開'
+      : '公開分享'
 
   // Stop button: stop quick tunnel or unbind named tunnel
   const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting'
@@ -144,7 +214,9 @@ function TunnelControls({
             ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
             : tunnel?.status === 'running'
               ? '類型：Quick Tunnel（隨機網址）'
-              : 'Cloudflare Tunnel 公開分享'
+              : hasDefaultDomain
+                ? `預設網域：${site.defaultDomain}`
+                : 'Cloudflare Tunnel 公開分享'
         }>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         </span>
@@ -154,7 +226,7 @@ function TunnelControls({
           className="btn-icon"
           onClick={handlePlay}
           disabled={!canPlay}
-          data-tooltip={isNamed && tunnel?.status === 'stopped' ? '恢復公開' : '公開分享'}
+          data-tooltip={playTooltip}
         >
           <svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
         </button>
@@ -174,25 +246,64 @@ function TunnelControls({
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
         </button>
 
-        {/* Fixed domain button — only when available and no active tunnel */}
-        {isAvailable && !tunnel && cloudflaredAvailable && (
-          <button
-            className="btn btn-xs"
-            onClick={() => isLoggedIn ? setShowDomainModal(true) : onLogin()}
-            title={!isLoggedIn ? '需要先登入 Cloudflare' : undefined}
-          >
-            固定網域
-          </button>
-        )}
-
-        {/* Unbind button — only for named tunnels */}
-        {isNamed && (
-          <button
-            className="btn btn-xs btn-danger"
-            onClick={() => setShowUnbindConfirm(true)}
-          >
-            解除綁定
-          </button>
+        {/* Overflow menu (three dots) — shown when site is available */}
+        {isAvailable && (
+          <div className="overflow-menu-wrapper" ref={overflowRef}>
+            <button
+              className="btn-icon"
+              onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+              data-tooltip="更多選項"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <circle cx="5" cy="2" r="1" fill="currentColor"/>
+                <circle cx="5" cy="5" r="1" fill="currentColor"/>
+                <circle cx="5" cy="8" r="1" fill="currentColor"/>
+              </svg>
+            </button>
+            {showOverflowMenu && (
+              <div className="overflow-menu">
+                <button
+                  className="overflow-menu-item"
+                  onClick={() => {
+                    setShowOverflowMenu(false)
+                    if (!isLoggedIn) {
+                      onLogin()
+                      return
+                    }
+                    setDefaultDomainInput(site.defaultDomain || '')
+                    setDefaultDomainError(null)
+                    setShowDefaultDomainModal(true)
+                  }}
+                >
+                  {hasDefaultDomain ? `預設網域：${site.defaultDomain}` : '設定預設網域'}
+                </button>
+                <button
+                  className="overflow-menu-item"
+                  onClick={() => {
+                    setShowOverflowMenu(false)
+                    if (!isLoggedIn) {
+                      onLogin()
+                      return
+                    }
+                    setShowDomainModal(true)
+                  }}
+                >
+                  綁定固定網域
+                </button>
+                {isNamed && (
+                  <button
+                    className="overflow-menu-item overflow-menu-item--danger"
+                    onClick={() => {
+                      setShowOverflowMenu(false)
+                      setShowUnbindConfirm(true)
+                    }}
+                  >
+                    解除綁定
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -234,6 +345,53 @@ function TunnelControls({
                 disabled={binding}
               >
                 {binding ? '建立中...' : '建立並綁定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Default domain modal */}
+      {showDefaultDomainModal && (
+        <div className="modal-overlay" data-dismiss onClick={() => setShowDefaultDomainModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">設定預設網域</h2>
+            <p className="confirm-text" style={{ marginBottom: '8px' }}>
+              設定後，按下 ▶ 將直接使用此網域啟動固定 Tunnel。留空可清除預設網域。
+            </p>
+            {defaultDomainError && <div className="modal-error">{defaultDomainError}</div>}
+            <div className="form-group">
+              <label className="form-label">
+                預設網域
+                <span
+                  className="form-hint"
+                  data-tooltip="網域需由 Cloudflare 託管 DNS。設定後不會立即綁定，僅在按下 ▶ 時使用。"
+                >
+                  ⓘ
+                </span>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="dev.example.com"
+                value={defaultDomainInput}
+                onChange={(e) => {
+                  setDefaultDomainInput(e.target.value)
+                  setDefaultDomainError(null)
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowDefaultDomainModal(false)}>
+                取消
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveDefaultDomain}
+                disabled={savingDefaultDomain}
+              >
+                {savingDefaultDomain ? '儲存中...' : defaultDomainInput.trim() ? '儲存' : '清除預設'}
               </button>
             </div>
           </div>

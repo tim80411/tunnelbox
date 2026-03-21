@@ -400,6 +400,17 @@ function App(): React.ReactElement {
 
   return (
     <div className="app-container">
+      <div className="app-layout">
+        <SettingsPanel
+          open={showSettings}
+          settings={settings}
+          onClose={() => setShowSettings(false)}
+          onUpdate={updateSettings}
+          appVersion={appVersion}
+          updateState={updateState}
+          onCheckForUpdates={checkForUpdates}
+        />
+        <div className="app-main">
       <header className="app-header">
         <h1>TunnelBox</h1>
         <div className="app-header-actions">
@@ -695,6 +706,8 @@ function App(): React.ReactElement {
           )}
         </div>
       </div>
+        </div>{/* end app-main */}
+      </div>{/* end app-layout */}
 
       {/* Confirm Remove Modal */}
       {confirmRemove && (
@@ -759,21 +772,6 @@ function App(): React.ReactElement {
           </div>
         </div>
       )}
-
-      <SettingsPanel
-        open={showSettings}
-        settings={settings}
-        onClose={() => setShowSettings(false)}
-        onUpdate={updateSettings}
-        appVersion={appVersion}
-        updateState={updateState}
-        onCheckForUpdates={checkForUpdates}
-      />
-
-      <ShortcutsPanel
-        open={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
 
       <ShortcutsPanel
         open={showShortcuts}
