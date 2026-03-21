@@ -3,6 +3,7 @@ import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../
 import TunnelControls from './components/TunnelControls'
 import LanSharingControls from './components/LanSharingControls'
 import LanQrButton from './components/LanQrButton'
+import CopyButton from './components/CopyButton'
 import AuthPanel from './components/AuthPanel'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
@@ -577,17 +578,10 @@ function App(): React.ReactElement {
                     <span className="site-item-path">
                       {site.serveMode === 'proxy' ? `Proxy → ${site.proxyTarget}` : site.folderPath}
                     </span>
-                    <button
-                      className="btn-copy"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(
-                          site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath
-                        )
-                      }}
-                      title={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
-                    >
-                      📋
-                    </button>
+                    <CopyButton
+                      text={site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath}
+                      tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
+                    />
                   </div>
                   {site.status === 'running' && site.url ? (
                     <>
@@ -600,15 +594,7 @@ function App(): React.ReactElement {
                         >
                           {site.url}
                         </a>
-                        <button
-                          className="btn-copy"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(site.url)
-                          }}
-                          title="複製網址"
-                        >
-                          📋
-                        </button>
+                        <CopyButton text={site.url} tooltip="複製網址" />
                       </div>
                       {site.lanUrl && (
                         <div className="site-item-url-row">
@@ -625,18 +611,10 @@ function App(): React.ReactElement {
                             <span className="sharing-iface">({site.lanInterfaceName})</span>
                           )}
                           {site.lanHasMultipleInterfaces && (
-                            <span className="lan-multi-hint" title="有多個可用的區網介面，目前使用最佳介面">+</span>
+                            <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
                           )}
-                          <button
-                            className="btn-copy"
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(site.lanUrl!)
-                            }}
-                            title="複製區網網址"
-                          >
-                            📋
-                          </button>
-                          <LanQrButton lanUrl={site.lanUrl} />
+                          <CopyButton text={site.lanUrl} tooltip="複製區網網址" />
+                          <LanQrButton lanUrl={site.lanUrl} lanInterfaceName={site.lanInterfaceName} />
                         </div>
                       )}
                       {site.tunnel?.status === 'running' && site.tunnel.publicUrl && (
@@ -650,15 +628,7 @@ function App(): React.ReactElement {
                           >
                             {site.tunnel.publicUrl}
                           </a>
-                          <button
-                            className="btn-copy"
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(site.tunnel!.publicUrl!)
-                            }}
-                            title="複製公開網址"
-                          >
-                            📋
-                          </button>
+                          <CopyButton text={site.tunnel.publicUrl} tooltip="複製公開網址" />
                         </div>
                       )}
                     </>
