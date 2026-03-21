@@ -17,6 +17,7 @@
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
     "bump:patch": "./scripts/bump-version.sh patch",
     "bump:minor": "./scripts/bump-version.sh minor",
     "bump:major": "./scripts/bump-version.sh major",
@@ -103,6 +104,24 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Development",
+      "artifactName": "${productName}-${version}-linux-x64.${ext}"
     }
   },
   "dependencies": {
