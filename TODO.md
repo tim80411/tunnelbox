@@ -54,6 +54,11 @@
 - [ ] 實作 macOS 快捷鍵綁定（優先）
 - [ ] 未來擴充 Windows 快捷鍵支援（Ctrl 對應）
 
+## 程式碼品質（Simplify Review 2026-03-21）
+
+- [ ] 提取共用 semver 工具 — `parseVersion`/`compareSemver` 在 `cloudflared/detector.ts`、`frp/detector.ts`、`cli/cloudflared-cli.ts` 三處重複，應抽為 `src/shared/semver.ts`
+- [ ] 提取共用下載工具 — `downloadFile`（Electron `net.request` + redirect）在 `cloudflared/installer.ts` 和 `frp/installer.ts` 完全相同，應抽為 `src/main/download.ts`
+
 ## 跨功能
 
 - [ ] 端到端測試 — 所有功能目前無自動化測試，僅靠 spec 的驗收標準做手動驗證
