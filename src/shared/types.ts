@@ -5,7 +5,14 @@ export interface SiteInfo {
   port: number
   status: 'running' | 'stopped' | 'error'
   url: string // e.g., "http://localhost:3001"
+  lanUrl?: string // e.g., "http://192.168.1.100:3001" — present when LAN sharing is enabled
+  lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
   tunnel?: TunnelInfo
+}
+
+export interface LanInfo {
+  ip: string | null
+  interfaces: Array<{ name: string; ip: string }>
 }
 
 // --- Cloudflared Environment ---
@@ -122,6 +129,10 @@ export interface ElectronAPI {
   unbindFixedDomain: (siteId: string) => Promise<void>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
+
+  // LAN Sharing
+  getLanInfo: () => Promise<LanInfo>
+  setLanSharing: (siteId: string, enabled: boolean) => Promise<void>
 
   // Finder right-click integration
   onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void

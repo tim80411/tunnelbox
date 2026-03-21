@@ -2,10 +2,14 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
-import type { SiteInfo, CloudflaredEnv } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, LanInfo } from '../shared/types'
 import { initSiteActions } from './site-actions'
+import { getLanIp, getAllLanIps } from '../core/lan-ip'
 
 let serverManager: ServerManager
+
+/** Sites with LAN sharing enabled (runtime state, not persisted). */
+const lanSharingSites = new Set<string>()
 
 function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
   const windows = BrowserWindow.getAllWindows()
@@ -42,6 +46,16 @@ export function registerIpcHandlers(
       status: server.status,
       url: server.status === 'running' ? `http://localhost:${server.port}` : ''
     }
+
+    // LAN sharing URL
+    if (server.status === 'running' && lanSharingSites.has(server.id)) {
+      const allIps = getAllLanIps()
+      if (allIps.length > 0) {
+        info.lanUrl = `http://${allIps[0].ip}:${server.port}`
+        info.lanInterfaceName = allIps[0].name
+      }
+    }
+
     const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
     if (providerInfo) {
       info.tunnel = {
@@ -115,6 +129,7 @@ export function registerIpcHandlers(
       } catch {
         /* ignore */
       }
+      lanSharingSites.delete(id)
       await serverManager.removeServer(id)
       siteStore.removeSite(id)
       broadcastSiteUpdate()
@@ -158,6 +173,8 @@ export function registerIpcHandlers(
       } catch {
         /* ignore */
       }
+      // Auto-disable LAN sharing when stopping server
+      lanSharingSites.delete(id)
       await serverManager.stopServer(id)
       broadcastSiteUpdate()
     } catch (err) {
@@ -191,6 +208,39 @@ export function registerIpcHandlers(
       return result.filePaths[0]
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to select folder')
+    }
+  })
+
+  // --- LAN Sharing ---
+
+  ipcMain.handle('get-lan-info', async (): Promise<LanInfo> => {
+    try {
+      return {
+        ip: getLanIp(),
+        interfaces: getAllLanIps()
+      }
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得區網資訊失敗')
+    }
+  })
+
+  ipcMain.handle('set-lan-sharing', async (_event, siteId: string, enabled: boolean) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (enabled && server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      if (enabled) {
+        const ip = getLanIp()
+        if (!ip) throw new Error('未偵測到區網連線')
+        lanSharingSites.add(siteId)
+      } else {
+        lanSharingSites.delete(siteId)
+      }
+
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定區網分享失敗')
     }
   })
 
