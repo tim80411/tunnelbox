@@ -89,6 +89,12 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener('menu:remove-site', handler)
   },
 
+  onMenuShowShortcuts: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:show-shortcuts', handler)
+    return () => ipcRenderer.removeListener('menu:show-shortcuts', handler)
+  },
+
   // LAN Sharing
   getLanInfo: (): Promise<LanInfo> => {
     return ipcRenderer.invoke('get-lan-info')

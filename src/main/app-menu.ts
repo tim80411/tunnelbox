@@ -112,6 +112,18 @@ export function setAppMenu(): void {
           ? [{ type: 'separator' as const }, { role: 'front' as const }]
           : [])
       ]
+    },
+
+    // Help
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Keyboard Shortcuts',
+          accelerator: 'CmdOrCtrl+/',
+          click: (): void => sendToFocusedWindow('menu:show-shortcuts')
+        }
+      ]
     }
   ]
 

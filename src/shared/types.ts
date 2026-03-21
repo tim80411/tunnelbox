@@ -223,6 +223,7 @@ export interface ElectronAPI {
   onMenuOpenInBrowser: (callback: () => void) => () => void
   onMenuRestartServer: (callback: () => void) => () => void
   onMenuRemoveSite: (callback: () => void) => () => void
+  onMenuShowShortcuts: (callback: () => void) => () => void
 }
 
 declare global {
