@@ -264,6 +264,10 @@ export function registerIpcHandlers(
 
   // --- LAN Sharing ---
 
+  ipcMain.handle('get-lan-info', async () => {
+    return { interfaces: getAllLanIps() }
+  })
+
   ipcMain.handle('refresh-lan', async () => {
     try {
       broadcastSiteUpdate()
@@ -466,7 +470,7 @@ export function registerIpcHandlers(
 
   ipcMain.handle('set-site-provider', async (_event, siteId: string, providerType: string) => {
     try {
-      siteStore.updateSite(siteId, { providerType } as Partial<import('../shared/types').StoredSite>)
+      siteStore.updateSite(siteId, { providerType })
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '設定 Provider 失敗')

@@ -26,7 +26,8 @@
     "cli:build": "tsup",
     "cli:dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "build": {
     "appId": "com.tunnelbox.app",
@@ -160,6 +161,7 @@
     "electron": "^33.2.1",
     "electron-builder": "^26.8.1",
     "electron-vite": "^2.3.0",
+    "husky": "^9.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "^8.5.1",

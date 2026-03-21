@@ -118,18 +118,19 @@ export type StoredSite = StoredStaticSite | StoredProxySite
 
 // --- Migration ---
 
-export function migrateSite(raw: Record<string, unknown>): StoredSite {
+export function migrateSite(raw: unknown): StoredSite {
+  const obj = raw as Record<string, unknown>
   // Already migrated — return as-is without allocating a new object
-  if (raw.serveMode === 'static' || raw.serveMode === 'proxy') {
-    return raw as unknown as StoredSite
+  if (obj.serveMode === 'static' || obj.serveMode === 'proxy') {
+    return obj as unknown as StoredSite
   }
   // Legacy record without serveMode — normalize to static
   return {
-    id: raw.id as string,
-    name: raw.name as string,
+    id: obj.id as string,
+    name: obj.name as string,
     serveMode: 'static',
-    folderPath: raw.folderPath as string,
-    ...(raw.providerType ? { providerType: raw.providerType as string } : {})
+    folderPath: obj.folderPath as string,
+    ...(obj.providerType ? { providerType: obj.providerType as string } : {})
   }
 }
 
@@ -159,6 +160,11 @@ export interface UrlAddResult {
   success: boolean
   siteName?: string
   errorMessage?: string
+}
+
+/** LAN network info (renderer-facing) */
+export interface LanInfo {
+  interfaces: { name: string; ip: string }[]
 }
 
 /** frp server config (renderer-facing, token is already decrypted) */
@@ -226,6 +232,7 @@ export interface ElectronAPI {
   clearDefaultDomain: (siteId: string) => Promise<void>
 
   // LAN Sharing
+  getLanInfo: () => Promise<LanInfo>
   refreshLan: () => Promise<void>
 
   // Finder right-click integration

@@ -50,7 +50,6 @@ function App(): React.ReactElement {
   const [newProxyTarget, setNewProxyTarget] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const [settingsSiteId, setSettingsSiteId] = useState<string | null>(null)
 
   const loadSites = useCallback(async () => {
     try {
@@ -418,7 +417,6 @@ function App(): React.ReactElement {
   )
   const hasFrpSites = useMemo(() => sites.some((s) => s.providerType === 'frp'), [sites])
 
-  const settingsSite = settingsSiteId ? sites.find((s) => s.id === settingsSiteId) ?? null : null
 
   return (
     <div className="app-container">

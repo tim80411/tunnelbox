@@ -35,7 +35,7 @@ export function getSites(): StoredSite[] {
       store.set('sites', [])
       return []
     }
-    return sites.map((s) => migrateSite(s as Record<string, unknown>))
+    return sites.map((s) => migrateSite(s))
   } catch (err) {
     log.error(' Failed to read sites, resetting to empty:', err)
     store.set('sites', [])
@@ -62,11 +62,11 @@ export function removeSite(id: string): void {
   saveSites(sites.filter((s) => s.id !== id))
 }
 
-export function updateSite(id: string, patch: Partial<StoredSite>): void {
+export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 'providerType' | 'defaultDomain'>>): void {
   const sites = getSites()
   const idx = sites.findIndex((s) => s.id === id)
   if (idx === -1) return
-  sites[idx] = { ...sites[idx], ...patch }
+  Object.assign(sites[idx], patch)
   saveSites(sites)
 }
 

@@ -8,11 +8,9 @@ import { getTunnelInfo, getNamedTunnelInfo } from './cloudflared'
 import type { SiteInfo } from '../shared/types'
 
 let serverManager: ServerManager
-let tunnelManager: TunnelProviderManager
 
-export function initSiteActions(manager: ServerManager, tunnel: TunnelProviderManager): void {
+export function initSiteActions(manager: ServerManager, _tunnel: TunnelProviderManager): void {
   serverManager = manager
-  tunnelManager = tunnel
 }
 
 export function toSiteInfo(server: SiteServer): SiteInfo {

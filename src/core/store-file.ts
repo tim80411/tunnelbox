@@ -48,7 +48,7 @@ export class FileStore implements IStore {
   }
 
   getSites(): StoredSite[] {
-    return this.read().sites.map((s) => migrateSite(s as Record<string, unknown>))
+    return this.read().sites.map((s) => migrateSite(s))
   }
 
   saveSites(sites: StoredSite[]): void {
