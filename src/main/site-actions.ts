@@ -1,15 +1,17 @@
 import path from 'node:path'
 import { BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
+import type { TunnelProviderManager } from './tunnel-provider-manager'
 import * as siteStore from './store'
-import { getTunnelInfo, getNamedTunnelInfo } from './cloudflared'
 import { updateTrayMenu } from './tray-manager'
 import type { SiteInfo } from '../shared/types'
 
 let serverManager: ServerManager
+let tunnelManager: TunnelProviderManager
 
-export function initSiteActions(manager: ServerManager): void {
+export function initSiteActions(manager: ServerManager, tunnel: TunnelProviderManager): void {
   serverManager = manager
+  tunnelManager = tunnel
 }
 
 export function toSiteInfo(server: {
@@ -27,9 +29,20 @@ export function toSiteInfo(server: {
     status: server.status,
     url: server.status === 'running' ? `http://localhost:${server.port}` : ''
   }
-  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
-  if (tunnel) {
-    info.tunnel = tunnel
+  const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
+  if (providerInfo) {
+    info.tunnel = {
+      type:
+        providerInfo.providerType === 'cloudflare'
+          ? providerInfo.tunnelId
+            ? 'named'
+            : 'quick'
+          : 'quick',
+      status: providerInfo.status,
+      publicUrl: providerInfo.publicUrl,
+      tunnelId: providerInfo.tunnelId,
+      errorMessage: providerInfo.errorMessage
+    }
   }
   return info
 }

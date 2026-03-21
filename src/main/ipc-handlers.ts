@@ -52,7 +52,7 @@ export function registerIpcHandlers(
 ): void {
   serverManager = manager
   domainRouterRef = domainRouter ?? null
-  initSiteActions(manager)
+  initSiteActions(manager, tunnelManager)
 
   const cfProvider = tunnelManager.get('cloudflare')
 
