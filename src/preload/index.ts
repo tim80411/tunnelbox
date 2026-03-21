@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -70,6 +70,25 @@ const electronAPI: ElectronAPI = {
 
   removeLocalDomain: (siteId: string): Promise<void> => {
     return ipcRenderer.invoke('remove-local-domain', siteId)
+  },
+
+  // Settings
+  getSettings: (): Promise<AppSettings> => {
+    return ipcRenderer.invoke('get-settings')
+  },
+
+  updateSettings: (patch: Partial<AppSettings>): Promise<AppSettings> => {
+    return ipcRenderer.invoke('update-settings', patch)
+  },
+
+  onSettingsChanged: (callback: (settings: AppSettings) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, settings: AppSettings): void => {
+      callback(settings)
+    }
+    ipcRenderer.on('settings-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('settings-changed', handler)
+    }
   },
 
   // Finder right-click integration

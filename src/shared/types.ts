@@ -131,6 +131,18 @@ export function migrateSite(raw: Record<string, unknown>): StoredSite {
   }
 }
 
+// --- App Settings ---
+
+export interface AppSettings {
+  autoStartServers: boolean
+  defaultServeMode: ServeMode
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  autoStartServers: false,
+  defaultServeMode: 'static'
+}
+
 // --- Add Site Params (IPC) ---
 
 export type AddSiteParams =
@@ -197,6 +209,11 @@ export interface ElectronAPI {
   onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void
   isQuickActionInstalled: () => Promise<boolean>
   installQuickAction: () => Promise<void>
+
+  // Settings
+  getSettings: () => Promise<AppSettings>
+  updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
+  onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
 
   // Event listeners
   onSiteUpdated: (callback: (sites: SiteInfo[]) => void) => () => void

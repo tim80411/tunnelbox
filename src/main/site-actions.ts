@@ -4,6 +4,7 @@ import { ServerManager, type SiteServer } from './server-manager'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import * as siteStore from './store'
 import { updateTrayMenu } from './tray-manager'
+import { getTunnelInfo, getNamedTunnelInfo } from './cloudflared'
 import type { SiteInfo } from '../shared/types'
 
 let serverManager: ServerManager

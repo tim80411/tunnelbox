@@ -10,6 +10,7 @@ import { initApiServer, stopApiServer } from './api-server'
 import { registerQuickActionHandlers } from './quick-action-installer'
 import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
 import { createTray, destroyTray } from './tray-manager'
+import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 import { DomainRouter } from './domain-router'
@@ -105,6 +106,7 @@ app.whenReady().then(async () => {
 
     // Register IPC handlers
     registerIpcHandlers(serverManager, tunnelManager, domainRouter)
+    registerSettingsIpcHandlers()
     registerQuickActionHandlers()
 
     // Start local HTTP API for CLI communication

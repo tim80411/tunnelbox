@@ -4,6 +4,8 @@ import TunnelControls from './components/TunnelControls'
 import LanSharingControls from './components/LanSharingControls'
 import AuthPanel from './components/AuthPanel'
 import LocalDomainSetting from './components/LocalDomainSetting'
+import SettingsPanel from './components/SettingsPanel'
+import { useSettings } from './hooks/useSettings'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -20,6 +22,10 @@ function App(): React.ReactElement {
   // Quick Action install state
   const [quickActionInstalled, setQuickActionInstalled] = useState<boolean | null>(null)
   const [installingQuickAction, setInstallingQuickAction] = useState(false)
+
+  // Settings panel state
+  const [showSettings, setShowSettings] = useState(false)
+  const { settings, update: updateSettings } = useSettings()
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -87,7 +93,7 @@ function App(): React.ReactElement {
   const openAddModal = useCallback(() => {
     setNewSiteName('')
     setNewSitePath('')
-    setNewServeMode('static')
+    setNewServeMode(settings.defaultServeMode)
     setNewProxyTarget('')
     setAddError(null)
     setShowAddModal(true)
@@ -361,6 +367,15 @@ function App(): React.ReactElement {
               {installingQuickAction ? 'Installing...' : 'Setup Right-Click'}
             </button>
           )}
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowSettings((v) => !v)}
+            title="Settings"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.5 1L6.2 2.6C5.8 2.8 5.4 3 5.1 3.3L3.5 2.7L2 5.3L3.3 6.4C3.3 6.6 3.2 6.8 3.2 7C3.2 7.2 3.2 7.4 3.3 7.6L2 8.7L3.5 11.3L5.1 10.7C5.4 11 5.8 11.2 6.2 11.4L6.5 13H9.5L9.8 11.4C10.2 11.2 10.6 11 10.9 10.7L12.5 11.3L14 8.7L12.7 7.6C12.7 7.4 12.8 7.2 12.8 7C12.8 6.8 12.8 6.6 12.7 6.4L14 5.3L12.5 2.7L10.9 3.3C10.6 3 10.2 2.8 9.8 2.6L9.5 1H6.5ZM8 5C9.1 5 10 5.9 10 7C10 8.1 9.1 9 8 9C6.9 9 6 8.1 6 7C6 5.9 6.9 5 8 5Z" fill="currentColor"/>
+            </svg>
+          </button>
           <button className="btn btn-primary" onClick={openAddModal}>
             + Add Site
           </button>
@@ -588,6 +603,13 @@ function App(): React.ReactElement {
           </div>
         </div>
       )}
+
+      <SettingsPanel
+        open={showSettings}
+        settings={settings}
+        onClose={() => setShowSettings(false)}
+        onUpdate={updateSettings}
+      />
 
       {/* Add Site Modal */}
       {showAddModal && (
