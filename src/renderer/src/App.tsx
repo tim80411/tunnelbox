@@ -254,6 +254,15 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleStartFrpTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.startFrpTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '啟動 frp Tunnel 失敗')
+    }
+  }, [])
+
   const handleLogin = useCallback(async () => {
     try {
       setError(null)
@@ -658,6 +667,7 @@ function App(): React.ReactElement {
                     onStartNamedTunnel={handleStartNamedTunnel}
                     onStopNamedTunnel={handleStopNamedTunnel}
                     onLogin={handleLogin}
+                    onStartFrpTunnel={handleStartFrpTunnel}
                   />
                 </div>
                 <div className="site-item-actions">

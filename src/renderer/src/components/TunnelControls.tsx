@@ -14,6 +14,7 @@ interface TunnelControlsProps {
   onStartNamedTunnel: (siteId: string) => Promise<void>
   onStopNamedTunnel: (siteId: string) => Promise<void>
   onLogin: () => void
+  onStartFrpTunnel?: (siteId: string) => Promise<void>
 }
 
 function TunnelControls({
@@ -26,7 +27,8 @@ function TunnelControls({
   onUnbindFixedDomain,
   onStartNamedTunnel,
   onStopNamedTunnel,
-  onLogin
+  onLogin,
+  onStartFrpTunnel
 }: TunnelControlsProps): React.ReactElement {
   const [showDomainModal, setShowDomainModal] = useState(false)
   const [domainInput, setDomainInput] = useState('')
@@ -62,7 +64,8 @@ function TunnelControls({
   const isNamed = tunnel?.type === 'named'
   const isLoggedIn = authStatus === 'logged_in'
   const isRunning = site.status === 'running'
-  const isAvailable = isRunning && cloudflaredAvailable
+  const isFrp = site.providerType === 'frp'
+  const isAvailable = isRunning && (isFrp || cloudflaredAvailable)
 
   // Status light color
   const lightColor = tunnel?.status === 'running'
@@ -78,11 +81,13 @@ function TunnelControls({
   // WAN URL
   const wanUrl = tunnel?.status === 'running' && tunnel.publicUrl ? tunnel.publicUrl : null
 
-  // Play button: start quick tunnel or resume named tunnel
+  // Play button: start quick tunnel, named tunnel, or frp tunnel
   const canPlay = isAvailable && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
   const handlePlay = () => {
     if (!canPlay) return
-    if (isNamed) {
+    if (isFrp) {
+      onStartFrpTunnel?.(site.id)
+    } else if (isNamed) {
       onStartNamedTunnel(site.id)
     } else {
       const isAuthError = tunnel?.errorMessage?.includes('認證已過期') || tunnel?.errorMessage?.includes('過期')
@@ -94,7 +99,7 @@ function TunnelControls({
     }
   }
 
-  // Stop button: stop quick tunnel or unbind named tunnel
+  // Stop button
   const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting'
   const handleStop = () => {
     if (!canStop) return
@@ -105,6 +110,9 @@ function TunnelControls({
     }
   }
 
+  // Provider badge label
+  const providerBadge = isFrp ? 'frp' : 'CF'
+
   // Placeholder text
   const placeholderText = tunnel?.status === 'starting'
     ? (isNamed ? '固定網域啟動中...' : '啟動中...')
@@ -112,17 +120,29 @@ function TunnelControls({
       ? 'Tunnel 重連中...'
       : tunnel?.status === 'error'
         ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
-        : !cloudflaredAvailable
-          ? '需安裝 cloudflared'
-          : !isRunning
-            ? '啟動站點後可使用'
-            : '尚未公開'
+        : isFrp
+          ? (!isRunning ? '啟動站點後可使用' : '尚未公開')
+          : !cloudflaredAvailable
+            ? '需安裝 cloudflared'
+            : !isRunning
+              ? '啟動站點後可使用'
+              : '尚未公開'
+
+  // Info tooltip
+  const infoTooltip = isFrp
+    ? (tunnel?.status === 'running' ? '類型：frp Tunnel（TCP 轉發）' : 'frp Tunnel 公開分享')
+    : isNamed
+      ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
+      : tunnel?.status === 'running'
+        ? '類型：Quick Tunnel（隨機網址）'
+        : 'Cloudflare Tunnel 公開分享'
 
   return (
     <>
       <div className="site-item-url-row">
         <span className={`status-light status-light--${lightColor}`} />
         <span className="sharing-badge sharing-badge--wan">WAN</span>
+        <span className={`provider-badge provider-badge--${isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
 
         {wanUrl ? (
           <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
@@ -139,13 +159,7 @@ function TunnelControls({
         )}
 
         {/* Info */}
-        <span className="btn-icon btn-icon--info" data-tooltip={
-          isNamed
-            ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
-            : tunnel?.status === 'running'
-              ? '類型：Quick Tunnel（隨機網址）'
-              : 'Cloudflare Tunnel 公開分享'
-        }>
+        <span className="btn-icon btn-icon--info" data-tooltip={infoTooltip}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         </span>
 
@@ -174,8 +188,8 @@ function TunnelControls({
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
         </button>
 
-        {/* Fixed domain button — only when available and no active tunnel */}
-        {isAvailable && !tunnel && cloudflaredAvailable && (
+        {/* Fixed domain button — only for Cloudflare when available and no active tunnel */}
+        {!isFrp && isAvailable && !tunnel && cloudflaredAvailable && (
           <button
             className="btn btn-xs"
             onClick={() => isLoggedIn ? setShowDomainModal(true) : onLogin()}

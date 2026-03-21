@@ -5,6 +5,7 @@ import { ServerManager } from './server-manager'
 import { ProcessManager, initQuickTunnel, initNamedTunnel } from './cloudflared'
 import { TunnelProviderManager } from './tunnel-provider-manager'
 import { CloudflareProvider } from './providers/cloudflare-provider'
+import { FrpProvider } from './providers/frp/frp-provider'
 import { registerIpcHandlers } from './ipc-handlers'
 import { initApiServer, stopApiServer } from './api-server'
 import { registerQuickActionHandlers } from './quick-action-installer'
@@ -26,6 +27,7 @@ initNamedTunnel(processManager)
 
 const tunnelManager = new TunnelProviderManager()
 tunnelManager.register(new CloudflareProvider())
+tunnelManager.register(new FrpProvider(processManager))
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({

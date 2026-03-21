@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
 import { statSync } from 'fs'
 import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -117,6 +117,42 @@ const electronAPI: ElectronAPI = {
     const handler = (): void => callback()
     ipcRenderer.on('menu:show-shortcuts', handler)
     return () => ipcRenderer.removeListener('menu:show-shortcuts', handler)
+  },
+
+  // --- frp Provider ---
+
+  getFrpStatus: (): Promise<CloudflaredEnv> => {
+    return ipcRenderer.invoke('get-frp-status')
+  },
+
+  installFrp: (): Promise<void> => {
+    return ipcRenderer.invoke('install-frp')
+  },
+
+  getFrpConfig: (): Promise<FrpServerConfig | null> => {
+    return ipcRenderer.invoke('get-frp-config')
+  },
+
+  setFrpConfig: (config: FrpServerConfig): Promise<FrpServerConfig> => {
+    return ipcRenderer.invoke('set-frp-config', config)
+  },
+
+  startFrpTunnel: (siteId: string, opts?: Record<string, unknown>): Promise<string> => {
+    return ipcRenderer.invoke('start-frp-tunnel', siteId, opts)
+  },
+
+  setSiteProvider: (siteId: string, providerType: string): Promise<void> => {
+    return ipcRenderer.invoke('set-site-provider', siteId, providerType)
+  },
+
+  onFrpStatusChanged: (callback: (env: CloudflaredEnv) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, env: CloudflaredEnv): void => {
+      callback(env)
+    }
+    ipcRenderer.on('frp-status-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('frp-status-changed', handler)
+    }
   },
 
   // LAN Sharing

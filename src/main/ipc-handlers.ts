@@ -3,9 +3,11 @@ import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
+import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
 import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
+import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
 
 let serverManager: ServerManager
 
@@ -49,12 +51,18 @@ export function registerIpcHandlers(
           errorMessage: providerInfo.errorMessage
         }
       : undefined
+    // Look up stored site providerType
+    const storedSites = siteStore.getSites()
+    const storedSite = storedSites.find((s) => s.id === server.id)
+    const providerType = storedSite?.providerType || 'cloudflare'
+
     const base = {
       id: server.id,
       name: server.name,
       port: server.port,
       status: server.status,
       url: server.status === 'running' ? `http://localhost:${server.port}` : '',
+      providerType,
       ...(tunnel && { tunnel })
     }
 
@@ -385,6 +393,84 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
+    }
+  })
+
+  // --- frp Provider ---
+
+  ipcMain.handle('get-frp-status', async () => {
+    try {
+      const frpProvider = tunnelManager.get('frp')
+      return await frpProvider.detect()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '偵測 frpc 失敗')
+    }
+  })
+
+  ipcMain.handle('install-frp', async () => {
+    try {
+      const frpProvider = tunnelManager.get('frp')
+      const broadcastFrpStatus = (env: ProviderEnv): void => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const win of windows) {
+          win.webContents.send('frp-status-changed', env)
+        }
+      }
+      broadcastFrpStatus({ status: 'installing' })
+      await frpProvider.install()
+      const env = await frpProvider.detect()
+      broadcastFrpStatus(env)
+    } catch (err) {
+      const errorEnv: ProviderEnv = {
+        status: 'install_failed',
+        errorMessage: err instanceof Error ? err.message : '安裝 frpc 失敗'
+      }
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        win.webContents.send('frp-status-changed', errorEnv)
+      }
+      throw new Error(errorEnv.errorMessage)
+    }
+  })
+
+  ipcMain.handle('get-frp-config', async () => {
+    try {
+      return getFrpConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得 frp 設定失敗')
+    }
+  })
+
+  ipcMain.handle('set-frp-config', async (_event, config: FrpServerConfig) => {
+    try {
+      saveFrpConfig(config)
+      return getFrpConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '儲存 frp 設定失敗')
+    }
+  })
+
+  ipcMain.handle('start-frp-tunnel', async (_event, siteId: string, opts?: Record<string, unknown>) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      const frpProvider = tunnelManager.get('frp')
+      const url = await frpProvider.startTunnel(siteId, server.port, opts)
+      broadcastSiteUpdate()
+      return url
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '啟動 frp Tunnel 失敗')
+    }
+  })
+
+  ipcMain.handle('set-site-provider', async (_event, siteId: string, providerType: string) => {
+    try {
+      siteStore.updateSite(siteId, { providerType } as Partial<import('../shared/types').StoredSite>)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定 Provider 失敗')
     }
   })
 

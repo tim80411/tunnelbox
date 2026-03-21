@@ -16,6 +16,7 @@ interface BaseSiteInfo {
   lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
   lanHasMultipleInterfaces?: boolean // true when multiple non-VPN LAN interfaces detected
   tunnel?: TunnelInfo
+  providerType?: string // 'cloudflare' | 'frp' — for UI badge
 }
 
 export interface StaticSiteInfo extends BaseSiteInfo {
@@ -151,6 +152,13 @@ export interface UrlAddResult {
   errorMessage?: string
 }
 
+/** frp server config (renderer-facing, token is already decrypted) */
+export interface FrpServerConfig {
+  serverAddr: string
+  serverPort: number
+  authToken?: string
+}
+
 export interface ElectronAPI {
   // Site management
   addSite: (params: AddSiteParams) => Promise<SiteInfo>
@@ -194,6 +202,15 @@ export interface ElectronAPI {
   unbindFixedDomain: (siteId: string) => Promise<void>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
+
+  // --- frp Provider ---
+  getFrpStatus: () => Promise<CloudflaredEnv>
+  installFrp: () => Promise<void>
+  getFrpConfig: () => Promise<FrpServerConfig | null>
+  setFrpConfig: (config: FrpServerConfig) => Promise<FrpServerConfig>
+  startFrpTunnel: (siteId: string, opts?: Record<string, unknown>) => Promise<string>
+  setSiteProvider: (siteId: string, providerType: string) => Promise<void>
+  onFrpStatusChanged: (callback: (env: CloudflaredEnv) => void) => () => void
 
   // LAN Sharing
   refreshLan: () => Promise<void>
