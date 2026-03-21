@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import { createLogger } from './logger'
+import { migrateSite } from '../shared/types'
 import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
 
 const log = createLogger('Store')
@@ -34,7 +35,7 @@ export function getSites(): StoredSite[] {
       store.set('sites', [])
       return []
     }
-    return sites
+    return sites.map((s) => migrateSite(s as Record<string, unknown>))
   } catch (err) {
     log.error(' Failed to read sites, resetting to empty:', err)
     store.set('sites', [])

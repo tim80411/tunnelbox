@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import LanSharingControls from './components/LanSharingControls'
 import AuthPanel from './components/AuthPanel'
@@ -25,6 +25,8 @@ function App(): React.ReactElement {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newSiteName, setNewSiteName] = useState('')
   const [newSitePath, setNewSitePath] = useState('')
+  const [newServeMode, setNewServeMode] = useState<ServeMode>('static')
+  const [newProxyTarget, setNewProxyTarget] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -85,6 +87,8 @@ function App(): React.ReactElement {
   const openAddModal = useCallback(() => {
     setNewSiteName('')
     setNewSitePath('')
+    setNewServeMode('static')
+    setNewProxyTarget('')
     setAddError(null)
     setShowAddModal(true)
   }, [])
@@ -117,21 +121,33 @@ function App(): React.ReactElement {
       setAddError('請輸入網頁名稱')
       return
     }
-    if (!newSitePath.trim()) {
-      setAddError('請選擇資料夾路徑')
-      return
+
+    if (newServeMode === 'proxy') {
+      if (!newProxyTarget.trim()) {
+        setAddError('請輸入 Proxy 目標 URL')
+        return
+      }
+    } else {
+      if (!newSitePath.trim()) {
+        setAddError('請選擇資料夾路徑')
+        return
+      }
     }
 
     setAdding(true)
     try {
-      await window.electron.addSite(newSiteName.trim(), newSitePath)
+      if (newServeMode === 'proxy') {
+        await window.electron.addSite({ serveMode: 'proxy', name: newSiteName.trim(), proxyTarget: newProxyTarget.trim() })
+      } else {
+        await window.electron.addSite({ serveMode: 'static', name: newSiteName.trim(), folderPath: newSitePath })
+      }
       setShowAddModal(false)
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add site')
     } finally {
       setAdding(false)
     }
-  }, [newSiteName, newSitePath])
+  }, [newSiteName, newSitePath, newServeMode, newProxyTarget])
 
   const handleRemoveSite = useCallback(async (id: string) => {
     try {
@@ -431,7 +447,7 @@ function App(): React.ReactElement {
             <div className="site-list-empty">
               <div className="empty-icon">📂</div>
               <p className="empty-title">尚未建立任何網頁</p>
-              <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個靜態網頁</p>
+              <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個網頁</p>
               <button className="btn btn-primary" onClick={openAddModal}>
                 + 新增網頁
               </button>
@@ -442,13 +458,17 @@ function App(): React.ReactElement {
                 <div className="site-item-info">
                   <span className="site-item-name">{site.name}</span>
                   <div className="site-item-path-row">
-                    <span className="site-item-path">{site.folderPath}</span>
+                    <span className="site-item-path">
+                      {site.serveMode === 'proxy' ? `Proxy → ${site.proxyTarget}` : site.folderPath}
+                    </span>
                     <button
                       className="btn-copy"
                       onClick={async () => {
-                        await navigator.clipboard.writeText(site.folderPath)
+                        await navigator.clipboard.writeText(
+                          site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath
+                        )
                       }}
-                      title="複製路徑"
+                      title={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
                     >
                       📋
                     </button>
@@ -580,6 +600,26 @@ function App(): React.ReactElement {
             )}
 
             <div className="form-group">
+              <label className="form-label">Mode</label>
+              <div className="serve-mode-toggle">
+                <button
+                  className={`serve-mode-btn${newServeMode === 'static' ? ' active' : ''}`}
+                  onClick={() => setNewServeMode('static')}
+                  type="button"
+                >
+                  Static
+                </button>
+                <button
+                  className={`serve-mode-btn${newServeMode === 'proxy' ? ' active' : ''}`}
+                  onClick={() => setNewServeMode('proxy')}
+                  type="button"
+                >
+                  Proxy
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Name</label>
               <input
                 className="form-input"
@@ -591,21 +631,34 @@ function App(): React.ReactElement {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Folder Path</label>
-              <div className="form-row">
+            {newServeMode === 'static' ? (
+              <div className="form-group">
+                <label className="form-label">Folder Path</label>
+                <div className="form-row">
+                  <input
+                    className="form-input"
+                    type="text"
+                    placeholder="Select a folder..."
+                    value={newSitePath}
+                    readOnly
+                  />
+                  <button className="btn" onClick={handleSelectFolder}>
+                    Browse
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Proxy Target URL</label>
                 <input
                   className="form-input"
                   type="text"
-                  placeholder="Select a folder..."
-                  value={newSitePath}
-                  readOnly
+                  placeholder="http://localhost:3000"
+                  value={newProxyTarget}
+                  onChange={(e) => setNewProxyTarget(e.target.value)}
                 />
-                <button className="btn" onClick={handleSelectFolder}>
-                  Browse
-                </button>
               </div>
-            </div>
+            )}
 
             <div className="modal-actions">
               <button className="btn" onClick={closeAddModal}>
@@ -614,7 +667,7 @@ function App(): React.ReactElement {
               <button
                 className="btn btn-primary"
                 onClick={handleConfirmAdd}
-                disabled={adding}
+                disabled={adding || (newServeMode === 'proxy' ? !newProxyTarget.trim() : !newSitePath.trim())}
               >
                 {adding ? 'Adding...' : 'Confirm'}
               </button>

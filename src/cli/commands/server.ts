@@ -62,11 +62,7 @@ export async function serverStart(
     return result
   }
 
-  const server = await serverManager.startServer({
-    id: site.id,
-    name: site.name,
-    folderPath: site.folderPath,
-  })
+  const server = await serverManager.startServer(site)
 
   const lanIp = getLanIp()
   const result: ServerStartResult = {
@@ -117,7 +113,7 @@ export function registerServerCommands(
   store: IStore,
   serverManager: ServerManager
 ): void {
-  const server = program.command('server').description('Manage local static servers')
+  const server = program.command('server').description('Manage local servers')
 
   server
     .command('start <nameOrId>')

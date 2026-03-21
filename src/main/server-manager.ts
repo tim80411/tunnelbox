@@ -7,21 +7,34 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import getPort from 'get-port'
 import crypto from 'node:crypto'
 import { createLogger } from './logger'
+import { createProxyServer } from './proxy-server'
+import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
+const PORT_RANGE = Array.from({ length: 6001 }, (_, i) => 3000 + i)
 
 // ---------- Types ----------
 
-export interface SiteServer {
+interface BaseSiteServer {
   id: string
   name: string
-  folderPath: string
   port: number
   status: 'running' | 'stopped' | 'error'
   httpServer?: http.Server
-  watcher?: FSWatcher
-  wsServer?: WebSocketServer
 }
+
+export interface StaticSiteServer extends BaseSiteServer {
+  serveMode: 'static'
+  folderPath: string
+  watcher?: FSWatcher
+}
+
+export interface ProxySiteServer extends BaseSiteServer {
+  serveMode: 'proxy'
+  proxyTarget: string
+}
+
+export type SiteServer = StaticSiteServer | ProxySiteServer
 
 export type FileChangeCallback = (siteId: string) => void
 
@@ -108,15 +121,24 @@ export class ServerManager {
   }
 
   /**
-   * Start a new HTTP server + file watcher for the given site.
+   * Start an HTTP server for the given site. Dispatches to static or proxy mode.
    */
-  async startServer(site: { id: string; name: string; folderPath: string }): Promise<SiteServer> {
+  async startServer(site: StoredSite): Promise<SiteServer> {
     // If the server already exists and is running, stop it first (restart scenario)
     const existing = this.servers.get(site.id)
     if (existing && existing.status === 'running') {
       await this.stopServer(site.id)
     }
 
+    if (site.serveMode === 'proxy') {
+      return this.startProxyServer(site)
+    }
+    return this.startStaticServer(site)
+  }
+
+  // ---------- Private: Static Server ----------
+
+  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string }): Promise<StaticSiteServer> {
     // Validate folder exists and is readable
     try {
       const stat = fs.statSync(site.folderPath)
@@ -131,20 +153,7 @@ export class ServerManager {
       throw new Error(`無法存取資料夾：${site.folderPath}。路徑不存在或權限不足`)
     }
 
-    // Get available port in range 3000-9000
-    const portRange = Array.from({ length: 6001 }, (_, i) => 3000 + i)
-    let port: number
-    try {
-      port = await getPort({ port: portRange })
-    } catch {
-      throw new Error('無可用的 Port（範圍 3000-9000 皆被佔用）')
-    }
-
-    // Verify port is in valid range
-    if (port < 3000 || port > 9000) {
-      throw new Error('無可用的 Port（範圍 3000-9000 皆被佔用）')
-    }
-
+    const port = await this.allocatePort()
     const wsPort = this.globalWsPort
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
@@ -249,21 +258,15 @@ export class ServerManager {
     })
 
     // Start listening on all interfaces (0.0.0.0) so LAN devices can access
-    await new Promise<void>((resolve, reject) => {
-      httpServer.on('error', (err) => {
-        reject(new Error(`伺服器啟動失敗（Port ${port}）：${err.message}`))
-      })
-      httpServer.listen(port, '0.0.0.0', () => {
-        resolve()
-      })
-    })
+    await this.listenOnPort(httpServer, port)
 
     // Start file watcher
     const watcher = this.createWatcher(site.id, site.folderPath)
 
-    const siteServer: SiteServer = {
+    const siteServer: StaticSiteServer = {
       id: site.id,
       name: site.name,
+      serveMode: 'static',
       folderPath: site.folderPath,
       port,
       status: 'running',
@@ -272,7 +275,33 @@ export class ServerManager {
     }
 
     this.servers.set(site.id, siteServer)
-    log.info(`Server for "${site.name}" started on http://localhost:${port}`)
+    log.info(`Static server for "${site.name}" started on http://localhost:${port}`)
+
+    return siteServer
+  }
+
+  // ---------- Private: Proxy Server ----------
+
+  private async startProxyServer(site: { id: string; name: string; serveMode: 'proxy'; proxyTarget: string }): Promise<ProxySiteServer> {
+    const port = await this.allocatePort()
+
+    const httpServer = createProxyServer(site.proxyTarget)
+
+    // Start listening
+    await this.listenOnPort(httpServer, port)
+
+    const siteServer: ProxySiteServer = {
+      id: site.id,
+      name: site.name,
+      serveMode: 'proxy',
+      proxyTarget: site.proxyTarget,
+      port,
+      status: 'running',
+      httpServer
+    }
+
+    this.servers.set(site.id, siteServer)
+    log.info(`Proxy server for "${site.name}" started on http://localhost:${port} -> ${site.proxyTarget}`)
 
     return siteServer
   }
@@ -294,8 +323,8 @@ export class ServerManager {
       server.httpServer = undefined
     }
 
-    // Close file watcher
-    if (server.watcher) {
+    // Close file watcher (static sites only)
+    if (server.serveMode === 'static' && server.watcher) {
       await server.watcher.close()
       server.watcher = undefined
     }
@@ -362,14 +391,26 @@ export class ServerManager {
   /**
    * Register a stopped server entry (from store) without starting it.
    */
-  registerStopped(site: { id: string; name: string; folderPath: string }): void {
-    this.servers.set(site.id, {
-      id: site.id,
-      name: site.name,
-      folderPath: site.folderPath,
-      port: 0,
-      status: 'stopped'
-    })
+  registerStopped(site: StoredSite): void {
+    if (site.serveMode === 'proxy') {
+      this.servers.set(site.id, {
+        id: site.id,
+        name: site.name,
+        serveMode: 'proxy',
+        proxyTarget: site.proxyTarget,
+        port: 0,
+        status: 'stopped'
+      })
+    } else {
+      this.servers.set(site.id, {
+        id: site.id,
+        name: site.name,
+        serveMode: 'static',
+        folderPath: site.folderPath,
+        port: 0,
+        status: 'stopped'
+      })
+    }
   }
 
   /**
@@ -389,7 +430,35 @@ export class ServerManager {
     return crypto.randomUUID()
   }
 
-  // ---------- Private ----------
+  // ---------- Private: Shared Helpers ----------
+
+  private async allocatePort(): Promise<number> {
+    let port: number
+    try {
+      port = await getPort({ port: PORT_RANGE })
+    } catch {
+      throw new Error('無可用的 Port（範圍 3000-9000 皆被佔用）')
+    }
+
+    if (port < 3000 || port > 9000) {
+      throw new Error('無可用的 Port（範圍 3000-9000 皆被佔用）')
+    }
+
+    return port
+  }
+
+  private async listenOnPort(httpServer: http.Server, port: number): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const onError = (err: Error): void => {
+        reject(new Error(`伺服器啟動失敗（Port ${port}）：${err.message}`))
+      }
+      httpServer.once('error', onError)
+      httpServer.listen(port, '0.0.0.0', () => {
+        httpServer.removeListener('error', onError)
+        resolve()
+      })
+    })
+  }
 
   private createWatcher(siteId: string, folderPath: string): FSWatcher {
     const watcher = watch(folderPath, {
@@ -424,7 +493,7 @@ export class ServerManager {
       // Stop the watcher on error but don't crash
       watcher.close().catch(() => {})
       const server = this.servers.get(siteId)
-      if (server) {
+      if (server && server.serveMode === 'static') {
         server.watcher = undefined
       }
     })

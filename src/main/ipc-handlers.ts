@@ -2,7 +2,8 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
-import type { SiteInfo, CloudflaredEnv, LanInfo } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, LanInfo, AddSiteParams } from '../shared/types'
+import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
 import { getLanIp, getAllLanIps } from '../core/lan-ip'
 import * as hostsManager from './hosts-manager'
@@ -56,28 +57,37 @@ export function registerIpcHandlers(
 
   const cfProvider = tunnelManager.get('cloudflare')
 
-  function toSiteInfo(server: {
-    id: string
-    name: string
-    folderPath: string
-    port: number
-    status: 'running' | 'stopped' | 'error'
-  }): SiteInfo {
-    const info: SiteInfo = {
+  function toSiteInfo(server: SiteServer): SiteInfo {
+    const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
+    const tunnel = providerInfo
+      ? {
+          type:
+            providerInfo.providerType === 'cloudflare'
+              ? providerInfo.tunnelId
+                ? ('named' as const)
+                : ('quick' as const)
+              : ('quick' as const),
+          status: providerInfo.status,
+          publicUrl: providerInfo.publicUrl,
+          tunnelId: providerInfo.tunnelId,
+          errorMessage: providerInfo.errorMessage
+        }
+      : undefined
+    const base = {
       id: server.id,
       name: server.name,
-      folderPath: server.folderPath,
       port: server.port,
       status: server.status,
-      url: server.status === 'running' ? `http://localhost:${server.port}` : ''
+      url: server.status === 'running' ? `http://localhost:${server.port}` : '',
+      ...(tunnel && { tunnel })
     }
 
     // LAN sharing URL
     if (server.status === 'running' && lanSharingSites.has(server.id)) {
       const allIps = getAllLanIps()
       if (allIps.length > 0) {
-        info.lanUrl = `http://${allIps[0].ip}:${server.port}`
-        info.lanInterfaceName = allIps[0].name
+        ;(base as any).lanUrl = `http://${allIps[0].ip}:${server.port}`
+        ;(base as any).lanInterfaceName = allIps[0].name
       }
     }
 
@@ -85,25 +95,22 @@ export function registerIpcHandlers(
     const storedSites = siteStore.getSites()
     const storedSite = storedSites.find((s) => s.id === server.id)
     if (storedSite?.localDomain) {
-      info.localDomain = storedSite.localDomain
+      ;(base as any).localDomain = storedSite.localDomain
     }
 
-    const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
-    if (providerInfo) {
-      info.tunnel = {
-        type:
-          providerInfo.providerType === 'cloudflare'
-            ? providerInfo.tunnelId
-              ? 'named'
-              : 'quick'
-            : 'quick',
-        status: providerInfo.status,
-        publicUrl: providerInfo.publicUrl,
-        tunnelId: providerInfo.tunnelId,
-        errorMessage: providerInfo.errorMessage
-      }
+    if (server.serveMode === 'proxy') {
+      return { ...base, serveMode: 'proxy' as const, proxyTarget: server.proxyTarget }
     }
-    return info
+    return { ...base, serveMode: 'static' as const, folderPath: server.folderPath }
+  }
+
+  function isValidProxyUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
   }
 
   function broadcastSiteUpdate(): void {
@@ -116,17 +123,14 @@ export function registerIpcHandlers(
 
   // --- Site Management ---
 
-  ipcMain.handle('add-site', async (_event, name: string, folderPath: string) => {
+  ipcMain.handle('add-site', async (_event, params: AddSiteParams) => {
     try {
-      // Validate required fields
-      if (!name || !name.trim()) {
+      // Validate name
+      if (!params.name || !params.name.trim()) {
         throw new Error('請輸入網頁名稱')
       }
-      if (!folderPath || !folderPath.trim()) {
-        throw new Error('請選擇資料夾路徑')
-      }
 
-      const trimmedName = name.trim()
+      const trimmedName = params.name.trim()
 
       // Check duplicate name
       const existingServers = serverManager.getServers()
@@ -134,16 +138,30 @@ export function registerIpcHandlers(
         throw new Error(`名稱「${trimmedName}」已被使用`)
       }
 
-      // Check duplicate path
-      if (existingServers.some((s) => s.folderPath === folderPath)) {
-        throw new Error('此路徑已被其他網頁使用')
+      const id = serverManager.generateId()
+      let storedSite: import('../shared/types').StoredSite
+
+      if (params.serveMode === 'proxy') {
+        if (!params.proxyTarget || !params.proxyTarget.trim()) {
+          throw new Error('請輸入 Proxy 目標 URL')
+        }
+        const proxyTarget = params.proxyTarget.trim()
+        if (!isValidProxyUrl(proxyTarget)) {
+          throw new Error('請輸入有效的 URL（如 http://localhost:3000）')
+        }
+        storedSite = { id, name: trimmedName, serveMode: 'proxy', proxyTarget }
+      } else {
+        if (!params.folderPath || !params.folderPath.trim()) {
+          throw new Error('請選擇資料夾路徑')
+        }
+        if (existingServers.some((s) => s.serveMode === 'static' && s.folderPath === params.folderPath)) {
+          throw new Error('此路徑已被其他網頁使用')
+        }
+        storedSite = { id, name: trimmedName, serveMode: 'static', folderPath: params.folderPath }
       }
 
-      const id = serverManager.generateId()
-      const server = await serverManager.startServer({ id, name: trimmedName, folderPath })
-
-      // Persist to store
-      siteStore.addSite({ id, name: trimmedName, folderPath })
+      const server = await serverManager.startServer(storedSite)
+      siteStore.addSite(storedSite)
 
       const info = toSiteInfo(server)
       broadcastSiteUpdate()
@@ -202,11 +220,7 @@ export function registerIpcHandlers(
       if (!existing) throw new Error(`Site not found: ${id}`)
       if (existing.status === 'running') return
 
-      await serverManager.startServer({
-        id: existing.id,
-        name: existing.name,
-        folderPath: existing.folderPath
-      })
+      await serverManager.startServer(existing as import('../shared/types').StoredSite)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to start server')

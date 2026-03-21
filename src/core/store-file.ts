@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { dirname, join } from 'path'
+import { migrateSite } from '../shared/types'
 import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
 import type { IStore, StoredDomainBinding } from './store-interface'
 import { getAppDataDir } from './paths'
@@ -47,7 +48,7 @@ export class FileStore implements IStore {
   }
 
   getSites(): StoredSite[] {
-    return this.read().sites
+    return this.read().sites.map((s) => migrateSite(s as Record<string, unknown>))
   }
 
   saveSites(sites: StoredSite[]): void {
