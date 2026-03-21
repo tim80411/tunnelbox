@@ -32,7 +32,8 @@ export function registerIpcHandlers(
 
   function toSiteInfo(
     server: SiteServer,
-    lanIps?: Array<{ name: string; ip: string }>
+    lanIps?: Array<{ name: string; ip: string }>,
+    storedSites?: import('../shared/types').StoredSite[]
   ): SiteInfo {
     const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
     const tunnel = providerInfo
@@ -50,7 +51,8 @@ export function registerIpcHandlers(
         }
       : undefined
     // Read defaultDomain from persisted site data
-    const storedSite = siteStore.getSites().find((s) => s.id === server.id)
+    const allStored = storedSites ?? siteStore.getSites()
+    const storedSite = allStored.find((s) => s.id === server.id)
     const base = {
       id: server.id,
       name: server.name,
@@ -89,7 +91,8 @@ export function registerIpcHandlers(
 
   function broadcastSiteUpdate(): void {
     const lanIps = getAllLanIps()
-    const sites = serverManager.getServers().map((s) => toSiteInfo(s, lanIps))
+    const storedSites = siteStore.getSites()
+    const sites = serverManager.getServers().map((s) => toSiteInfo(s, lanIps, storedSites))
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('site-updated', sites)
@@ -189,7 +192,8 @@ export function registerIpcHandlers(
 
   ipcMain.handle('get-sites', async () => {
     try {
-      return serverManager.getServers().map(toSiteInfo)
+      const storedSites = siteStore.getSites()
+      return serverManager.getServers().map((s) => toSiteInfo(s, undefined, storedSites))
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to get sites')
     }
@@ -395,7 +399,13 @@ export function registerIpcHandlers(
 
   ipcMain.handle('set-default-domain', async (_event, siteId: string, domain: string) => {
     try {
-      siteStore.updateSite(siteId, { defaultDomain: domain } as Partial<import('../shared/types').StoredSite>)
+      if (typeof siteId !== 'string' || !siteId) throw new Error('Invalid siteId')
+      if (typeof domain !== 'string' || !domain.trim()) throw new Error('Invalid domain')
+      const trimmed = domain.trim()
+      if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+        throw new Error('Invalid domain format')
+      }
+      siteStore.updateSite(siteId, { defaultDomain: trimmed })
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '設定預設網域失敗')
@@ -404,13 +414,8 @@ export function registerIpcHandlers(
 
   ipcMain.handle('clear-default-domain', async (_event, siteId: string) => {
     try {
-      // Read, delete the key, and save back
-      const sites = siteStore.getSites()
-      const idx = sites.findIndex((s) => s.id === siteId)
-      if (idx !== -1) {
-        delete sites[idx].defaultDomain
-        siteStore.saveSites(sites)
-      }
+      if (typeof siteId !== 'string' || !siteId) throw new Error('Invalid siteId')
+      siteStore.updateSite(siteId, { defaultDomain: undefined })
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '清除預設網域失敗')

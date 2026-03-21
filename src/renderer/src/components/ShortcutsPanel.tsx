@@ -34,14 +34,14 @@ const shortcuts = [
 function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps): React.ReactElement {
   return (
     <>
-      {open && <div className="settings-overlay" data-dismiss onClick={onClose} />}
-      <aside className={`settings-panel${open ? ' settings-panel-open' : ''}`}>
-        <div className="settings-header">
+      {open && <div className="shortcuts-overlay" data-dismiss onClick={onClose} />}
+      <aside className={`shortcuts-panel${open ? ' shortcuts-panel-open' : ''}`}>
+        <div className="shortcuts-panel-header">
           <h2 className="settings-title">Keyboard Shortcuts</h2>
           <button className="settings-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="settings-body">
+        <div className="shortcuts-panel-body">
           {shortcuts.map((item, i) =>
             item.section ? (
               <h3 key={i} className="shortcuts-section">{item.section}</h3>
@@ -56,6 +56,7 @@ function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps): React.ReactElem
       </aside>
     </>
   )
+
 }
 
 export default ShortcutsPanel

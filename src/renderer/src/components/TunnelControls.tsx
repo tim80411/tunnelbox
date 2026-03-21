@@ -131,12 +131,17 @@ function TunnelControls({
   const wanUrl = tunnel?.status === 'running' && tunnel.publicUrl ? tunnel.publicUrl : null
 
   // Play button: start quick tunnel, resume named tunnel, or use default domain
-  const canPlay = isAvailable && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
-  const handlePlay = () => {
+  const canPlay = isAvailable && !binding && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
+  const handlePlay = async () => {
     if (!canPlay) return
     // If site has a default domain and user is logged in, use it to start named tunnel
     if (hasDefaultDomain && isLoggedIn && !isNamed) {
-      onBindFixedDomain(site.id, site.defaultDomain!)
+      setBinding(true)
+      try {
+        await onBindFixedDomain(site.id, site.defaultDomain!)
+      } finally {
+        setBinding(false)
+      }
       return
     }
     if (isNamed) {

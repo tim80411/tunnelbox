@@ -1282,6 +1282,13 @@ html, body, #root {
   .settings-panel-open {
     width: 280px;
     min-width: 280px;
+    overflow-y: auto;
+  }
+
+  /* Prevent content reflow during width animation */
+  .settings-panel .settings-header,
+  .settings-panel .settings-body {
+    min-width: 280px;
   }
 }
 
@@ -1422,7 +1429,48 @@ html, body, #root {
   border-color: var(--accent);
 }
 
-/* ── Shortcuts Panel ───────────────────────────────────────────── */
+/* ── Shortcuts Panel (always overlay, never sidebar) ──────────── */
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  z-index: 50;
+  animation: fade-in var(--duration) ease-out;
+}
+
+.shortcuts-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+  z-index: 51;
+  transform: translateX(100%);
+  transition: transform 200ms ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-panel-open {
+  transform: translateX(0);
+}
+
+.shortcuts-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcuts-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-5);
+}
+
 .shortcuts-section {
   font-size: 11px;
   font-weight: 700;
