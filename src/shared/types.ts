@@ -159,6 +159,7 @@ export interface ElectronAPI {
   // Site management
   addSite: (params: AddSiteParams) => Promise<SiteInfo>
   removeSite: (id: string) => Promise<void>
+  renameSite: (id: string, newName: string) => Promise<void>
   getSites: () => Promise<SiteInfo[]>
 
   // Server control

@@ -188,8 +188,7 @@ html, body, #root {
 /* ── Site Card ─────────────────────────────────────────────────── */
 .site-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: var(--sp-4) var(--sp-5);
   background: var(--bg-card);
   border: 1px solid var(--border-default);
@@ -208,7 +207,28 @@ html, body, #root {
   flex-direction: column;
   gap: var(--sp-1);
   min-width: 0;
-  flex: 1;
+}
+
+.site-item-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 24px;
+}
+
+/* ── Sharing Section ──────────────────────────────────────────── */
+.site-sharing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.site-sharing-section > * {
+  margin-top: 0;
 }
 
 .site-item-name {
@@ -216,6 +236,55 @@ html, body, #root {
   font-size: 14px;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  cursor: default;
+}
+
+.site-item-name-editable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: text;
+  border-radius: var(--radius);
+  padding: 0 2px;
+  transition: background var(--duration);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-item-name-edit-icon {
+  color: transparent;
+  transition: color var(--duration);
+  flex-shrink: 0;
+}
+
+.site-item-name-editable:hover {
+  background: var(--bg-muted);
+}
+
+.site-item-name-editable:hover .site-item-name-edit-icon {
+  color: var(--text-tertiary);
+}
+
+.site-rename-form {
+  display: inline-flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.site-rename-input {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  background: var(--bg-root);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  outline: none;
+  width: 100%;
+  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .site-item-path {
@@ -370,8 +439,10 @@ html, body, #root {
 .site-item-actions {
   display: flex;
   gap: var(--sp-2);
-  margin-left: var(--sp-4);
-  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* ── Success Bar ──────────────────────────────────────────────── */

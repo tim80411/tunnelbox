@@ -11,6 +11,10 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('remove-site', id)
   },
 
+  renameSite: (id: string, newName: string): Promise<void> => {
+    return ipcRenderer.invoke('rename-site', id, newName)
+  },
+
   getSites: (): Promise<SiteInfo[]> => {
     return ipcRenderer.invoke('get-sites')
   },

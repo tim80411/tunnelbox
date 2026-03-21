@@ -23,6 +23,10 @@ function App(): React.ReactElement {
   const [quickActionInstalled, setQuickActionInstalled] = useState<boolean | null>(null)
   const [installingQuickAction, setInstallingQuickAction] = useState(false)
 
+  // Rename state
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
   // Settings panel state
   const [showSettings, setShowSettings] = useState(false)
   const { settings, update: updateSettings } = useSettings()
@@ -35,6 +39,7 @@ function App(): React.ReactElement {
   const [newProxyTarget, setNewProxyTarget] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [settingsSiteId, setSettingsSiteId] = useState<string | null>(null)
 
   const loadSites = useCallback(async () => {
     try {
@@ -317,6 +322,26 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleStartRename = useCallback((site: SiteInfo) => {
+    setRenamingId(site.id)
+    setRenameValue(site.name)
+  }, [])
+
+  const handleConfirmRename = useCallback(async () => {
+    if (!renamingId) return
+    try {
+      setError(null)
+      await window.electron.renameSite(renamingId, renameValue)
+      setRenamingId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '重新命名失敗')
+    }
+  }, [renamingId, renameValue])
+
+  const handleCancelRename = useCallback(() => {
+    setRenamingId(null)
+  }, [])
+
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleUrlAddSuccess = useCallback((msg: string) => {
@@ -345,6 +370,8 @@ function App(): React.ReactElement {
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
+
+  const settingsSite = settingsSiteId ? sites.find((s) => s.id === settingsSiteId) ?? null : null
 
   return (
     <div className="app-container">
@@ -471,7 +498,41 @@ function App(): React.ReactElement {
             sites.map((site) => (
               <div key={site.id} className="site-item">
                 <div className="site-item-info">
-                  <span className="site-item-name">{site.name}</span>
+                  <div className="site-item-name-row">
+                  {renamingId === site.id ? (
+                    <form
+                      className="site-rename-form"
+                      onSubmit={(e) => { e.preventDefault(); handleConfirmRename() }}
+                    >
+                      <input
+                        className="site-rename-input"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={handleConfirmRename}
+                        onKeyDown={(e) => { if (e.key === 'Escape') handleCancelRename() }}
+                        autoFocus
+                      />
+                    </form>
+                  ) : (
+                    <span
+                      className="site-item-name site-item-name-editable"
+                      onDoubleClick={() => handleStartRename(site)}
+                      title="Double-click to rename"
+                    >
+                      {site.name}
+                      <svg className="site-item-name-edit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                  )}
+                    <span className={`site-item-status ${site.status}`}>
+                      {site.status === 'running'
+                        ? '運行中'
+                        : site.status === 'stopped'
+                          ? '已停止'
+                          : '錯誤'}
+                    </span>
+                  </div>
                   <div className="site-item-path-row">
                     <span className="site-item-path">
                       {site.serveMode === 'proxy' ? `Proxy → ${site.proxyTarget}` : site.folderPath}
@@ -511,6 +572,8 @@ function App(): React.ReactElement {
                   ) : (
                     <span className="site-item-url-unavailable">網址不可用</span>
                   )}
+                </div>
+                <div className="site-sharing-section">
                   <LanSharingControls
                     site={site}
                     onEnable={handleEnableLanSharing}
@@ -535,13 +598,6 @@ function App(): React.ReactElement {
                     onLogin={handleLogin}
                   />
                 </div>
-                <span className={`site-item-status ${site.status}`}>
-                  {site.status === 'running'
-                    ? '運行中'
-                    : site.status === 'stopped'
-                      ? '已停止'
-                      : '錯誤'}
-                </span>
                 <div className="site-item-actions">
                   <button
                     className="btn btn-sm"

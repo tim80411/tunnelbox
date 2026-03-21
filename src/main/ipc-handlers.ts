@@ -204,6 +204,30 @@ export function registerIpcHandlers(
     }
   })
 
+  ipcMain.handle('rename-site', async (_event, id: string, newName: string) => {
+    try {
+      const trimmed = newName.trim()
+      if (!trimmed) throw new Error('請輸入網頁名稱')
+
+      const existingServers = serverManager.getServers()
+      if (existingServers.some((s) => s.id !== id && s.name === trimmed)) {
+        throw new Error(`名稱「${trimmed}」已被使用`)
+      }
+
+      const server = serverManager.getServer(id)
+      if (!server) throw new Error(`Site not found: ${id}`)
+
+      // Update runtime
+      server.name = trimmed
+      // Update store
+      siteStore.updateSite(id, { name: trimmed })
+
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to rename site')
+    }
+  })
+
   ipcMain.handle('get-sites', async () => {
     try {
       return serverManager.getServers().map(toSiteInfo)
