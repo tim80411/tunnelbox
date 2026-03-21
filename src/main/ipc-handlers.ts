@@ -4,8 +4,11 @@ import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
 import { initSiteActions } from './site-actions'
+import * as hostsManager from './hosts-manager'
+import type { DomainRouter } from './domain-router'
 
 let serverManager: ServerManager
+let domainRouterRef: DomainRouter | null = null
 
 function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
   const windows = BrowserWindow.getAllWindows()
@@ -18,11 +21,33 @@ export function getServerManager(): ServerManager {
   return serverManager
 }
 
+/**
+ * Ensure domain router is started if there are any local domains configured.
+ * If no local domains remain, stop the router.
+ */
+async function ensureDomainRouter(): Promise<void> {
+  if (!domainRouterRef) return
+  const sites = siteStore.getSites()
+  const hasLocalDomains = sites.some((s) => s.localDomain)
+
+  if (hasLocalDomains && !domainRouterRef.isRunning()) {
+    try {
+      await domainRouterRef.start(8080)
+    } catch {
+      // Port in use or other error — non-fatal
+    }
+  } else if (!hasLocalDomains && domainRouterRef.isRunning()) {
+    await domainRouterRef.stop()
+  }
+}
+
 export function registerIpcHandlers(
   manager: ServerManager,
-  tunnelManager: TunnelProviderManager
+  tunnelManager: TunnelProviderManager,
+  domainRouter?: DomainRouter
 ): void {
   serverManager = manager
+  domainRouterRef = domainRouter ?? null
   initSiteActions(manager)
 
   const cfProvider = tunnelManager.get('cloudflare')
@@ -42,6 +67,14 @@ export function registerIpcHandlers(
       status: server.status,
       url: server.status === 'running' ? `http://localhost:${server.port}` : ''
     }
+
+    // Attach local domain from store
+    const storedSites = siteStore.getSites()
+    const storedSite = storedSites.find((s) => s.id === server.id)
+    if (storedSite?.localDomain) {
+      info.localDomain = storedSite.localDomain
+    }
+
     const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
     if (providerInfo) {
       info.tunnel = {
@@ -115,8 +148,24 @@ export function registerIpcHandlers(
       } catch {
         /* ignore */
       }
+
+      // Clean up local domain hosts entry (Story 71)
+      const storedSites = siteStore.getSites()
+      const siteToRemove = storedSites.find((s) => s.id === id)
+      if (siteToRemove?.localDomain && process.platform === 'darwin') {
+        try {
+          hostsManager.removeHostsEntry(siteToRemove.localDomain)
+        } catch {
+          // Non-fatal — site removal continues even if hosts cleanup fails
+        }
+      }
+
       await serverManager.removeServer(id)
       siteStore.removeSite(id)
+
+      // Stop domain router if no more local domains
+      await ensureDomainRouter()
+
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to remove site')
@@ -318,6 +367,102 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
+    }
+  })
+
+  // --- Local Domain ---
+
+  ipcMain.handle('set-local-domain', async (_event, siteId: string, domain: string) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+
+      const trimmed = domain.trim().toLowerCase()
+      if (!trimmed) throw new Error('請輸入域名')
+
+      // Validate format
+      if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(trimmed)) {
+        throw new Error('域名格式不正確')
+      }
+
+      // Check reserved names
+      const reserved = ['localhost', 'broadcasthost', 'ip6-localhost', 'ip6-loopback']
+      if (reserved.includes(trimmed)) {
+        throw new Error('此域名為系統保留名稱')
+      }
+
+      // Check uniqueness across all sites
+      const allSites = siteStore.getSites()
+      const duplicate = allSites.find((s) => s.id !== siteId && s.localDomain === trimmed)
+      if (duplicate) {
+        throw new Error('此域名已被其他站點使用')
+      }
+
+      // Check if domain is managed by another program
+      if (process.platform === 'darwin' && hostsManager.isDomainManagedExternally(trimmed)) {
+        throw new Error(`域名 "${trimmed}" 已被其他程式使用於 hosts 檔案中`)
+      }
+
+      // Remove old hosts entry if domain is changing
+      const oldSite = allSites.find((s) => s.id === siteId)
+      if (oldSite?.localDomain && oldSite.localDomain !== trimmed && process.platform === 'darwin') {
+        try {
+          hostsManager.removeHostsEntry(oldSite.localDomain)
+        } catch {
+          // Best effort — don't block on hosts cleanup
+        }
+      }
+
+      // Add hosts entry (macOS only)
+      if (process.platform === 'darwin') {
+        hostsManager.addHostsEntry(trimmed)
+      }
+
+      // Persist domain
+      siteStore.updateSite(siteId, { localDomain: trimmed })
+
+      // Ensure domain router is running
+      await ensureDomainRouter()
+
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定本地域名失敗')
+    }
+  })
+
+  ipcMain.handle('remove-local-domain', async (_event, siteId: string) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+
+      // Get current domain before removing
+      const storedSites = siteStore.getSites()
+      const currentSite = storedSites.find((s) => s.id === siteId)
+      const oldDomain = currentSite?.localDomain
+
+      // Remove domain from store
+      siteStore.updateSite(siteId, { localDomain: undefined })
+
+      // Remove hosts entry (macOS only)
+      if (oldDomain && process.platform === 'darwin') {
+        try {
+          hostsManager.removeHostsEntry(oldDomain)
+        } catch (err) {
+          // Non-fatal — domain still removed from store
+          const windows = BrowserWindow.getAllWindows()
+          for (const win of windows) {
+            win.webContents.send('site-updated', serverManager.getServers().map(toSiteInfo))
+          }
+          throw new Error('域名已移除，但無法清理 hosts 檔案（可能需要手動清理）')
+        }
+      }
+
+      // Stop domain router if no more local domains
+      await ensureDomainRouter()
+
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '移除本地域名失敗')
     }
   })
 

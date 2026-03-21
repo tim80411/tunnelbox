@@ -12,6 +12,8 @@ import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './
 import { createTray, destroyTray } from './tray-manager'
 import { createLogger } from './logger'
 import * as siteStore from './store'
+import { DomainRouter } from './domain-router'
+import { cleanOrphanedEntries } from './hosts-manager'
 
 const log = createLogger('Main')
 
@@ -23,6 +25,16 @@ initNamedTunnel(processManager)
 
 const tunnelManager = new TunnelProviderManager()
 tunnelManager.register(new CloudflareProvider())
+
+// --- Local Domain Router ---
+const domainRouter = new DomainRouter((domain: string): number | null => {
+  const sites = siteStore.getSites()
+  const site = sites.find((s) => s.localDomain === domain)
+  if (!site) return null
+  const server = serverManager.getServer(site.id)
+  if (!server || server.status !== 'running') return null
+  return server.port
+})
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -92,7 +104,7 @@ app.whenReady().then(async () => {
     await serverManager.initWebSocket()
 
     // Register IPC handlers
-    registerIpcHandlers(serverManager, tunnelManager)
+    registerIpcHandlers(serverManager, tunnelManager, domainRouter)
     registerQuickActionHandlers()
 
     // Start local HTTP API for CLI communication
@@ -112,6 +124,26 @@ app.whenReady().then(async () => {
         log.error(`Failed to restore server for "${site.name}":`, err)
         // Register as stopped so it still shows in the list
         serverManager.registerStopped(site)
+      }
+    }
+
+    // Start local domain router (Story 69/70)
+    const hasLocalDomains = storedSites.some((s) => s.localDomain)
+    if (hasLocalDomains) {
+      domainRouter.start(8080).catch((err) => {
+        log.warn('Failed to start domain router:', err)
+      })
+
+      // Clean orphaned hosts entries (Story 71)
+      if (process.platform === 'darwin') {
+        const validDomains = storedSites
+          .map((s) => s.localDomain)
+          .filter((d): d is string => !!d)
+        try {
+          cleanOrphanedEntries(validDomains)
+        } catch {
+          // Best effort cleanup on startup
+        }
       }
     }
 
@@ -180,8 +212,8 @@ app.on('before-quit', (e) => {
   }, 5000)
   forceExitTimer.unref()
 
-  // Clean up processes, servers, and API server, then exit
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).then(() => {
+  // Clean up processes, servers, domain router, and API server, then exit
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), domainRouter.stop(), stopApiServer()]).then(() => {
     clearTimeout(forceExitTimer)
     app.exit(0)
   })
@@ -213,14 +245,14 @@ process.on('exit', () => {
 
 process.on('SIGTERM', () => {
   log.info('Received SIGTERM, cleaning up...')
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), domainRouter.stop(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
   log.info('Received SIGINT, cleaning up...')
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), domainRouter.stop(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })
