@@ -369,8 +369,7 @@ html, body, #root {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
-  width: 220px;
-  flex-shrink: 0;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -391,6 +390,14 @@ html, body, #root {
   color: var(--text-tertiary);
 }
 
+
+.url-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .site-item-url-row {
   display: flex;

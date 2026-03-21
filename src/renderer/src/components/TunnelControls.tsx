@@ -138,62 +138,64 @@ function TunnelControls({
           <span className="cloudflared-spinner" />
         )}
 
-        {/* Info */}
-        <span className="btn-icon btn-icon--info" data-tooltip={
-          isNamed
-            ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
-            : tunnel?.status === 'running'
-              ? '類型：Quick Tunnel（隨機網址）'
-              : 'Cloudflare Tunnel 公開分享'
-        }>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        </span>
+        <div className="url-row-actions">
+          {/* Info */}
+          <span className="btn-icon btn-icon--info" data-tooltip={
+            isNamed
+              ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
+              : tunnel?.status === 'running'
+                ? '類型：Quick Tunnel（隨機網址）'
+                : 'Cloudflare Tunnel 公開分享'
+          }>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </span>
 
-        {/* Play / Stop */}
-        <button
-          className="btn-icon"
-          onClick={handlePlay}
-          disabled={!canPlay}
-          data-tooltip={isNamed && tunnel?.status === 'stopped' ? '恢復公開' : '公開分享'}
-        >
-          <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
-        </button>
-        <button
-          className="btn-icon"
-          onClick={handleStop}
-          disabled={!canStop}
-          data-tooltip={isNamed ? '暫停公開' : '停止公開'}
-        >
-          <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
-        </button>
-
-        {/* Copy / QR / Refresh */}
-        <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
-        <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
-        <button className="btn-icon" disabled data-tooltip="重新偵測">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-        </button>
-
-        {/* Fixed domain button — only when available and no active tunnel */}
-        {isAvailable && !tunnel && cloudflaredAvailable && (
+          {/* Play / Stop */}
           <button
-            className="btn btn-xs"
-            onClick={() => isLoggedIn ? setShowDomainModal(true) : onLogin()}
-            title={!isLoggedIn ? '需要先登入 Cloudflare' : undefined}
+            className="btn-icon"
+            onClick={handlePlay}
+            disabled={!canPlay}
+            data-tooltip={isNamed && tunnel?.status === 'stopped' ? '恢復公開' : '公開分享'}
           >
-            固定網域
+            <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
           </button>
-        )}
-
-        {/* Unbind button — only for named tunnels */}
-        {isNamed && (
           <button
-            className="btn btn-xs btn-danger"
-            onClick={() => setShowUnbindConfirm(true)}
+            className="btn-icon"
+            onClick={handleStop}
+            disabled={!canStop}
+            data-tooltip={isNamed ? '暫停公開' : '停止公開'}
           >
-            解除綁定
+            <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
           </button>
-        )}
+
+          {/* Copy / QR / Refresh */}
+          <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
+          <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
+          <button className="btn-icon" disabled data-tooltip="重新偵測">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
+          </button>
+
+          {/* Fixed domain button */}
+          {isAvailable && !tunnel && cloudflaredAvailable && (
+            <button
+              className="btn btn-xs"
+              onClick={() => isLoggedIn ? setShowDomainModal(true) : onLogin()}
+              title={!isLoggedIn ? '需要先登入 Cloudflare' : undefined}
+            >
+              固定網域
+            </button>
+          )}
+
+          {/* Unbind button */}
+          {isNamed && (
+            <button
+              className="btn btn-xs btn-danger"
+              onClick={() => setShowUnbindConfirm(true)}
+            >
+              解除綁定
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Domain binding modal */}
