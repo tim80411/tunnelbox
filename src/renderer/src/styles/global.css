@@ -300,7 +300,6 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-  padding-left: 14px; /* align with badge column: status-light(6) + gap(8) */
 }
 
 /* ── Serve Mode Badges ────────────────────────────────────────── */
