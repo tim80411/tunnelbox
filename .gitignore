@@ -3,5 +3,7 @@ dist
 out
 .DS_Store
 *.log
+*.tsbuildinfo
 .project/
 .worktrees/
+.claude/worktrees/
