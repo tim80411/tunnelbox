@@ -60,7 +60,7 @@ function AuthPanel({ auth, hasRunningNamedTunnels, onLogin, onLogout }: AuthPane
       </div>
 
       {showLogoutConfirm && (
-        <div className="modal-overlay" onClick={() => setShowLogoutConfirm(false)}>
+        <div className="modal-overlay" data-dismiss onClick={() => setShowLogoutConfirm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認登出</h2>
             <p className="confirm-text">

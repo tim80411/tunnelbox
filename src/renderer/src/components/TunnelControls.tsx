@@ -102,7 +102,7 @@ function TunnelControls({
 
         {/* Domain binding modal */}
         {showDomainModal && (
-          <div className="modal-overlay" onClick={() => setShowDomainModal(false)}>
+          <div className="modal-overlay" data-dismiss onClick={() => setShowDomainModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <h2 className="modal-title">公開（固定網域）</h2>
               {domainError && <div className="modal-error">{domainError}</div>}
@@ -243,7 +243,7 @@ function TunnelControls({
 
       {/* Unbind Confirmation Modal */}
       {showUnbindConfirm && (
-        <div className="modal-overlay" onClick={() => setShowUnbindConfirm(false)}>
+        <div className="modal-overlay" data-dismiss onClick={() => setShowUnbindConfirm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認解除綁定</h2>
             <p className="confirm-text">
