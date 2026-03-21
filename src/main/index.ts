@@ -102,11 +102,7 @@ app.whenReady().then(async () => {
     const storedSites = siteStore.getSites()
     for (const site of storedSites) {
       try {
-        await serverManager.startServer({
-          id: site.id,
-          name: site.name,
-          folderPath: site.folderPath
-        })
+        await serverManager.startServer(site)
         log.info(`Restored and started server for "${site.name}"`)
       } catch (err) {
         log.error(`Failed to restore server for "${site.name}":`, err)
@@ -202,7 +198,7 @@ process.on('exit', () => {
       if (server.httpServer) {
         server.httpServer.close()
       }
-      if (server.watcher) {
+      if (server.serveMode === 'static' && server.watcher) {
         server.watcher.close()
       }
     }

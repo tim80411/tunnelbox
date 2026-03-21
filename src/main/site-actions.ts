@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { BrowserWindow } from 'electron'
-import { ServerManager } from './server-manager'
+import { ServerManager, type SiteServer } from './server-manager'
 import * as siteStore from './store'
 import { getTunnelInfo, getNamedTunnelInfo } from './cloudflared'
 import { updateTrayMenu } from './tray-manager'
@@ -12,26 +12,20 @@ export function initSiteActions(manager: ServerManager): void {
   serverManager = manager
 }
 
-export function toSiteInfo(server: {
-  id: string
-  name: string
-  folderPath: string
-  port: number
-  status: 'running' | 'stopped' | 'error'
-}): SiteInfo {
-  const info: SiteInfo = {
+export function toSiteInfo(server: SiteServer): SiteInfo {
+  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
+  const base = {
     id: server.id,
     name: server.name,
-    folderPath: server.folderPath,
     port: server.port,
     status: server.status,
-    url: server.status === 'running' ? `http://localhost:${server.port}` : ''
+    url: server.status === 'running' ? `http://localhost:${server.port}` : '',
+    ...(tunnel && { tunnel })
   }
-  const tunnel = getTunnelInfo(server.id) || getNamedTunnelInfo(server.id)
-  if (tunnel) {
-    info.tunnel = tunnel
+  if (server.serveMode === 'proxy') {
+    return { ...base, serveMode: 'proxy' as const, proxyTarget: server.proxyTarget }
   }
-  return info
+  return { ...base, serveMode: 'static' as const, folderPath: server.folderPath }
 }
 
 export function broadcastSiteUpdate(): void {
@@ -63,7 +57,7 @@ export async function addSiteFromPath(folderPath: string): Promise<SiteInfo> {
   const existingServers = serverManager.getServers()
 
   // Check duplicate path
-  if (existingServers.some((s) => s.folderPath === trimmedPath)) {
+  if (existingServers.some((s) => s.serveMode === 'static' && s.folderPath === trimmedPath)) {
     throw new Error('This path is already registered')
   }
 
@@ -75,9 +69,10 @@ export async function addSiteFromPath(folderPath: string): Promise<SiteInfo> {
   }
 
   const id = serverManager.generateId()
-  const server = await serverManager.startServer({ id, name, folderPath: trimmedPath })
+  const storedSite = { id, name, serveMode: 'static' as const, folderPath: trimmedPath }
+  const server = await serverManager.startServer(storedSite)
 
-  siteStore.addSite({ id, name, folderPath: trimmedPath })
+  siteStore.addSite(storedSite)
 
   const info = toSiteInfo(server)
   broadcastSiteUpdate()

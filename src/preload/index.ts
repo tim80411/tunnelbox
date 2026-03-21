@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI, AddSiteParams } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
   // Site management
-  addSite: (name: string, folderPath: string): Promise<SiteInfo> => {
-    return ipcRenderer.invoke('add-site', name, folderPath)
+  addSite: (params: AddSiteParams): Promise<SiteInfo> => {
+    return ipcRenderer.invoke('add-site', params)
   },
 
   removeSite: (id: string): Promise<void> => {

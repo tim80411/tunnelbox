@@ -71,11 +71,7 @@ async function handleTunnelQuick(req: http.IncomingMessage, res: http.ServerResp
   if (siteServer.status === 'running') {
     port = siteServer.port
   } else {
-    const started = await serverManager.startServer({
-      id: siteServer.id,
-      name: siteServer.name,
-      folderPath: siteServer.folderPath,
-    })
+    const started = await serverManager.startServer(siteServer as import('../shared/types').StoredSite)
     port = started.port
   }
 
