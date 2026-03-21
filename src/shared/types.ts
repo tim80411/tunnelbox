@@ -176,6 +176,7 @@ export interface ElectronAPI {
 
   // Clipboard
   readClipboardText: () => string
+  readClipboardFilePaths: () => string[]
   onPasteShortcut: (callback: () => void) => () => void
 
   // --- Cloudflared Environment ---

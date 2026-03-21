@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
+import { statSync } from 'fs'
+import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
@@ -46,6 +48,27 @@ const electronAPI: ElectronAPI = {
   // Clipboard
   readClipboardText: (): string => {
     return clipboard.readText()
+  },
+
+  readClipboardFilePaths: (): string[] => {
+    let paths: string[] = []
+
+    if (process.platform === 'darwin') {
+      const plist = clipboard.read('NSFilenamesPboardType')
+      paths = parseMacOSFilePaths(plist)
+    } else if (process.platform === 'win32') {
+      const buffer = clipboard.readBuffer('CF_HDROP')
+      paths = parseWindowsDropFiles(buffer)
+    }
+
+    // Filter to existing directories only (spec scenarios 6/7: ignore files)
+    return paths.filter((p) => {
+      try {
+        return statSync(p).isDirectory()
+      } catch {
+        return false // path doesn't exist (spec scenario 5)
+      }
+    })
   },
 
   onPasteShortcut: (callback: () => void): (() => void) => {
