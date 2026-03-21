@@ -202,6 +202,11 @@ html, body, #root {
   background: var(--bg-card-hover);
 }
 
+.site-item--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .site-item-info {
   display: flex;
   flex-direction: column;
