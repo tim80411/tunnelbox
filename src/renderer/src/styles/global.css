@@ -151,6 +151,12 @@ html, body, #root {
   position: relative;
 }
 
+.site-list > *:not(.site-list-empty):not(.site-list-drop-hint) {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ── Empty State ───────────────────────────────────────────────── */
 .site-list-empty {
   display: flex;
@@ -395,8 +401,8 @@ html, body, #root {
 
 /* ── Status Light ─────────────────────────────────────────────── */
 .status-light {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -425,8 +431,8 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
