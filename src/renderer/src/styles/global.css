@@ -597,8 +597,8 @@ html, body, #root {
   right: 0;
   z-index: 100;
   min-width: 160px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px 0;
@@ -613,13 +613,13 @@ html, body, #root {
   text-align: left;
   background: none;
   border: none;
-  color: var(--fg);
+  color: var(--text-primary);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .overflow-menu-item:hover {
-  background: var(--hover);
+  background: var(--bg-muted);
 }
 
 .overflow-menu-item--danger {
@@ -971,7 +971,7 @@ html, body, #root {
 .sharing-badge--local {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  border-color: var(--border);
+  border-color: var(--border-default);
 }
 
 .sharing-badge--lan {
