@@ -208,103 +208,105 @@ function TunnelControls({
           <span className="cloudflared-spinner" />
         )}
 
-        {/* Info */}
-        <span className="btn-icon btn-icon--info" data-tooltip={
-          isNamed
-            ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
-            : tunnel?.status === 'running'
-              ? '類型：Quick Tunnel（隨機網址）'
-              : hasDefaultDomain
-                ? `預設網域：${site.defaultDomain}`
-                : 'Cloudflare Tunnel 公開分享'
-        }>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        </span>
+        <div className="url-row-actions">
+          {/* Info */}
+          <span className="btn-icon btn-icon--info" data-tooltip={
+            isNamed
+              ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
+              : tunnel?.status === 'running'
+                ? '類型：Quick Tunnel（隨機網址）'
+                : hasDefaultDomain
+                  ? `預設網域：${site.defaultDomain}`
+                  : 'Cloudflare Tunnel 公開分享'
+          }>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </span>
 
-        {/* Play / Stop */}
-        <button
-          className="btn-icon"
-          onClick={handlePlay}
-          disabled={!canPlay}
-          data-tooltip={playTooltip}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
-        </button>
-        <button
-          className="btn-icon"
-          onClick={handleStop}
-          disabled={!canStop}
-          data-tooltip={isNamed ? '暫停公開' : '停止公開'}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
-        </button>
+          {/* Play / Stop */}
+          <button
+            className="btn-icon"
+            onClick={handlePlay}
+            disabled={!canPlay}
+            data-tooltip={playTooltip}
+          >
+            <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
+          </button>
+          <button
+            className="btn-icon"
+            onClick={handleStop}
+            disabled={!canStop}
+            data-tooltip={isNamed ? '暫停公開' : '停止公開'}
+          >
+            <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
+          </button>
 
-        {/* Copy / QR / Refresh */}
-        <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
-        <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
-        <button className="btn-icon" disabled data-tooltip="重新偵測">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-        </button>
+          {/* Copy / QR / Refresh */}
+          <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
+          <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
+          <button className="btn-icon" disabled data-tooltip="重新偵測">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
+          </button>
 
-        {/* Overflow menu (three dots) — shown when site is available */}
-        {isAvailable && (
-          <div className="overflow-menu-wrapper" ref={overflowRef}>
-            <button
-              className="btn-icon"
-              onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-              data-tooltip="更多選項"
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10">
-                <circle cx="5" cy="2" r="1" fill="currentColor"/>
-                <circle cx="5" cy="5" r="1" fill="currentColor"/>
-                <circle cx="5" cy="8" r="1" fill="currentColor"/>
-              </svg>
-            </button>
-            {showOverflowMenu && (
-              <div className="overflow-menu">
-                <button
-                  className="overflow-menu-item"
-                  onClick={() => {
-                    setShowOverflowMenu(false)
-                    if (!isLoggedIn) {
-                      onLogin()
-                      return
-                    }
-                    setDefaultDomainInput(site.defaultDomain || '')
-                    setDefaultDomainError(null)
-                    setShowDefaultDomainModal(true)
-                  }}
-                >
-                  {hasDefaultDomain ? `預設網域：${site.defaultDomain}` : '設定預設網域'}
-                </button>
-                <button
-                  className="overflow-menu-item"
-                  onClick={() => {
-                    setShowOverflowMenu(false)
-                    if (!isLoggedIn) {
-                      onLogin()
-                      return
-                    }
-                    setShowDomainModal(true)
-                  }}
-                >
-                  綁定固定網域
-                </button>
-                {isNamed && (
+          {/* Overflow menu (three dots) — shown when site is available */}
+          {isAvailable && (
+            <div className="overflow-menu-wrapper" ref={overflowRef}>
+              <button
+                className="btn-icon"
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+                data-tooltip="更多選項"
+              >
+                <svg width="12" height="12" viewBox="0 0 10 10">
+                  <circle cx="5" cy="2" r="1" fill="currentColor"/>
+                  <circle cx="5" cy="5" r="1" fill="currentColor"/>
+                  <circle cx="5" cy="8" r="1" fill="currentColor"/>
+                </svg>
+              </button>
+              {showOverflowMenu && (
+                <div className="overflow-menu">
                   <button
-                    className="overflow-menu-item overflow-menu-item--danger"
+                    className="overflow-menu-item"
                     onClick={() => {
                       setShowOverflowMenu(false)
-                      setShowUnbindConfirm(true)
+                      if (!isLoggedIn) {
+                        onLogin()
+                        return
+                      }
+                      setDefaultDomainInput(site.defaultDomain || '')
+                      setDefaultDomainError(null)
+                      setShowDefaultDomainModal(true)
                     }}
                   >
-                    解除綁定
+                    {hasDefaultDomain ? `預設網域：${site.defaultDomain}` : '設定預設網域'}
                   </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  <button
+                    className="overflow-menu-item"
+                    onClick={() => {
+                      setShowOverflowMenu(false)
+                      if (!isLoggedIn) {
+                        onLogin()
+                        return
+                      }
+                      setShowDomainModal(true)
+                    }}
+                  >
+                    綁定固定網域
+                  </button>
+                  {isNamed && (
+                    <button
+                      className="overflow-menu-item overflow-menu-item--danger"
+                      onClick={() => {
+                        setShowOverflowMenu(false)
+                        setShowUnbindConfirm(true)
+                      }}
+                    >
+                      解除綁定
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Domain binding modal */}
