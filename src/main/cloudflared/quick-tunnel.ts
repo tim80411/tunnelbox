@@ -122,6 +122,7 @@ async function attemptReconnect(siteId: string): Promise<void> {
 
 /** Start readiness probe for a tunnel URL, transitioning to running when ready */
 function startReadinessProbe(siteId: string, url: string): void {
+  log.info(`Starting readiness probe for ${siteId}: ${url}`)
   const controller = new AbortController()
   readinessAbortControllers.set(siteId, controller)
   waitForTunnelReady(url, { signal: controller.signal })
@@ -129,14 +130,17 @@ function startReadinessProbe(siteId: string, url: string): void {
       const current = activeTunnels.get(siteId)
       if (current && current.status === 'verifying') {
         current.status = 'running'
+        current.warningMessage = undefined
         reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, current)
       }
     })
-    .catch(() => {
+    .catch((err) => {
+      log.info(`Readiness probe failed for ${siteId}: ${err instanceof Error ? err.message : String(err)}`)
       const current = activeTunnels.get(siteId)
       if (current && current.status === 'verifying') {
         current.status = 'running' // Fall through to running even if probe times out
+        current.warningMessage = '本機 DNS 可能有快取問題，若無法開啟網址，請清除 DNS 快取後重試'
         reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, current)
       }
