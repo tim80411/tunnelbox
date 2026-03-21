@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { DOMAIN_REGEX } from '../../../shared/types'
 import type { SiteInfo, AuthStatus } from '../../../shared/types'
 import CopyButton from './CopyButton'
 import QrButton from './QrButton'
@@ -59,7 +60,7 @@ function TunnelControls({
       setDomainError('請輸入網域名稱')
       return
     }
-    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+    if (!DOMAIN_REGEX.test(trimmed)) {
       setDomainError('請輸入有效的網域名稱，例如 dev.example.com')
       return
     }
@@ -92,7 +93,7 @@ function TunnelControls({
       }
       return
     }
-    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+    if (!DOMAIN_REGEX.test(trimmed)) {
       setDefaultDomainError('請輸入有效的網域名稱，例如 dev.example.com')
       return
     }

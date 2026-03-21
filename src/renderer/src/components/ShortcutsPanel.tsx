@@ -37,8 +37,8 @@ function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps): React.ReactElem
       {open && <div className="shortcuts-overlay" data-dismiss onClick={onClose} />}
       <aside className={`shortcuts-panel${open ? ' shortcuts-panel-open' : ''}`}>
         <div className="shortcuts-panel-header">
-          <h2 className="settings-title">Keyboard Shortcuts</h2>
-          <button className="settings-close" onClick={onClose}>×</button>
+          <h2 className="panel-title">Keyboard Shortcuts</h2>
+          <button className="panel-close" onClick={onClose}>×</button>
         </div>
 
         <div className="shortcuts-panel-body">

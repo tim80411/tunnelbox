@@ -2,6 +2,7 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
+import { DOMAIN_REGEX } from '../shared/types'
 import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
@@ -50,7 +51,6 @@ export function registerIpcHandlers(
           errorMessage: providerInfo.errorMessage
         }
       : undefined
-    // Read defaultDomain from persisted site data
     const allStored = storedSites ?? siteStore.getSites()
     const storedSite = allStored.find((s) => s.id === server.id)
     const base = {
@@ -402,7 +402,7 @@ export function registerIpcHandlers(
       if (typeof siteId !== 'string' || !siteId) throw new Error('Invalid siteId')
       if (typeof domain !== 'string' || !domain.trim()) throw new Error('Invalid domain')
       const trimmed = domain.trim()
-      if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/.test(trimmed)) {
+      if (!DOMAIN_REGEX.test(trimmed)) {
         throw new Error('Invalid domain format')
       }
       siteStore.updateSite(siteId, { defaultDomain: trimmed })
