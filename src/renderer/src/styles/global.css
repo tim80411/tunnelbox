@@ -675,6 +675,7 @@ html, body, #root {
 }
 
 .form-hint {
+  position: relative;
   display: inline-block;
   margin-left: var(--sp-1);
   cursor: help;
@@ -682,6 +683,32 @@ html, body, #root {
   font-size: 12px;
   text-transform: none;
   letter-spacing: normal;
+}
+
+.form-hint::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  border-radius: var(--radius);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration);
+  z-index: 10;
+}
+
+.form-hint:hover::after {
+  opacity: 1;
 }
 
 .form-input {
@@ -723,94 +750,72 @@ html, body, #root {
   margin-bottom: var(--sp-1);
 }
 
-/* ── LAN Sharing Controls ─────────────────────────────────────── */
-.lan-sharing-controls {
+/* ── Sharing Controls (unified LAN + Tunnel) ─────────────────── */
+.sharing-row {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   margin-top: var(--sp-1);
 }
 
-.lan-sharing-disabled {
+.sharing-row--disabled {
   opacity: 0.4;
 }
 
-.lan-sharing-label {
+/* Badge — shared base with fixed width for alignment */
+.sharing-badge {
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 600;
-  padding: 1px 6px;
+  padding: 1px 0;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
   white-space: nowrap;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid;
   border-radius: var(--radius);
+}
+
+.sharing-badge--lan {
   background: var(--info-bg);
   color: var(--info-text);
   border-color: #b8cfe6;
 }
 
-.lan-sharing-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
+.sharing-badge--wan {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: #f0c4bc;
 }
 
-.lan-sharing-url-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.lan-sharing-url {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-primary);
-  word-break: break-all;
-}
-
-.lan-sharing-iface {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.btn-lan-share {
-  background: var(--info-bg);
-  color: var(--info-text);
-  border-color: #b8cfe6;
-}
-
-.btn-lan-share:hover {
-  background: #dae6f5;
-  border-color: #9ab8d8;
-  color: var(--info-text);
-}
-
-.btn-lan-stop {
-  color: var(--text-secondary);
-  border-color: var(--border-default);
-}
-
-.btn-lan-stop:hover {
+.sharing-badge--stopped {
   background: var(--bg-muted);
-  border-color: var(--border-hard);
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
 }
 
-/* ── Tunnel Controls ───────────────────────────────────────────── */
-.tunnel-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-top: var(--sp-1);
+/* Inline badges (e.g., "持久") — auto width, no fixed sizing */
+.sharing-badge--inline {
+  width: auto;
+  padding: 1px 6px;
 }
 
-.tunnel-url-row {
+/* Hint text — shown when feature is unavailable */
+.sharing-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* URL row */
+.sharing-url-row {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.tunnel-url {
+.sharing-url {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
@@ -821,15 +826,22 @@ html, body, #root {
   transition: text-decoration-color var(--duration);
 }
 
-.tunnel-url:hover {
+.sharing-url:hover {
   text-decoration-color: var(--accent);
 }
 
-.tunnel-url-dimmed {
+.sharing-url--dimmed {
   opacity: 0.35;
 }
 
-.tunnel-status-text {
+.sharing-iface {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* Status text */
+.sharing-status-text {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -837,98 +849,90 @@ html, body, #root {
   font-weight: 500;
 }
 
-.tunnel-starting {
+.sharing-status-text--starting {
   color: var(--info-text);
 }
 
-.tunnel-reconnecting {
+.sharing-status-text--reconnecting {
   color: var(--warning-text);
 }
 
-.tunnel-error-row {
+.sharing-status-text--error {
+  color: var(--danger);
+}
+
+/* Error row */
+.sharing-error-row {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
 }
 
-.tunnel-error-text {
-  color: var(--danger);
-}
-
-/* Share button — accent fill */
-.btn-tunnel-share {
+/* Buttons — share (accent fill) */
+.btn-sharing-action {
   background: var(--accent);
   color: var(--text-on-accent);
   border-color: var(--accent);
 }
 
-.btn-tunnel-share:hover {
+.btn-sharing-action:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
   color: var(--text-on-accent);
 }
 
-.btn-tunnel-stop {
+/* Buttons — LAN share (blue fill) */
+.btn-sharing-action--lan {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: #b8cfe6;
+}
+
+.btn-sharing-action--lan:hover {
+  background: #dae6f5;
+  border-color: #9ab8d8;
+  color: var(--info-text);
+}
+
+/* Buttons — stop */
+.btn-sharing-stop {
   color: var(--danger);
   border-color: var(--danger);
 }
 
-.btn-tunnel-stop:hover {
+.btn-sharing-stop:hover {
   background: var(--danger-bg);
   border-color: var(--danger);
   color: var(--danger);
 }
 
-.btn-tunnel-named {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  border-color: var(--accent);
+/* Buttons — neutral stop (e.g., LAN off) */
+.btn-sharing-stop--neutral {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
 }
 
-.btn-tunnel-named:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--text-on-accent);
+.btn-sharing-stop--neutral:hover {
+  background: var(--bg-muted);
+  border-color: var(--border-hard);
+  color: var(--text-secondary);
 }
 
-.btn-tunnel-named-disabled {
+/* Buttons — disabled action */
+.btn-sharing-action--disabled {
   background: var(--bg-muted);
   color: var(--text-tertiary);
   border-color: var(--border-default);
   cursor: pointer;
 }
 
-.btn-tunnel-named-disabled:hover {
+.btn-sharing-action--disabled:hover {
   border-color: var(--text-tertiary);
   color: var(--text-secondary);
 }
 
-/* ── Tunnel Badges ─────────────────────────────────────────────── */
-.tunnel-badge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  padding: 1px 6px;
-  white-space: nowrap;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid;
-  border-radius: var(--radius);
-}
-
-.tunnel-badge-named {
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: #f0c4bc;
-}
-
-.tunnel-badge-stopped {
-  background: var(--bg-muted);
-  color: var(--text-tertiary);
-  border-color: var(--border-subtle);
-}
-
-.tunnel-named-actions {
+/* Named tunnel actions group */
+.sharing-actions-group {
   display: flex;
   gap: 6px;
 }
@@ -1068,61 +1072,6 @@ html, body, #root {
 .domain-error {
   font-size: 11px;
   color: var(--danger);
-}
-
-/* ── Local Domain ─────────────────────────────────────────────── */
-.local-domain-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: var(--sp-1);
-}
-
-.local-domain-badge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  padding: 1px 6px;
-  white-space: nowrap;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid;
-  border-radius: var(--radius);
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.local-domain-name {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-primary);
-  text-decoration: underline;
-  text-decoration-color: var(--border-default);
-  text-underline-offset: 2px;
-  cursor: pointer;
-  transition: text-decoration-color var(--duration);
-}
-
-.local-domain-name:hover {
-  text-decoration-color: var(--accent);
-}
-
-.local-domain-name-dimmed {
-  opacity: 0.45;
-}
-
-.btn-local-domain {
-  margin-top: var(--sp-1);
-  color: var(--text-tertiary);
-  border-color: var(--border-subtle);
-  border-style: dashed;
-}
-
-.btn-local-domain:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-dim);
 }
 
 .form-input-error {

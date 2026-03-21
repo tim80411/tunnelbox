@@ -38,9 +38,9 @@ function LanSharingControls({
   // Only show when site is running
   if (site.status !== 'running') {
     return (
-      <div className="lan-sharing-controls lan-sharing-disabled">
-        <span className="lan-sharing-label">LAN</span>
-        <span className="lan-sharing-hint">啟動站點後可使用區網分享</span>
+      <div className="sharing-row sharing-row--disabled">
+        <span className="sharing-badge sharing-badge--lan">LAN</span>
+        <span className="sharing-hint">啟動站點後可使用區網分享</span>
       </div>
     )
   }
@@ -48,12 +48,19 @@ function LanSharingControls({
   // LAN sharing is active — show URL
   if (site.lanUrl) {
     return (
-      <div className="lan-sharing-controls">
-        <span className="lan-sharing-label">LAN</span>
-        <div className="lan-sharing-url-row">
-          <span className="lan-sharing-url">{site.lanUrl}</span>
+      <div className="sharing-row">
+        <span className="sharing-badge sharing-badge--lan">LAN</span>
+        <div className="sharing-url-row">
+          <a
+            className="sharing-url"
+            href={site.lanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {site.lanUrl}
+          </a>
           {site.lanInterfaceName && (
-            <span className="lan-sharing-iface">({site.lanInterfaceName})</span>
+            <span className="sharing-iface">({site.lanInterfaceName})</span>
           )}
           <button
             className="btn-copy"
@@ -64,7 +71,7 @@ function LanSharingControls({
           </button>
         </div>
         <button
-          className="btn btn-sm btn-lan-stop"
+          className="btn btn-sm btn-sharing-stop--neutral"
           onClick={handleToggle}
           disabled={toggling}
         >
@@ -76,10 +83,10 @@ function LanSharingControls({
 
   // LAN sharing is not active — show enable button
   return (
-    <div className="lan-sharing-controls">
-      <span className="lan-sharing-label">LAN</span>
+    <div className="sharing-row">
+      <span className="sharing-badge sharing-badge--lan">LAN</span>
       <button
-        className="btn btn-sm btn-lan-share"
+        className="btn btn-sm btn-sharing-action--lan"
         onClick={handleToggle}
         disabled={toggling}
       >

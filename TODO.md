@@ -23,13 +23,6 @@
 - [ ] Phase 2 — 新增第二個 provider（如 ngrok、localtunnel）以驗證抽象層設計
 - [ ] Provider 設定 UI — 讓使用者選擇/切換 tunnel provider
 
-## 本地自訂域名 (branch: `worktree-agent-aa1e6c8d`，未合併)
-
-- [ ] Windows hosts 檔案支援 — 目前 `hosts-manager.ts` 僅支援 macOS（`/etc/hosts` + `osascript` 權限提升），Windows 需用 `C:\Windows\System32\drivers\etc\hosts` + 不同的權限提升方式
-- [ ] Domain router port 衝突處理 — `domain-router.ts` 固定監聽 port 8080，若被佔用需要 fallback 或讓使用者設定
-- [ ] 瀏覽器存取需手動加 port — 使用者必須輸入 `http://my-project.local:8080` 而非 `http://my-project.local`，因為不佔用 port 80。可考慮文件說明或 UI 提示
-- [ ] CLI 整合 — 目前本地域名僅有 GUI 操作，未整合到 CLI 命令中
-
 ## 區網分享 (branch: `worktree-agent-adeb8149`，未合併)
 
 - [ ] Story 78（多網路介面 UI 提示）— `lan-ip.ts` 已實作多介面偵測和 VPN 過濾，但 UI 尚未在多 IP 時顯示介面名稱供使用者辨識

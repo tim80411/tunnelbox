@@ -25,7 +25,7 @@ function TunnelControls({
   onStartNamedTunnel,
   onStopNamedTunnel,
   onLogin
-}: TunnelControlsProps): React.ReactElement | null {
+}: TunnelControlsProps): React.ReactElement {
   const [copied, setCopied] = useState(false)
   const [showDomainModal, setShowDomainModal] = useState(false)
   const [domainInput, setDomainInput] = useState('')
@@ -62,9 +62,17 @@ function TunnelControls({
     }
   }, [domainInput, site.id, onBindFixedDomain])
 
-  // Don't show tunnel controls if site is not running or cloudflared not available
+  // Unavailable — site not running or cloudflared missing
   if (site.status !== 'running' || !cloudflaredAvailable) {
-    return null
+    const hint = !cloudflaredAvailable
+      ? '需安裝 cloudflared'
+      : '啟動站點後可使用公開分享'
+    return (
+      <div className="sharing-row sharing-row--disabled">
+        <span className="sharing-badge sharing-badge--wan">WAN</span>
+        <span className="sharing-hint">{hint}</span>
+      </div>
+    )
   }
 
   const tunnel = site.tunnel
@@ -74,23 +82,24 @@ function TunnelControls({
   // No tunnel active — show share buttons
   if (!tunnel) {
     return (
-      <div className="tunnel-controls">
+      <div className="sharing-row">
+        <span className="sharing-badge sharing-badge--wan">WAN</span>
         <button
-          className="btn btn-sm btn-tunnel-share"
+          className="btn btn-sm btn-sharing-action"
           onClick={() => onShare(site.id)}
         >
           公開分享
         </button>
         {isLoggedIn ? (
           <button
-            className="btn btn-sm btn-tunnel-named"
+            className="btn btn-sm btn-sharing-action"
             onClick={() => setShowDomainModal(true)}
           >
             公開（固定網域）
           </button>
         ) : (
           <button
-            className="btn btn-sm btn-tunnel-named-disabled"
+            className="btn btn-sm btn-sharing-action--disabled"
             onClick={onLogin}
             title="需要先登入 Cloudflare"
           >
@@ -109,7 +118,7 @@ function TunnelControls({
                   網域
                   <span
                     className="form-hint"
-                    title="網域需由 Cloudflare 託管 DNS。若尚未設定，請先至 Cloudflare 新增網域。"
+                    data-tooltip="網域需由 Cloudflare 託管 DNS。若尚未設定，請先至 Cloudflare 新增網域。"
                   >
                     ⓘ
                   </span>
@@ -146,9 +155,11 @@ function TunnelControls({
   }
 
   return (
-    <div className="tunnel-controls">
+    <div className="sharing-row">
+      <span className="sharing-badge sharing-badge--wan">WAN</span>
+
       {tunnel.status === 'starting' && (
-        <span className="tunnel-status-text tunnel-starting">
+        <span className="sharing-status-text sharing-status-text--starting">
           <span className="cloudflared-spinner" />
           {isNamed ? '固定網域啟動中...' : '啟動中...'}
         </span>
@@ -156,12 +167,12 @@ function TunnelControls({
 
       {tunnel.status === 'running' && (
         <>
-          <div className="tunnel-url-row">
-            {isNamed && <span className="tunnel-badge tunnel-badge-named">持久</span>}
+          <div className="sharing-url-row">
+            {isNamed && <span className="sharing-badge sharing-badge--wan sharing-badge--inline">持久</span>}
             {tunnel.publicUrl && (
               <>
                 <a
-                  className="tunnel-url"
+                  className="sharing-url"
                   href={tunnel.publicUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -179,9 +190,9 @@ function TunnelControls({
             )}
           </div>
           {isNamed ? (
-            <div className="tunnel-named-actions">
+            <div className="sharing-actions-group">
               <button
-                className="btn btn-sm btn-tunnel-stop"
+                className="btn btn-sm btn-sharing-stop"
                 onClick={() => onStopNamedTunnel(site.id)}
               >
                 停止公開
@@ -195,7 +206,7 @@ function TunnelControls({
             </div>
           ) : (
             <button
-              className="btn btn-sm btn-tunnel-stop"
+              className="btn btn-sm btn-sharing-stop"
               onClick={() => onStopSharing(site.id)}
             >
               停止公開
@@ -207,17 +218,17 @@ function TunnelControls({
       {tunnel.status === 'reconnecting' && (
         <>
           {tunnel.publicUrl && (
-            <div className="tunnel-url-row">
-              {isNamed && <span className="tunnel-badge tunnel-badge-named">持久</span>}
-              <span className="tunnel-url tunnel-url-dimmed">{tunnel.publicUrl}</span>
+            <div className="sharing-url-row">
+              {isNamed && <span className="sharing-badge sharing-badge--wan sharing-badge--inline">持久</span>}
+              <span className="sharing-url sharing-url--dimmed">{tunnel.publicUrl}</span>
             </div>
           )}
-          <span className="tunnel-status-text tunnel-reconnecting">
+          <span className="sharing-status-text sharing-status-text--reconnecting">
             <span className="cloudflared-spinner" />
             Tunnel 重連中...
           </span>
           <button
-            className="btn btn-sm btn-tunnel-stop"
+            className="btn btn-sm btn-sharing-stop"
             onClick={() => isNamed ? onStopNamedTunnel(site.id) : onStopSharing(site.id)}
             disabled
           >
@@ -240,16 +251,16 @@ function TunnelControls({
       {tunnel.status === 'stopped' && (
         <>
           {isNamed ? (
-            <div className="tunnel-controls">
+            <>
               {tunnel.publicUrl && (
-                <div className="tunnel-url-row">
-                  <span className="tunnel-badge tunnel-badge-named tunnel-badge-stopped">持久(已停止)</span>
-                  <span className="tunnel-url tunnel-url-dimmed">{tunnel.publicUrl}</span>
+                <div className="sharing-url-row">
+                  <span className="sharing-badge sharing-badge--stopped sharing-badge--inline">持久(已停止)</span>
+                  <span className="sharing-url sharing-url--dimmed">{tunnel.publicUrl}</span>
                 </div>
               )}
-              <div className="tunnel-named-actions">
+              <div className="sharing-actions-group">
                 <button
-                  className="btn btn-sm btn-tunnel-share"
+                  className="btn btn-sm btn-sharing-action"
                   onClick={() => onStartNamedTunnel(site.id)}
                 >
                   啟動
@@ -261,10 +272,10 @@ function TunnelControls({
                   解除綁定
                 </button>
               </div>
-            </div>
+            </>
           ) : (
             <button
-              className="btn btn-sm btn-tunnel-share"
+              className="btn btn-sm btn-sharing-action"
               onClick={() => onShare(site.id)}
             >
               公開分享
@@ -323,8 +334,8 @@ function TunnelErrorRow({
   const isDisconnected = msg.includes('已斷線')
 
   return (
-    <div className="tunnel-error-row">
-      <span className="tunnel-status-text tunnel-error-text">
+    <div className="sharing-error-row">
+      <span className="sharing-status-text sharing-status-text--error">
         {msg || 'Tunnel 發生錯誤'}
       </span>
       {isAuthExpired ? (
@@ -333,7 +344,7 @@ function TunnelErrorRow({
         </button>
       ) : isQuotaExceeded ? null : (
         <button
-          className="btn btn-sm btn-tunnel-share"
+          className="btn btn-sm btn-sharing-action"
           onClick={() => isNamed ? onStartNamedTunnel(siteId) : onShare(siteId)}
         >
           {isDisconnected ? '重新啟動' : '重試'}

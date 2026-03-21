@@ -132,7 +132,7 @@ export function removeTunnel(siteId: string): void {
   }
 }
 
-// --- Domain Bindings ---
+// --- Domain Bindings (Cloudflare Named Tunnels) ---
 
 export function getDomainBinding(siteId: string): StoredDomainBinding | null {
   try {
@@ -162,3 +162,4 @@ export function removeDomainBinding(siteId: string): void {
     log.error(' Failed to remove domain binding:', err)
   }
 }
+
