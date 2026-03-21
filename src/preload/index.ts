@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
+import { statSync } from 'fs'
+import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
@@ -49,6 +51,27 @@ const electronAPI: ElectronAPI = {
     return clipboard.readText()
   },
 
+  readClipboardFilePaths: (): string[] => {
+    let paths: string[] = []
+
+    if (process.platform === 'darwin') {
+      const plist = clipboard.read('NSFilenamesPboardType')
+      paths = parseMacOSFilePaths(plist)
+    } else if (process.platform === 'win32') {
+      const buffer = clipboard.readBuffer('CF_HDROP')
+      paths = parseWindowsDropFiles(buffer)
+    }
+
+    // Filter to existing directories only (spec scenarios 6/7: ignore files)
+    return paths.filter((p) => {
+      try {
+        return statSync(p).isDirectory()
+      } catch {
+        return true // path doesn't exist — let addSite handle error (spec scenario 5)
+      }
+    })
+  },
+
   onPasteShortcut: (callback: () => void): (() => void) => {
     const handler = (): void => {
       callback()
@@ -97,6 +120,10 @@ const electronAPI: ElectronAPI = {
   },
 
   // LAN Sharing
+  getLanInfo: (): Promise<LanInfo> => {
+    return ipcRenderer.invoke('get-lan-info')
+  },
+
   refreshLan: (): Promise<void> => {
     return ipcRenderer.invoke('refresh-lan')
   },

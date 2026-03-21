@@ -793,6 +793,11 @@ function App(): React.ReactElement {
         onClose={() => setShowShortcuts(false)}
       />
 
+      <ShortcutsPanel
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
       {/* Add Site Modal */}
       {showAddModal && (
         <div className="modal-overlay" data-dismiss onClick={closeAddModal}>
