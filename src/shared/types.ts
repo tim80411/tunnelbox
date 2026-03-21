@@ -217,6 +217,13 @@ export interface ElectronAPI {
   onCloudflaredStatusChanged: (callback: (env: CloudflaredEnv) => void) => () => void
   onAuthStatusChanged: (callback: (auth: CloudflareAuth) => void) => () => void
   onTunnelStatusChanged: (callback: (siteId: string, tunnel: TunnelInfo | null) => void) => () => void
+
+  // Menu commands (push from main)
+  onMenuAddSite: (callback: () => void) => () => void
+  onMenuOpenSettings: (callback: () => void) => () => void
+  onMenuOpenInBrowser: (callback: () => void) => () => void
+  onMenuRestartServer: (callback: () => void) => () => void
+  onMenuRemoveSite: (callback: () => void) => () => void
 }
 
 declare global {

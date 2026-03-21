@@ -58,6 +58,37 @@ const electronAPI: ElectronAPI = {
     }
   },
 
+  // Menu commands (push from main)
+  onMenuAddSite: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:add-site', handler)
+    return () => ipcRenderer.removeListener('menu:add-site', handler)
+  },
+
+  onMenuOpenSettings: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:open-settings', handler)
+    return () => ipcRenderer.removeListener('menu:open-settings', handler)
+  },
+
+  onMenuOpenInBrowser: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:open-in-browser', handler)
+    return () => ipcRenderer.removeListener('menu:open-in-browser', handler)
+  },
+
+  onMenuRestartServer: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:restart-server', handler)
+    return () => ipcRenderer.removeListener('menu:restart-server', handler)
+  },
+
+  onMenuRemoveSite: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:remove-site', handler)
+    return () => ipcRenderer.removeListener('menu:remove-site', handler)
+  },
+
   // LAN Sharing
   getLanInfo: (): Promise<LanInfo> => {
     return ipcRenderer.invoke('get-lan-info')

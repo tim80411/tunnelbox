@@ -11,6 +11,7 @@ import { registerQuickActionHandlers } from './quick-action-installer'
 import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
 import { createTray, destroyTray } from './tray-manager'
 import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
+import { setAppMenu } from './app-menu'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -122,6 +123,7 @@ app.whenReady().then(async () => {
     })
 
     createWindow()
+    setAppMenu()
 
     // Create system tray (Story 52: Menu Bar integration)
     createTray(() => {

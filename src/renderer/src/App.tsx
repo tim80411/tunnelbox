@@ -9,6 +9,8 @@ import { useSettings } from './hooks/useSettings'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
+import { useKeyboardNavigation } from './hooks/useKeyboardNavigation'
+import { useMenuCommands } from './hooks/useMenuCommands'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -196,6 +198,16 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleRestartServer = useCallback(async (site: SiteInfo) => {
+    try {
+      setError(null)
+      if (site.status === 'running') await window.electron.stopServer(site.id)
+      await window.electron.startServer(site.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restart server')
+    }
+  }, [])
+
   const handleInstallCloudflared = useCallback(async () => {
     try {
       setCloudflaredEnv({ status: 'installing' })
@@ -348,6 +360,17 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
+  const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation(sites)
+  useMenuCommands({
+    sites,
+    selectedSiteId,
+    onAddSite: openAddModal,
+    onOpenSettings: useCallback(() => setShowSettings(true), []),
+    onOpenInBrowser: handleOpenInBrowser,
+    onRestartServer: handleRestartServer,
+    onRemoveSite: useCallback((site: SiteInfo) => setConfirmRemove(site), [])
+  })
+
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
@@ -460,6 +483,7 @@ function App(): React.ReactElement {
 
       <div className="app-body">
         <div
+          ref={listRef}
           className={`site-list${isDraggingOver ? ' site-list-drop-active' : ''}`}
           {...dropZoneHandlers}
         >
@@ -477,7 +501,12 @@ function App(): React.ReactElement {
             </div>
           ) : (
             sites.map((site) => (
-              <div key={site.id} className="site-item">
+              <div
+                key={site.id}
+                data-site-id={site.id}
+                className={`site-item${selectedSiteId === site.id ? ' site-item--selected' : ''}`}
+                onClick={() => setSelectedSiteId(site.id)}
+              >
                 <div className="site-item-info">
                   <div className="site-item-name-row">
                     <div className="site-item-name-group">
