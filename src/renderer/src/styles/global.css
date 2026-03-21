@@ -376,6 +376,10 @@ html, body, #root {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
   text-decoration: underline;
   text-decoration-color: var(--border-default);
   text-underline-offset: 2px;
@@ -391,6 +395,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
+  min-width: 0;
 }
 
 .site-item-url-unavailable {
@@ -854,6 +859,12 @@ html, body, #root {
   text-transform: uppercase;
   border: 1px solid;
   border-radius: var(--radius);
+}
+
+.sharing-badge--local {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .sharing-badge--lan {

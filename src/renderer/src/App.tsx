@@ -576,11 +576,13 @@ function App(): React.ReactElement {
                   {site.status === 'running' && site.url ? (
                     <>
                       <div className="site-item-url-row">
+                        <span className="sharing-badge sharing-badge--local">Local</span>
                         <a
                           className="site-item-url"
                           href={site.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          title={site.url}
                         >
                           {site.url}
                         </a>
@@ -594,6 +596,7 @@ function App(): React.ReactElement {
                             href={site.lanUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title={site.lanUrl}
                           >
                             {site.lanUrl}
                           </a>
@@ -627,6 +630,7 @@ function App(): React.ReactElement {
                             href={site.tunnel.publicUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title={site.tunnel.publicUrl}
                           >
                             {site.tunnel.publicUrl}
                           </a>
