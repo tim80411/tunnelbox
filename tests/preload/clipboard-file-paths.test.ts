@@ -86,4 +86,11 @@ describe('parseWindowsDropFiles', () => {
   it('returns empty array for buffer too small', () => {
     expect(parseWindowsDropFiles(Buffer.alloc(10))).toEqual([])
   })
+
+  it('returns empty array when fWide is 0 (ANSI format)', () => {
+    const buf = Buffer.alloc(22, 0)
+    buf.writeUInt32LE(20, 0)  // pFiles
+    buf.writeUInt32LE(0, 16)  // fWide = 0 (ANSI)
+    expect(parseWindowsDropFiles(buf)).toEqual([])
+  })
 })
