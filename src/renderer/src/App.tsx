@@ -360,14 +360,18 @@ function App(): React.ReactElement {
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation(sites)
+
+  const handleOpenSettings = useCallback(() => setShowSettings(true), [])
+  const handleRemoveSiteConfirm = useCallback((site: SiteInfo) => setConfirmRemove(site), [])
+
   useMenuCommands({
     sites,
     selectedSiteId,
     onAddSite: openAddModal,
-    onOpenSettings: useCallback(() => setShowSettings(true), []),
+    onOpenSettings: handleOpenSettings,
     onOpenInBrowser: handleOpenInBrowser,
     onRestartServer: handleRestartServer,
-    onRemoveSite: useCallback((site: SiteInfo) => setConfirmRemove(site), [])
+    onRemoveSite: handleRemoveSiteConfirm
   })
 
   const hasRunningNamedTunnels = sites.some(
@@ -503,7 +507,7 @@ function App(): React.ReactElement {
               <div
                 key={site.id}
                 data-site-id={site.id}
-                className={`site-item${selectedSiteId === site.id ? ' site-item--selected' : ''}`}
+                className={`site-item${selectedSiteId === site.id ? ' site-item-selected' : ''}`}
                 onClick={() => setSelectedSiteId(site.id)}
               >
                 <div className="site-item-info">
