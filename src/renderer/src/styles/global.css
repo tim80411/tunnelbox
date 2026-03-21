@@ -571,6 +571,52 @@ html, body, #root {
   cursor: not-allowed;
 }
 
+/* ── Overflow Menu ─────────────────────────────────────────────── */
+
+.overflow-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.overflow-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  margin-top: 2px;
+}
+
+.overflow-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.overflow-menu-item:hover {
+  background: var(--hover);
+}
+
+.overflow-menu-item--danger {
+  color: var(--danger);
+}
+
+.overflow-menu-item--danger:hover {
+  background: rgba(255, 59, 48, 0.1);
+}
+
 /* ── Site Actions ──────────────────────────────────────────────── */
 .site-item-actions {
   display: flex;

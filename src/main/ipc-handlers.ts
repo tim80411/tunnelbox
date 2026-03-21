@@ -49,13 +49,16 @@ export function registerIpcHandlers(
           errorMessage: providerInfo.errorMessage
         }
       : undefined
+    // Read defaultDomain from persisted site data
+    const storedSite = siteStore.getSites().find((s) => s.id === server.id)
     const base = {
       id: server.id,
       name: server.name,
       port: server.port,
       status: server.status,
       url: server.status === 'running' ? `http://localhost:${server.port}` : '',
-      ...(tunnel && { tunnel })
+      ...(tunnel && { tunnel }),
+      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain })
     }
 
     // LAN URL — always computed for running sites
@@ -385,6 +388,32 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
+    }
+  })
+
+  // --- Default Domain ---
+
+  ipcMain.handle('set-default-domain', async (_event, siteId: string, domain: string) => {
+    try {
+      siteStore.updateSite(siteId, { defaultDomain: domain } as Partial<import('../shared/types').StoredSite>)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定預設網域失敗')
+    }
+  })
+
+  ipcMain.handle('clear-default-domain', async (_event, siteId: string) => {
+    try {
+      // Read, delete the key, and save back
+      const sites = siteStore.getSites()
+      const idx = sites.findIndex((s) => s.id === siteId)
+      if (idx !== -1) {
+        delete sites[idx].defaultDomain
+        siteStore.saveSites(sites)
+      }
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '清除預設網域失敗')
     }
   })
 

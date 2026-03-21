@@ -119,6 +119,15 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener('menu:show-shortcuts', handler)
   },
 
+  // Default Domain
+  setDefaultDomain: (siteId: string, domain: string): Promise<void> => {
+    return ipcRenderer.invoke('set-default-domain', siteId, domain)
+  },
+
+  clearDefaultDomain: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('clear-default-domain', siteId)
+  },
+
   // LAN Sharing
   getLanInfo: (): Promise<LanInfo> => {
     return ipcRenderer.invoke('get-lan-info')
