@@ -11,12 +11,15 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
             platform: mac
           - os: windows-latest
             platform: win
+          - os: ubuntu-latest
+            platform: linux
 
     runs-on: ${{ matrix.os }}
 
@@ -55,6 +58,8 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.exe
+            dist/*.deb
+            dist/*.AppImage
           if-no-files-found: error
 
   release:
@@ -81,6 +86,12 @@ jobs:
           name: dist-win
           path: dist/
 
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-linux
+          path: dist/
+
       - name: List artifacts
         run: ls -la dist/
 
@@ -93,5 +104,7 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.exe
+            dist/*.deb
+            dist/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
