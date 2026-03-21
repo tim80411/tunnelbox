@@ -22,6 +22,12 @@ function run(cmd: string, args: string[]): Promise<string> {
   })
 }
 
+/** Common install locations not in packaged app's $PATH */
+const WELL_KNOWN_PATHS = [
+  '/opt/homebrew/bin/cloudflared',   // macOS Apple Silicon (Homebrew)
+  '/usr/local/bin/cloudflared',      // macOS Intel (Homebrew) / Linux
+]
+
 /** Try to find cloudflared on PATH or in our local install directory */
 async function findBinary(): Promise<string | null> {
   // 1. Check local install
@@ -30,7 +36,12 @@ async function findBinary(): Promise<string | null> {
     return local
   }
 
-  // 2. Check PATH via `which` (unix) or `where` (windows)
+  // 2. Check well-known paths (packaged .app has a minimal $PATH)
+  for (const p of WELL_KNOWN_PATHS) {
+    if (fs.existsSync(p)) return p
+  }
+
+  // 3. Check PATH via `which` (unix) or `where` (windows)
   const whichCmd = process.platform === 'win32' ? 'where' : 'which'
   try {
     const result = await run(whichCmd, ['cloudflared'])
