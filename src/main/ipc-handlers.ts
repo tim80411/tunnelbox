@@ -2,8 +2,8 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
-import type { SiteInfo, CloudflaredEnv } from '../shared/types'
-import { initSiteActions } from './site-actions'
+import type { CloudflaredEnv } from '../shared/types'
+import { initSiteActions, toSiteInfo, broadcastSiteUpdate } from './site-actions'
 
 let serverManager: ServerManager
 
@@ -23,50 +23,9 @@ export function registerIpcHandlers(
   tunnelManager: TunnelProviderManager
 ): void {
   serverManager = manager
-  initSiteActions(manager)
+  initSiteActions(manager, tunnelManager)
 
   const cfProvider = tunnelManager.get('cloudflare')
-
-  function toSiteInfo(server: {
-    id: string
-    name: string
-    folderPath: string
-    port: number
-    status: 'running' | 'stopped' | 'error'
-  }): SiteInfo {
-    const info: SiteInfo = {
-      id: server.id,
-      name: server.name,
-      folderPath: server.folderPath,
-      port: server.port,
-      status: server.status,
-      url: server.status === 'running' ? `http://localhost:${server.port}` : ''
-    }
-    const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
-    if (providerInfo) {
-      info.tunnel = {
-        type:
-          providerInfo.providerType === 'cloudflare'
-            ? providerInfo.tunnelId
-              ? 'named'
-              : 'quick'
-            : 'quick',
-        status: providerInfo.status,
-        publicUrl: providerInfo.publicUrl,
-        tunnelId: providerInfo.tunnelId,
-        errorMessage: providerInfo.errorMessage
-      }
-    }
-    return info
-  }
-
-  function broadcastSiteUpdate(): void {
-    const sites = serverManager.getServers().map(toSiteInfo)
-    const windows = BrowserWindow.getAllWindows()
-    for (const win of windows) {
-      win.webContents.send('site-updated', sites)
-    }
-  }
 
   // --- Site Management ---
 
