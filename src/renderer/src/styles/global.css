@@ -217,6 +217,13 @@ html, body, #root {
   min-height: 24px;
 }
 
+.site-item-name-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
 /* ── Sharing Section ──────────────────────────────────────────── */
 .site-sharing-section {
   display: flex;

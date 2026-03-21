@@ -479,35 +479,37 @@ function App(): React.ReactElement {
               <div key={site.id} className="site-item">
                 <div className="site-item-info">
                   <div className="site-item-name-row">
-                    <span className={`site-mode-badge site-mode-badge--${site.serveMode}`}>
-                      {site.serveMode}
-                    </span>
-                  {renamingId === site.id ? (
-                    <form
-                      className="site-rename-form"
-                      onSubmit={(e) => { e.preventDefault(); handleConfirmRename() }}
-                    >
-                      <input
-                        className="site-rename-input"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={handleConfirmRename}
-                        onKeyDown={(e) => { if (e.key === 'Escape') handleCancelRename() }}
-                        autoFocus
-                      />
-                    </form>
-                  ) : (
-                    <span
-                      className="site-item-name site-item-name-editable"
-                      onDoubleClick={() => handleStartRename(site)}
-                      title="Double-click to rename"
-                    >
-                      {site.name}
-                      <svg className="site-item-name-edit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
-                  )}
+                    <div className="site-item-name-group">
+                      <span className={`site-mode-badge site-mode-badge--${site.serveMode}`}>
+                        {site.serveMode}
+                      </span>
+                      {renamingId === site.id ? (
+                        <form
+                          className="site-rename-form"
+                          onSubmit={(e) => { e.preventDefault(); handleConfirmRename() }}
+                        >
+                          <input
+                            className="site-rename-input"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={handleConfirmRename}
+                            onKeyDown={(e) => { if (e.key === 'Escape') handleCancelRename() }}
+                            autoFocus
+                          />
+                        </form>
+                      ) : (
+                        <span
+                          className="site-item-name site-item-name-editable"
+                          onDoubleClick={() => handleStartRename(site)}
+                          title="Double-click to rename"
+                        >
+                          {site.name}
+                          <svg className="site-item-name-edit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                          </svg>
+                        </span>
+                      )}
+                    </div>
                     <span className={`site-item-status ${site.status}`}>
                       {site.status === 'running'
                         ? '運行中'
