@@ -2,13 +2,27 @@ import http from 'node:http'
 import { readApiInfo, deleteApiInfo } from '../core/api-discovery'
 import { CLIError } from './errors'
 import type { TunnelDeps } from './commands/tunnel'
-import type { TunnelInfo } from '../shared/types'
+import type { AuthDeps } from './commands/auth'
+import type { DomainDeps } from './commands/domain'
+import type { EnvInstallDeps } from './commands/env'
+import type { TunnelInfo, CloudflareAuth } from '../shared/types'
 import { findBinary } from './cloudflared-cli'
 
 const REQUEST_TIMEOUT_MS = 35_000
 
 interface ApiResponse {
   [key: string]: unknown
+}
+
+/**
+ * Get the Electron API server port, throwing if the app is not running.
+ */
+function requireApiPort(): number {
+  const info = readApiInfo()
+  if (!info) {
+    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
+  }
+  return info.port
 }
 
 /**
@@ -95,11 +109,7 @@ function apiRequest(port: number, method: string, path: string, body?: Record<st
  * Create a TunnelDeps implementation that delegates to the running Electron app.
  */
 export function createElectronApiClient(): TunnelDeps {
-  const info = readApiInfo()
-  if (!info) {
-    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
-  }
-  const apiPort = info.port
+  const apiPort = requireApiPort()
 
   return {
     findBinary,
@@ -126,6 +136,66 @@ export function createElectronApiClient(): TunnelDeps {
     getTunnelInfo(_siteId: string): TunnelInfo | undefined {
       // Tunnel info is managed by Electron, not queryable synchronously.
       return undefined
+    },
+  }
+}
+
+/**
+ * Create an AuthDeps implementation that delegates to the running Electron app.
+ */
+export function createElectronAuthClient(): AuthDeps {
+  const apiPort = requireApiPort()
+
+  return {
+    async login(): Promise<CloudflareAuth> {
+      const res = await apiRequest(apiPort, 'POST', '/auth/login')
+      return res as unknown as CloudflareAuth
+    },
+
+    async getStatus(): Promise<CloudflareAuth> {
+      const res = await apiRequest(apiPort, 'GET', '/auth/status')
+      return res as unknown as CloudflareAuth
+    },
+
+    async logout(): Promise<void> {
+      await apiRequest(apiPort, 'POST', '/auth/logout')
+    },
+  }
+}
+
+/**
+ * Create a DomainDeps implementation that delegates to the running Electron app.
+ */
+export function createElectronDomainClient(): DomainDeps {
+  const apiPort = requireApiPort()
+
+  return {
+    async bind(siteId: string, domain: string): Promise<string> {
+      const res = await apiRequest(apiPort, 'POST', '/domain/bind', { siteId, domain })
+      return res.publicUrl as string
+    },
+
+    async unbind(siteId: string): Promise<void> {
+      await apiRequest(apiPort, 'POST', '/domain/unbind', { siteId })
+    },
+
+    async getAuthStatus(): Promise<CloudflareAuth> {
+      const res = await apiRequest(apiPort, 'GET', '/auth/status')
+      return res as unknown as CloudflareAuth
+    },
+  }
+}
+
+/**
+ * Create an EnvInstallDeps implementation that delegates to the running Electron app.
+ */
+export function createElectronEnvClient(): EnvInstallDeps {
+  const apiPort = requireApiPort()
+
+  return {
+    async install(): Promise<{ installed: boolean; version?: string }> {
+      const res = await apiRequest(apiPort, 'POST', '/env/install')
+      return res as { installed: boolean; version?: string }
     },
   }
 }

@@ -3,6 +3,9 @@ import getPort from 'get-port'
 import { createLogger } from './logger'
 import { writeApiInfo, deleteApiInfo } from '../core/api-discovery'
 import { startQuickTunnel, stopQuickTunnel, hasTunnel, getTunnelInfo } from './cloudflared'
+import { loginCloudflare, logoutCloudflare, getAuthStatus } from './cloudflared'
+import { bindFixedDomain, unbindFixedDomain } from './cloudflared'
+import { installCloudflared, detectCloudflared } from './cloudflared'
 import type { ServerManager } from './server-manager'
 
 const log = createLogger('ApiServer')
@@ -111,6 +114,79 @@ function handleTunnelStatus(req: http.IncomingMessage, res: http.ServerResponse)
   json(res, 200, { active, info })
 }
 
+/** Route: POST /auth/login */
+async function handleAuthLogin(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const auth = await loginCloudflare()
+  json(res, 200, auth)
+}
+
+/** Route: GET /auth/status */
+function handleAuthStatus(_req: http.IncomingMessage, res: http.ServerResponse): void {
+  const auth = getAuthStatus()
+  json(res, 200, auth)
+}
+
+/** Route: POST /auth/logout */
+async function handleAuthLogout(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  logoutCloudflare()
+  json(res, 200, { success: true })
+}
+
+/** Route: POST /domain/bind */
+async function handleDomainBind(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const body = await parseBody(req)
+  const siteId = body.siteId as string
+  const domain = body.domain as string
+  if (!siteId || !domain) {
+    json(res, 400, { error: 'Missing siteId or domain' })
+    return
+  }
+
+  const siteServer = serverManager.getServer(siteId)
+  if (!siteServer) {
+    json(res, 404, { error: 'Site not found' })
+    return
+  }
+
+  // Auto-start server if not running
+  let port: number
+  if (siteServer.status === 'running') {
+    port = siteServer.port
+  } else {
+    const started = await serverManager.startServer(siteServer as import('../shared/types').StoredSite)
+    port = started.port
+  }
+
+  const publicUrl = await bindFixedDomain(siteId, port, domain)
+  json(res, 200, { publicUrl })
+}
+
+/** Route: POST /domain/unbind */
+async function handleDomainUnbind(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const body = await parseBody(req)
+  const siteId = body.siteId as string
+  if (!siteId) {
+    json(res, 400, { error: 'Missing siteId' })
+    return
+  }
+
+  await unbindFixedDomain(siteId)
+  json(res, 200, { success: true })
+}
+
+/** Route: POST /env/install */
+async function handleEnvInstall(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  await installCloudflared()
+  const env = await detectCloudflared()
+  json(res, 200, { installed: true, version: env.version })
+}
+
+/** Route: GET /env/check */
+async function handleEnvCheck(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const env = await detectCloudflared()
+  json(res, 200, env)
+}
+
 /** Request router. */
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   const url = req.url?.split('?')[0] || '/'
@@ -124,6 +200,20 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     asyncHandler(handleTunnelStop)(req, res)
   } else if (method === 'GET' && url === '/tunnel/status') {
     handleTunnelStatus(req, res)
+  } else if (method === 'POST' && url === '/auth/login') {
+    asyncHandler(handleAuthLogin)(req, res)
+  } else if (method === 'GET' && url === '/auth/status') {
+    handleAuthStatus(req, res)
+  } else if (method === 'POST' && url === '/auth/logout') {
+    asyncHandler(handleAuthLogout)(req, res)
+  } else if (method === 'POST' && url === '/domain/bind') {
+    asyncHandler(handleDomainBind)(req, res)
+  } else if (method === 'POST' && url === '/domain/unbind') {
+    asyncHandler(handleDomainUnbind)(req, res)
+  } else if (method === 'POST' && url === '/env/install') {
+    asyncHandler(handleEnvInstall)(req, res)
+  } else if (method === 'GET' && url === '/env/check') {
+    asyncHandler(handleEnvCheck)(req, res)
   } else {
     json(res, 404, { error: 'Not found' })
   }

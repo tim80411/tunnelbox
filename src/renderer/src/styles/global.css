@@ -998,6 +998,29 @@ html, body, #root {
   padding: 1px 6px;
 }
 
+/* Provider badge */
+.provider-badge {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 16px;
+  letter-spacing: 0.3px;
+}
+
+.provider-badge--cf {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+
+.provider-badge--frp {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
 
 
 /* QR Code Modal */
