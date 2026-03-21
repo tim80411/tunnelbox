@@ -51,6 +51,15 @@ export function setAppMenu(): void {
           accelerator: 'CmdOrCtrl+N',
           click: (): void => sendToFocusedWindow('menu:add-site')
         },
+        ...(!isMac
+          ? [
+              {
+                label: 'Settings',
+                accelerator: 'Ctrl+,',
+                click: (): void => sendToFocusedWindow('menu:open-settings')
+              }
+            ]
+          : []),
         { type: 'separator' as const },
         isMac ? { role: 'close' as const } : { role: 'quit' as const }
       ]
