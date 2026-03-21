@@ -10,7 +10,7 @@ interface SettingsPanelProps {
 function SettingsPanel({ open, settings, onClose, onUpdate }: SettingsPanelProps): React.ReactElement {
   return (
     <>
-      {open && <div className="settings-overlay" onClick={onClose} />}
+      {open && <div className="settings-overlay" data-dismiss onClick={onClose} />}
       <aside className={`settings-panel${open ? ' settings-panel-open' : ''}`}>
         <div className="settings-header">
           <h2 className="settings-title">Settings</h2>

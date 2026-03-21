@@ -383,18 +383,18 @@ function App(): React.ReactElement {
     onShowShortcuts: handleShowShortcuts
   })
 
-  // Esc closes any open modal/panel
+  // Esc closes the topmost open modal/panel by clicking its [data-dismiss] overlay
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
-      if (showShortcuts) { setShowShortcuts(false); return }
-      if (showSettings) { setShowSettings(false); return }
-      if (confirmRemove) { setConfirmRemove(null); return }
-      if (showAddModal) { setShowAddModal(false); return }
+      const dismissibles = document.querySelectorAll<HTMLElement>('[data-dismiss]')
+      if (dismissibles.length > 0) {
+        dismissibles[dismissibles.length - 1].click()
+      }
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [showShortcuts, showSettings, confirmRemove, showAddModal])
+  }, [])
 
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
@@ -723,7 +723,7 @@ function App(): React.ReactElement {
 
       {/* Confirm Remove Modal */}
       {confirmRemove && (
-        <div className="modal-overlay" onClick={() => setConfirmRemove(null)}>
+        <div className="modal-overlay" data-dismiss onClick={() => setConfirmRemove(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認刪除</h2>
             <p className="confirm-text">
@@ -761,7 +761,7 @@ function App(): React.ReactElement {
 
       {/* Add Site Modal */}
       {showAddModal && (
-        <div className="modal-overlay" onClick={closeAddModal}>
+        <div className="modal-overlay" data-dismiss onClick={closeAddModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Add New Site</h2>
 
