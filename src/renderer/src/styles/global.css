@@ -385,12 +385,6 @@ html, body, #root {
   color: var(--text-tertiary);
 }
 
-.site-item-url-info {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-width: 0;
-}
 
 .site-item-url-row {
   display: flex;
@@ -457,6 +451,13 @@ html, body, #root {
 .btn-icon--active {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.btn-icon--info {
+  cursor: help;
+  color: var(--text-tertiary);
+  border-color: transparent;
+  background: none;
 }
 
 
@@ -923,22 +924,6 @@ html, body, #root {
 }
 
 
-.sharing-iface {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.lan-multi-hint {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--info-text);
-  background: var(--info-bg);
-  border-radius: 3px;
-  padding: 1px 5px;
-  cursor: help;
-  user-select: none;
-}
 
 /* QR Code Modal */
 .qr-modal {
