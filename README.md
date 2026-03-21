@@ -1,8 +1,10 @@
 # TunnelBox
 
+[![Build & Release](https://github.com/tim80411/tunnelbox/actions/workflows/release.yml/badge.svg)](https://github.com/tim80411/tunnelbox/actions/workflows/release.yml)
+
 A desktop app for managing local static websites and sharing them via Cloudflare Tunnel.
 
-> **User Guide** — For installation, usage instructions, and troubleshooting, see the [Documentation](https://tunnelbox.gitbook.io).
+> **User Guide** — For installation, usage instructions, and troubleshooting, see the [Documentation](https://timothyown.gitbook.io/tunnel-box).
 
 ## Features
 
