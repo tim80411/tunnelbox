@@ -29,7 +29,7 @@ export function registerProtocolClient(): void {
 /**
  * Set up URL event listeners for all platforms.
  * - macOS: `open-url` event
- * - Windows: URL arrives via process.argv (cold start) or `second-instance` event (warm start)
+ * - Windows & Linux: URL arrives via process.argv (cold start) or `second-instance` event (warm start)
  * Must be called before app.whenReady().
  */
 export function setupOpenUrlHandler(): void {
@@ -40,7 +40,7 @@ export function setupOpenUrlHandler(): void {
     handleIncomingUrl(url)
   })
 
-  // Windows: second-instance event (app already running, new instance launched with URL)
+  // Windows & Linux: second-instance event (app already running, new instance launched with URL)
   app.on('second-instance', (_event, argv) => {
     log.info('Second instance detected')
     const url = findTunnelboxUrl(argv)
@@ -50,7 +50,7 @@ export function setupOpenUrlHandler(): void {
     }
   })
 
-  // Windows: cold start — check process.argv for a tunnelbox:// URL
+  // Windows & Linux: cold start — check process.argv for a tunnelbox:// URL
   const coldStartUrl = findTunnelboxUrl(process.argv)
   if (coldStartUrl) {
     log.info(`Found URL in process.argv: ${coldStartUrl}`)

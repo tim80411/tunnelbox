@@ -18,13 +18,16 @@ export function createTray(onShowWindow: () => void): void {
   showWindowCallback = onShowWindow
 
   const icon = nativeImage.createFromPath(getResourcePath('tray', 'iconTemplate.png'))
-  icon.setTemplateImage(true)
+  // setTemplateImage is macOS-only; makes the icon adapt to light/dark menu bar
+  if (process.platform === 'darwin') {
+    icon.setTemplateImage(true)
+  }
 
   tray = new Tray(icon)
   tray.setToolTip('TunnelBox')
 
-  // On Windows, left-click opens the main window
-  if (process.platform === 'win32') {
+  // On Windows and Linux, left-click opens the main window
+  if (process.platform !== 'darwin') {
     tray.on('click', () => {
       showWindowCallback?.()
     })

@@ -69,7 +69,7 @@ function createWindow(): void {
 registerProtocolClient()
 setupOpenUrlHandler()
 
-// Windows: enforce single instance so second-instance event fires
+// Windows & Linux: enforce single instance so second-instance event fires
 // instead of opening a duplicate app window
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
