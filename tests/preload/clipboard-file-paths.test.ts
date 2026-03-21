@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseMacOSFilePaths } from '@/preload/clipboard-file-paths'
+import { parseMacOSFilePaths, parseWindowsDropFiles } from '@/preload/clipboard-file-paths'
 
 describe('parseMacOSFilePaths', () => {
   it('parses a plist with a single path', () => {
@@ -33,5 +33,57 @@ describe('parseMacOSFilePaths', () => {
 
   it('returns empty array for non-plist text', () => {
     expect(parseMacOSFilePaths('Hello World')).toEqual([])
+  })
+})
+
+describe('parseWindowsDropFiles', () => {
+  function buildDropFilesBuffer(paths: string[]): Buffer {
+    const headerSize = 20
+    const pathBuffers = paths.map((p) => {
+      const buf = Buffer.alloc((p.length + 1) * 2)
+      buf.write(p, 'utf16le')
+      return buf
+    })
+    const terminator = Buffer.alloc(2, 0)
+    const dataSize = pathBuffers.reduce((sum, b) => sum + b.length, 0) + terminator.length
+
+    const buffer = Buffer.alloc(headerSize + dataSize)
+    buffer.writeUInt32LE(headerSize, 0) // pFiles offset
+    buffer.writeUInt32LE(0, 4)  // pt.x
+    buffer.writeUInt32LE(0, 8)  // pt.y
+    buffer.writeUInt32LE(0, 12) // fNC
+    buffer.writeUInt32LE(1, 16) // fWide = true (UTF-16)
+
+    let offset = headerSize
+    for (const pb of pathBuffers) {
+      pb.copy(buffer, offset)
+      offset += pb.length
+    }
+    terminator.copy(buffer, offset)
+    return buffer
+  }
+
+  it('parses a buffer with a single path', () => {
+    const buf = buildDropFilesBuffer(['C:\\Users\\foo\\my-site'])
+    expect(parseWindowsDropFiles(buf)).toEqual(['C:\\Users\\foo\\my-site'])
+  })
+
+  it('parses a buffer with multiple paths', () => {
+    const buf = buildDropFilesBuffer([
+      'C:\\Users\\foo\\site-a',
+      'D:\\Projects\\site-b',
+    ])
+    expect(parseWindowsDropFiles(buf)).toEqual([
+      'C:\\Users\\foo\\site-a',
+      'D:\\Projects\\site-b',
+    ])
+  })
+
+  it('returns empty array for empty buffer', () => {
+    expect(parseWindowsDropFiles(Buffer.alloc(0))).toEqual([])
+  })
+
+  it('returns empty array for buffer too small', () => {
+    expect(parseWindowsDropFiles(Buffer.alloc(10))).toEqual([])
   })
 })
