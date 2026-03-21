@@ -530,25 +530,74 @@ function App(): React.ReactElement {
                     </button>
                   </div>
                   {site.status === 'running' && site.url ? (
-                    <div className="site-item-url-row">
-                      <a
-                        className="site-item-url"
-                        href={site.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {site.url}
-                      </a>
-                      <button
-                        className="btn-copy"
-                        onClick={async () => {
-                          await navigator.clipboard.writeText(site.url)
-                        }}
-                        title="複製網址"
-                      >
-                        📋
-                      </button>
-                    </div>
+                    <>
+                      <div className="site-item-url-row">
+                        <a
+                          className="site-item-url"
+                          href={site.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {site.url}
+                        </a>
+                        <button
+                          className="btn-copy"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(site.url)
+                          }}
+                          title="複製網址"
+                        >
+                          📋
+                        </button>
+                      </div>
+                      {site.lanUrl && (
+                        <div className="site-item-url-row">
+                          <span className="sharing-badge sharing-badge--lan">LAN</span>
+                          <a
+                            className="site-item-url"
+                            href={site.lanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {site.lanUrl}
+                          </a>
+                          {site.lanInterfaceName && (
+                            <span className="sharing-iface">({site.lanInterfaceName})</span>
+                          )}
+                          <button
+                            className="btn-copy"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(site.lanUrl!)
+                            }}
+                            title="複製區網網址"
+                          >
+                            📋
+                          </button>
+                        </div>
+                      )}
+                      {site.tunnel?.status === 'running' && site.tunnel.publicUrl && (
+                        <div className="site-item-url-row">
+                          <span className="sharing-badge sharing-badge--wan">WAN</span>
+                          <a
+                            className="site-item-url"
+                            href={site.tunnel.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {site.tunnel.publicUrl}
+                          </a>
+                          <button
+                            className="btn-copy"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(site.tunnel!.publicUrl!)
+                            }}
+                            title="複製公開網址"
+                          >
+                            📋
+                          </button>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <span className="site-item-url-unavailable">網址不可用</span>
                   )}

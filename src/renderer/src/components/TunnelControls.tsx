@@ -26,18 +26,11 @@ function TunnelControls({
   onStopNamedTunnel,
   onLogin
 }: TunnelControlsProps): React.ReactElement {
-  const [copied, setCopied] = useState(false)
   const [showDomainModal, setShowDomainModal] = useState(false)
   const [domainInput, setDomainInput] = useState('')
   const [domainError, setDomainError] = useState<string | null>(null)
   const [binding, setBinding] = useState(false)
   const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
-
-  const handleCopyUrl = useCallback(async (url: string) => {
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [])
 
   const handleBindDomain = useCallback(async () => {
     const trimmed = domainInput.trim()
@@ -167,28 +160,6 @@ function TunnelControls({
 
       {tunnel.status === 'running' && (
         <>
-          <div className="sharing-url-row">
-            {isNamed && <span className="sharing-badge sharing-badge--wan sharing-badge--inline">持久</span>}
-            {tunnel.publicUrl && (
-              <>
-                <a
-                  className="sharing-url"
-                  href={tunnel.publicUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {tunnel.publicUrl}
-                </a>
-                <button
-                  className="btn-copy"
-                  onClick={() => handleCopyUrl(tunnel.publicUrl!)}
-                  title="複製公開網址"
-                >
-                  {copied ? '已複製' : '📋'}
-                </button>
-              </>
-            )}
-          </div>
           {isNamed ? (
             <div className="sharing-actions-group">
               <button
@@ -217,12 +188,6 @@ function TunnelControls({
 
       {tunnel.status === 'reconnecting' && (
         <>
-          {tunnel.publicUrl && (
-            <div className="sharing-url-row">
-              {isNamed && <span className="sharing-badge sharing-badge--wan sharing-badge--inline">持久</span>}
-              <span className="sharing-url sharing-url--dimmed">{tunnel.publicUrl}</span>
-            </div>
-          )}
           <span className="sharing-status-text sharing-status-text--reconnecting">
             <span className="cloudflared-spinner" />
             Tunnel 重連中...
@@ -251,28 +216,20 @@ function TunnelControls({
       {tunnel.status === 'stopped' && (
         <>
           {isNamed ? (
-            <>
-              {tunnel.publicUrl && (
-                <div className="sharing-url-row">
-                  <span className="sharing-badge sharing-badge--stopped sharing-badge--inline">持久(已停止)</span>
-                  <span className="sharing-url sharing-url--dimmed">{tunnel.publicUrl}</span>
-                </div>
-              )}
-              <div className="sharing-actions-group">
-                <button
-                  className="btn btn-sm btn-sharing-action"
-                  onClick={() => onStartNamedTunnel(site.id)}
-                >
-                  啟動
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => setShowUnbindConfirm(true)}
-                >
-                  解除綁定
-                </button>
-              </div>
-            </>
+            <div className="sharing-actions-group">
+              <button
+                className="btn btn-sm btn-sharing-action"
+                onClick={() => onStartNamedTunnel(site.id)}
+              >
+                啟動
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={() => setShowUnbindConfirm(true)}
+              >
+                解除綁定
+              </button>
+            </div>
           ) : (
             <button
               className="btn btn-sm btn-sharing-action"

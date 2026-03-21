@@ -48,6 +48,12 @@
 - [ ] Code signing — 目前未簽署，macOS 會跳「無法確認開發者」警告
 - [ ] Auto update — 未設定自動更新機制
 
+## 快捷鍵支援
+
+- [ ] 調查 macOS 常見快捷鍵慣例（Cmd+N、Cmd+W、Cmd+,、Cmd+R 等）並確認適用於 TunnelBox 的對應操作
+- [ ] 實作 macOS 快捷鍵綁定（優先）
+- [ ] 未來擴充 Windows 快捷鍵支援（Ctrl 對應）
+
 ## 跨功能
 
 - [ ] 端到端測試 — 所有功能目前無自動化測試，僅靠 spec 的驗收標準做手動驗證

@@ -12,15 +12,7 @@ function LanSharingControls({
   onEnable,
   onDisable
 }: LanSharingControlsProps): React.ReactElement | null {
-  const [copied, setCopied] = useState(false)
   const [toggling, setToggling] = useState(false)
-
-  const handleCopy = useCallback(async () => {
-    if (!site.lanUrl) return
-    await navigator.clipboard.writeText(site.lanUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [site.lanUrl])
 
   const handleToggle = useCallback(async () => {
     setToggling(true)
@@ -45,31 +37,11 @@ function LanSharingControls({
     )
   }
 
-  // LAN sharing is active — show URL
+  // LAN sharing is active — show stop button
   if (site.lanUrl) {
     return (
       <div className="sharing-row">
         <span className="sharing-badge sharing-badge--lan">LAN</span>
-        <div className="sharing-url-row">
-          <a
-            className="sharing-url"
-            href={site.lanUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {site.lanUrl}
-          </a>
-          {site.lanInterfaceName && (
-            <span className="sharing-iface">({site.lanInterfaceName})</span>
-          )}
-          <button
-            className="btn-copy"
-            onClick={handleCopy}
-            title="複製區網網址"
-          >
-            {copied ? '已複製' : '📋'}
-          </button>
-        </div>
         <button
           className="btn btn-sm btn-sharing-stop--neutral"
           onClick={handleToggle}
