@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { SiteInfo } from '../../../shared/types'
 
 interface UseMenuCommandsOptions {
@@ -11,30 +11,28 @@ interface UseMenuCommandsOptions {
   onRemoveSite: (site: SiteInfo) => void
 }
 
-export function useMenuCommands({
-  sites,
-  selectedSiteId,
-  onAddSite,
-  onOpenSettings,
-  onOpenInBrowser,
-  onRestartServer,
-  onRemoveSite
-}: UseMenuCommandsOptions): void {
+export function useMenuCommands(options: UseMenuCommandsOptions): void {
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
   useEffect(() => {
-    const unsubAdd = window.electron.onMenuAddSite(onAddSite)
-    const unsubSettings = window.electron.onMenuOpenSettings(onOpenSettings)
+    const unsubAdd = window.electron.onMenuAddSite(() => optionsRef.current.onAddSite())
+    const unsubSettings = window.electron.onMenuOpenSettings(() => optionsRef.current.onOpenSettings())
 
     const unsubOpen = window.electron.onMenuOpenInBrowser(() => {
+      const { sites, selectedSiteId, onOpenInBrowser } = optionsRef.current
       const site = sites.find((s) => s.id === selectedSiteId)
       if (site && site.status === 'running') onOpenInBrowser(site)
     })
 
     const unsubRestart = window.electron.onMenuRestartServer(() => {
+      const { sites, selectedSiteId, onRestartServer } = optionsRef.current
       const site = sites.find((s) => s.id === selectedSiteId)
       if (site) onRestartServer(site)
     })
 
     const unsubRemove = window.electron.onMenuRemoveSite(() => {
+      const { sites, selectedSiteId, onRemoveSite } = optionsRef.current
       const site = sites.find((s) => s.id === selectedSiteId)
       if (site) onRemoveSite(site)
     })
@@ -46,5 +44,5 @@ export function useMenuCommands({
       unsubRestart()
       unsubRemove()
     }
-  }, [sites, selectedSiteId, onAddSite, onOpenSettings, onOpenInBrowser, onRestartServer, onRemoveSite])
+  }, [])
 }
