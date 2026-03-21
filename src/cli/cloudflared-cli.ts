@@ -1,25 +1,14 @@
 import { execFile } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
-import { homedir } from 'node:os'
 import type { CloudflaredEnv } from '../shared/types'
+import { getAppDataDir } from '../core/paths'
 
 const MIN_VERSION = '2024.1.0'
 
 function getLocalBinaryPath(): string {
   const ext = process.platform === 'win32' ? '.exe' : ''
-  let appDataDir: string
-  if (process.platform === 'darwin') {
-    appDataDir = path.join(homedir(), 'Library', 'Application Support', 'tunnelbox')
-  } else if (process.platform === 'win32') {
-    appDataDir = path.join(
-      process.env.APPDATA || path.join(homedir(), 'AppData', 'Roaming'),
-      'tunnelbox',
-    )
-  } else {
-    appDataDir = path.join(homedir(), '.config', 'tunnelbox')
-  }
-  return path.join(appDataDir, 'bin', `cloudflared${ext}`)
+  return path.join(getAppDataDir(), 'bin', `cloudflared${ext}`)
 }
 
 function run(cmd: string, args: string[]): Promise<string> {

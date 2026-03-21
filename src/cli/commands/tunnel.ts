@@ -15,6 +15,8 @@ export interface TunnelDeps {
   stopQuickTunnel: (siteId: string) => void
   hasTunnel: (siteId: string) => boolean
   getTunnelInfo: (siteId: string) => TunnelInfo | undefined
+  /** When true, the Electron app manages servers — skip CLI-side auto-start. */
+  delegatesServerManagement?: boolean
 }
 
 export interface TunnelQuickResult {
@@ -42,12 +44,14 @@ export async function tunnelQuick(
   nameOrId: string,
   deps: TunnelDeps
 ): Promise<TunnelQuickResult> {
-  // Check cloudflared installed first
-  const binaryPath = await deps.findBinary()
-  if (!binaryPath) {
-    throw CLIError.system(
-      'cloudflared not installed. Use `tunnelbox env install` to install it.'
-    )
+  // Check cloudflared installed first (skip when Electron manages it)
+  if (!deps.delegatesServerManagement) {
+    const binaryPath = await deps.findBinary()
+    if (!binaryPath) {
+      throw CLIError.system(
+        'cloudflared not installed. Use `tunnelbox env install` to install it.'
+      )
+    }
   }
 
   const site = findSite(store, nameOrId)
@@ -63,24 +67,27 @@ export async function tunnelQuick(
     }
   }
 
-  // Auto-start server if not running
-  let port: number
+  // When delegating to Electron, skip CLI-side server management.
+  // Electron handles server auto-start internally.
+  let port = 0
   let serverAutoStarted = false
-  const existing = serverManager.getServer(site.id)
 
-  if (existing && existing.status === 'running') {
-    port = existing.port
-  } else {
-    const server = await serverManager.startServer({
-      id: site.id,
-      name: site.name,
-      folderPath: site.folderPath,
-    })
-    port = server.port
-    serverAutoStarted = true
+  if (!deps.delegatesServerManagement) {
+    const existing = serverManager.getServer(site.id)
+    if (existing && existing.status === 'running') {
+      port = existing.port
+    } else {
+      const server = await serverManager.startServer({
+        id: site.id,
+        name: site.name,
+        folderPath: site.folderPath,
+      })
+      port = server.port
+      serverAutoStarted = true
+    }
   }
 
-  // Start quick tunnel
+  // Start quick tunnel (port is ignored when delegating to Electron)
   const publicUrl = await deps.startQuickTunnel(site.id, port)
 
   const result: TunnelQuickResult = {
@@ -103,7 +110,8 @@ export async function tunnelStop(
 ): Promise<TunnelStopResult> {
   const site = findSite(store, nameOrId)
 
-  if (!deps.hasTunnel(site.id)) {
+  // When delegating, always call stop — Electron handles the "no tunnel" case.
+  if (!deps.delegatesServerManagement && !deps.hasTunnel(site.id)) {
     return {
       id: site.id,
       name: site.name,
@@ -127,7 +135,7 @@ export function registerTunnelCommands(
   program: Command,
   store: IStore,
   serverManager: ServerManager,
-  deps: TunnelDeps
+  getDeps: () => TunnelDeps
 ): void {
   const tunnel = program.command('tunnel').description('Manage Cloudflare tunnels')
 
@@ -137,7 +145,7 @@ export function registerTunnelCommands(
     .action(async (nameOrId: string) => {
       const json = program.opts().json
       try {
-        const result = await tunnelQuick(store, serverManager, nameOrId, deps)
+        const result = await tunnelQuick(store, serverManager, nameOrId, getDeps())
         if (result.alreadyRunning) {
           output(
             json
@@ -166,7 +174,7 @@ export function registerTunnelCommands(
     .action(async (nameOrId: string) => {
       const json = program.opts().json
       try {
-        const result = await tunnelStop(store, nameOrId, deps)
+        const result = await tunnelStop(store, nameOrId, getDeps())
         if (result.noTunnel) {
           output(
             json

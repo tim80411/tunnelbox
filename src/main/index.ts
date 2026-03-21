@@ -6,6 +6,9 @@ import { ProcessManager, initQuickTunnel, initNamedTunnel } from './cloudflared'
 import { TunnelProviderManager } from './tunnel-provider-manager'
 import { CloudflareProvider } from './providers/cloudflare-provider'
 import { registerIpcHandlers } from './ipc-handlers'
+import { initApiServer, stopApiServer } from './api-server'
+import { registerQuickActionHandlers } from './quick-action-installer'
+import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './url-scheme-handler'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -35,6 +38,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+    flushPendingUrl()
   })
 
   // Forward Cmd+V / Ctrl+V to renderer for paste-to-add feature
@@ -59,6 +63,18 @@ function createWindow(): void {
   }
 }
 
+// ---------- URL Scheme Registration (must be before app.whenReady) ----------
+
+registerProtocolClient()
+setupOpenUrlHandler()
+
+// Windows: enforce single instance so second-instance event fires
+// instead of opening a duplicate app window
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+}
+
 // ---------- App Lifecycle ----------
 
 app.whenReady().then(async () => {
@@ -76,6 +92,10 @@ app.whenReady().then(async () => {
 
     // Register IPC handlers
     registerIpcHandlers(serverManager, tunnelManager)
+    registerQuickActionHandlers()
+
+    // Start local HTTP API for CLI communication
+    await initApiServer(serverManager)
 
     // Restore sites from persistent store
     const storedSites = siteStore.getSites()
@@ -147,8 +167,8 @@ app.on('before-quit', (e) => {
   }, 5000)
   forceExitTimer.unref()
 
-  // Clean up processes and servers, then exit
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).then(() => {
+  // Clean up processes, servers, and API server, then exit
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).then(() => {
     clearTimeout(forceExitTimer)
     app.exit(0)
   })
@@ -180,14 +200,14 @@ process.on('exit', () => {
 
 process.on('SIGTERM', () => {
   log.info('Received SIGTERM, cleaning up...')
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })
 
 process.on('SIGINT', () => {
   log.info('Received SIGINT, cleaning up...')
-  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll()]).finally(() => {
+  Promise.allSettled([tunnelManager.stopAll(), processManager.killAll(), serverManager.stopAll(), stopApiServer()]).finally(() => {
     process.exit(0)
   })
 })

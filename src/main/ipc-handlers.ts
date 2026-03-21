@@ -22,6 +22,7 @@ export function registerIpcHandlers(
   tunnelManager: TunnelProviderManager
 ): void {
   serverManager = manager
+  initSiteActions(manager)
 
   const cfProvider = tunnelManager.get('cloudflare')
 

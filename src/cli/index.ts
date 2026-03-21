@@ -8,7 +8,8 @@ import { registerServerCommands } from './commands/server'
 import { registerEnvCommands } from './commands/env'
 import { registerTunnelCommands } from './commands/tunnel'
 import { detectCloudflared, findBinary } from './cloudflared-cli'
-import type { TunnelDeps } from './commands/tunnel'
+import { isElectronRunning, createElectronApiClient } from './electron-api-client'
+import type { TunnelDeps } from './commands/tunnel' // used by getTunnelDeps
 
 const program = new Command()
 program
@@ -20,26 +21,31 @@ program
 const store = new FileStore()
 const serverManager = new ServerManager()
 
-// Tunnel deps use CLI-specific cloudflared (no Electron dependency).
-// Quick tunnel start/stop are not yet supported in CLI mode —
-// they require ProcessManager which depends on Electron modules.
-const tunnelDeps: TunnelDeps = {
-  findBinary,
-  startQuickTunnel: async () => {
-    throw new Error('Quick tunnel is not yet supported in CLI mode')
-  },
-  stopQuickTunnel: () => {
-    // no-op in CLI mode
-  },
-  hasTunnel: () => false,
-  getTunnelInfo: () => undefined,
+// Tunnel deps: lazily resolved at first command invocation so Electron
+// can start after the CLI process loads.
+let _tunnelDeps: TunnelDeps | null = null
+function getTunnelDeps(): TunnelDeps {
+  if (!_tunnelDeps) {
+    _tunnelDeps = isElectronRunning()
+      ? createElectronApiClient()
+      : {
+          findBinary,
+          startQuickTunnel: async () => {
+            throw new Error('TunnelBox app is not running. Please open TunnelBox first.')
+          },
+          stopQuickTunnel: () => {},
+          hasTunnel: () => false,
+          getTunnelInfo: () => undefined,
+        }
+  }
+  return _tunnelDeps
 }
 
 // Register command groups
 registerSiteCommands(program, store)
 registerServerCommands(program, store, serverManager)
 registerEnvCommands(program, detectCloudflared)
-registerTunnelCommands(program, store, serverManager, tunnelDeps)
+registerTunnelCommands(program, store, serverManager, getTunnelDeps)
 
 process.on('uncaughtException', (err) => handleError(err, program.opts().json))
 
