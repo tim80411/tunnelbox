@@ -385,6 +385,13 @@ html, body, #root {
   color: var(--text-tertiary);
 }
 
+.site-item-url-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
 .site-item-url-row {
   display: flex;
   align-items: center;

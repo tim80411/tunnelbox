@@ -616,21 +616,23 @@ function App(): React.ReactElement {
                   <div className="site-item-url-row">
                     <span className={`status-light status-light--${site.lanUrl ? 'green' : 'gray'}`} />
                     <span className="sharing-badge sharing-badge--lan">LAN</span>
-                    {site.lanUrl ? (
-                      <a className="site-item-url" href={site.lanUrl} target="_blank" rel="noopener noreferrer" title={site.lanUrl}>
-                        {site.lanUrl}
-                      </a>
-                    ) : (
-                      <span className="site-item-url site-item-url--placeholder">
-                        {site.status !== 'running' ? '啟動站點後可使用' : '未偵測到區網'}
-                      </span>
-                    )}
-                    {site.lanInterfaceName && (
-                      <span className="sharing-iface">({site.lanInterfaceName})</span>
-                    )}
-                    {site.lanHasMultipleInterfaces && (
-                      <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
-                    )}
+                    <div className="site-item-url-info">
+                      {site.lanUrl ? (
+                        <a className="site-item-url" href={site.lanUrl} target="_blank" rel="noopener noreferrer" title={site.lanUrl}>
+                          {site.lanUrl}
+                        </a>
+                      ) : (
+                        <span className="site-item-url site-item-url--placeholder">
+                          {site.status !== 'running' ? '啟動站點後可使用' : '未偵測到區網'}
+                        </span>
+                      )}
+                      {site.lanInterfaceName && (
+                        <span className="sharing-iface">({site.lanInterfaceName})</span>
+                      )}
+                      {site.lanHasMultipleInterfaces && (
+                        <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
+                      )}
+                    </div>
                     <button className="btn-icon" disabled data-tooltip="啟動"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
                     <button className="btn-icon" disabled data-tooltip="停止"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
                     <CopyButton text={site.lanUrl || ''} tooltip="複製區網網址" disabled={!site.lanUrl} />
