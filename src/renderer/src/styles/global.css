@@ -617,6 +617,79 @@ html, body, #root {
   margin-bottom: var(--sp-1);
 }
 
+/* ── LAN Sharing Controls ─────────────────────────────────────── */
+.lan-sharing-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+.lan-sharing-disabled {
+  opacity: 0.4;
+}
+
+.lan-sharing-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: #b8cfe6;
+}
+
+.lan-sharing-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.lan-sharing-url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lan-sharing-url {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.lan-sharing-iface {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.btn-lan-share {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: #b8cfe6;
+}
+
+.btn-lan-share:hover {
+  background: #dae6f5;
+  border-color: #9ab8d8;
+  color: var(--info-text);
+}
+
+.btn-lan-stop {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.btn-lan-stop:hover {
+  background: var(--bg-muted);
+  border-color: var(--border-hard);
+}
+
 /* ── Tunnel Controls ───────────────────────────────────────────── */
 .tunnel-controls {
   display: flex;

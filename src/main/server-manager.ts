@@ -80,7 +80,7 @@ export class ServerManager {
   async initWebSocket(): Promise<void> {
     this.globalWsPort = await getPort({ port: Array.from({ length: 100 }, (_, i) => 9100 + i) })
 
-    this.globalWsServer = new WebSocketServer({ port: this.globalWsPort })
+    this.globalWsServer = new WebSocketServer({ host: '0.0.0.0', port: this.globalWsPort })
 
     this.globalWsServer.on('connection', (ws, req) => {
       const url = new URL(req.url || '/', `http://localhost:${this.globalWsPort}`)
@@ -248,12 +248,12 @@ export class ServerManager {
       })
     })
 
-    // Start listening
+    // Start listening on all interfaces (0.0.0.0) so LAN devices can access
     await new Promise<void>((resolve, reject) => {
       httpServer.on('error', (err) => {
         reject(new Error(`伺服器啟動失敗（Port ${port}）：${err.message}`))
       })
-      httpServer.listen(port, () => {
+      httpServer.listen(port, '0.0.0.0', () => {
         resolve()
       })
     })

@@ -4,6 +4,7 @@ import type { ServerManager } from '../../main/server-manager'
 import type { StoredSite } from '../../shared/types'
 import { CLIError } from '../errors'
 import { output, link } from '../output'
+import { getLanIp } from '../../core/lan-ip'
 
 /**
  * Look up a site by name or id. Throws CLIError (exit 1) if not found.
@@ -22,6 +23,7 @@ export interface ServerStartResult {
   name: string
   port: number
   url: string
+  lanUrl?: string
   alreadyRunning?: boolean
 }
 
@@ -46,13 +48,18 @@ export async function serverStart(
   // Check if already running
   const existing = serverManager.getServer(site.id)
   if (existing && existing.status === 'running') {
-    return {
+    const lanIp = getLanIp()
+    const result: ServerStartResult = {
       id: site.id,
       name: site.name,
       port: existing.port,
       url: `http://localhost:${existing.port}`,
       alreadyRunning: true,
     }
+    if (lanIp) {
+      result.lanUrl = `http://${lanIp}:${existing.port}`
+    }
+    return result
   }
 
   const server = await serverManager.startServer({
@@ -61,12 +68,17 @@ export async function serverStart(
     folderPath: site.folderPath,
   })
 
-  return {
+  const lanIp = getLanIp()
+  const result: ServerStartResult = {
     id: site.id,
     name: site.name,
     port: server.port,
     url: `http://localhost:${server.port}`,
   }
+  if (lanIp) {
+    result.lanUrl = `http://${lanIp}:${server.port}`
+  }
+  return result
 }
 
 /**
@@ -114,20 +126,15 @@ export function registerServerCommands(
       const json = program.opts().json
       try {
         const result = await serverStart(store, serverManager, nameOrId)
-        if (result.alreadyRunning) {
-          output(
-            json
-              ? result
-              : `Server already running at ${link(result.url)}`,
-            json
-          )
+        if (json) {
+          output(result, json)
         } else {
-          output(
-            json
-              ? result
-              : `Server started at ${link(result.url)}`,
-            json
-          )
+          const lanLine = result.lanUrl ? `\n  LAN: ${link(result.lanUrl)}` : ''
+          if (result.alreadyRunning) {
+            output(`Server already running at ${link(result.url)}${lanLine}`, json)
+          } else {
+            output(`Server started at ${link(result.url)}${lanLine}`, json)
+          }
         }
       } catch (err) {
         const { handleError } = await import('../errors')

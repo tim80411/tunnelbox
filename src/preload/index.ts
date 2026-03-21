@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -52,6 +52,15 @@ const electronAPI: ElectronAPI = {
     return () => {
       ipcRenderer.removeListener('paste-shortcut', handler)
     }
+  },
+
+  // LAN Sharing
+  getLanInfo: (): Promise<LanInfo> => {
+    return ipcRenderer.invoke('get-lan-info')
+  },
+
+  setLanSharing: (siteId: string, enabled: boolean): Promise<void> => {
+    return ipcRenderer.invoke('set-lan-sharing', siteId, enabled)
   },
 
   // Finder right-click integration

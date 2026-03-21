@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
+import LanSharingControls from './components/LanSharingControls'
 import AuthPanel from './components/AuthPanel'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
@@ -176,6 +177,24 @@ function App(): React.ReactElement {
         status: 'install_failed',
         errorMessage: err instanceof Error ? err.message : '安裝失敗'
       })
+    }
+  }, [])
+
+  const handleEnableLanSharing = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.setLanSharing(siteId, true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '啟用區網分享失敗')
+    }
+  }, [])
+
+  const handleDisableLanSharing = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.setLanSharing(siteId, false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '關閉區網分享失敗')
     }
   }, [])
 
@@ -437,6 +456,11 @@ function App(): React.ReactElement {
                   ) : (
                     <span className="site-item-url-unavailable">網址不可用</span>
                   )}
+                  <LanSharingControls
+                    site={site}
+                    onEnable={handleEnableLanSharing}
+                    onDisable={handleDisableLanSharing}
+                  />
                   <TunnelControls
                     site={site}
                     cloudflaredAvailable={cloudflaredEnv.status === 'available'}
