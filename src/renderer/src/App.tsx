@@ -589,10 +589,16 @@ function App(): React.ReactElement {
                     <span className="site-item-path">
                       {site.serveMode === 'proxy' ? `Proxy → ${site.proxyTarget}` : site.folderPath}
                     </span>
-                    <CopyButton
-                      text={site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath}
-                      tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
-                    />
+                    <button
+                      className="btn-inline-copy"
+                      onClick={() => navigator.clipboard.writeText(site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath)}
+                      data-tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="2" width="6" height="4" rx="1" />
+                        <path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" />
+                      </svg>
+                    </button>
                   </div>
                   {/* Local */}
                   <div className="site-item-url-row">

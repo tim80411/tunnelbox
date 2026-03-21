@@ -460,6 +460,22 @@ html, body, #root {
   background: none;
 }
 
+/* Inline copy — no box, just an icon next to text */
+.btn-inline-copy {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  transition: opacity var(--duration);
+  flex-shrink: 0;
+}
+
+.btn-inline-copy:hover {
+  opacity: 1;
+  color: var(--accent);
+}
 
 /* ── Tooltip ───────────────────────────────────────────────────── */
 [data-tooltip] {
