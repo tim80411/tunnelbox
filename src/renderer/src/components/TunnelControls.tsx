@@ -124,12 +124,12 @@ function TunnelControls({
       ? 'red'
       : (tunnel?.status === 'stopped' && isNamed)
         ? 'orange'
-        : (tunnel?.status === 'starting' || tunnel?.status === 'reconnecting')
+        : (tunnel?.status === 'starting' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying')
           ? 'orange'
           : 'gray'
 
   // WAN URL
-  const wanUrl = tunnel?.status === 'running' && tunnel.publicUrl ? tunnel.publicUrl : null
+  const wanUrl = (tunnel?.status === 'running' || tunnel?.status === 'verifying') && tunnel.publicUrl ? tunnel.publicUrl : null
 
   // Play button: start quick tunnel, resume named tunnel, or use default domain
   const canPlay = isAvailable && !binding && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
@@ -165,7 +165,7 @@ function TunnelControls({
       : '公開分享'
 
   // Stop button: stop quick tunnel or unbind named tunnel
-  const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting'
+  const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying'
   const handleStop = () => {
     if (!canStop) return
     if (isNamed) {
@@ -178,8 +178,10 @@ function TunnelControls({
   // Placeholder text
   const placeholderText = tunnel?.status === 'starting'
     ? (isNamed ? '固定網域啟動中...' : '啟動中...')
-    : tunnel?.status === 'reconnecting'
-      ? 'Tunnel 重連中...'
+    : tunnel?.status === 'verifying'
+      ? '正在確認連線...'
+      : tunnel?.status === 'reconnecting'
+        ? 'Tunnel 重連中...'
       : tunnel?.status === 'error'
         ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
         : !cloudflaredAvailable
@@ -204,7 +206,7 @@ function TunnelControls({
           </span>
         )}
 
-        {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting') && (
+        {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying') && (
           <span className="cloudflared-spinner" />
         )}
 

@@ -7,6 +7,7 @@ import { stopQuickTunnel, hasTunnel as hasQuickTunnel } from './quick-tunnel'
 import { createLogger } from '../logger'
 import * as siteStore from '../store'
 import type { TunnelInfo, StoredTunnel } from '../../shared/types'
+import { waitForTunnelReady } from './tunnel-readiness'
 
 const log = createLogger('NamedTunnel')
 
@@ -54,6 +55,9 @@ const NAMED_TUNNEL_ERRORS: Array<{ pattern: RegExp; message: string }> = [
 let processManager: ProcessManager
 let lastStderrError: Map<string, string> = new Map()
 
+/** Track readiness probe abort controllers */
+const readinessAbortControllers: Map<string, AbortController> = new Map()
+
 export function initNamedTunnel(pm: ProcessManager): void {
   processManager = pm
 
@@ -71,6 +75,10 @@ export function initNamedTunnel(pm: ProcessManager): void {
     const siteId = id.replace('named-tunnel-', '')
     const tunnel = activeNamedTunnels.get(siteId)
     if (!tunnel) return
+
+    // Cancel any in-flight readiness probe
+    readinessAbortControllers.get(siteId)?.abort()
+    readinessAbortControllers.delete(siteId)
 
     // If explicitly stopped, don't reconnect
     if (tunnel.status === 'stopped') return
@@ -322,6 +330,10 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
  * Stop a Named Tunnel (keeps config for restart).
  */
 export function stopNamedTunnel(siteId: string): void {
+  // Cancel any in-flight readiness probe
+  readinessAbortControllers.get(siteId)?.abort()
+  readinessAbortControllers.delete(siteId)
+
   const processId = `named-tunnel-${siteId}`
   const tunnel = activeNamedTunnels.get(siteId)
 
@@ -400,6 +412,32 @@ export function stopAllNamedTunnels(): void {
   }
 }
 
+/** Start readiness probe for a tunnel URL, transitioning to running when ready */
+function startReadinessProbe(siteId: string, url: string): void {
+  const controller = new AbortController()
+  readinessAbortControllers.set(siteId, controller)
+  waitForTunnelReady(url, { signal: controller.signal })
+    .then(() => {
+      const current = activeNamedTunnels.get(siteId)
+      if (current && current.status === 'verifying') {
+        current.status = 'running'
+        reconnectAttempts.delete(siteId)
+        broadcastTunnelStatus(siteId, current)
+      }
+    })
+    .catch(() => {
+      const current = activeNamedTunnels.get(siteId)
+      if (current && current.status === 'verifying') {
+        current.status = 'running' // Fall through to running even if probe times out
+        reconnectAttempts.delete(siteId)
+        broadcastTunnelStatus(siteId, current)
+      }
+    })
+    .finally(() => {
+      readinessAbortControllers.delete(siteId)
+    })
+}
+
 function startTunnelProcess(
   siteId: string,
   tunnelId: string,
@@ -413,26 +451,32 @@ function startTunnelProcess(
 
     if (data.includes('Registered tunnel connection') || data.includes('Connection')) {
       const tunnel = activeNamedTunnels.get(siteId)
-      if (tunnel && tunnel.status === 'starting') {
-        tunnel.status = 'running'
+      if (tunnel && (tunnel.status === 'starting' || tunnel.status === 'reconnecting')) {
+        tunnel.status = 'verifying'
         tunnel.errorMessage = undefined
-        reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, tunnel)
         processManager.removeListener('stderr', onStderr)
+
+        if (tunnel.publicUrl) {
+          startReadinessProbe(siteId, tunnel.publicUrl)
+        }
       }
     }
   }
   processManager.on('stderr', onStderr)
 
-  // Auto-mark as running after 10 seconds if no log match
+  // Fallback: auto-transition after 10 seconds if no log match
   setTimeout(() => {
     const tunnel = activeNamedTunnels.get(siteId)
-    if (tunnel && tunnel.status === 'starting') {
-      tunnel.status = 'running'
+    if (tunnel && (tunnel.status === 'starting' || tunnel.status === 'reconnecting')) {
+      tunnel.status = 'verifying'
       tunnel.errorMessage = undefined
-      reconnectAttempts.delete(siteId)
       broadcastTunnelStatus(siteId, tunnel)
       processManager.removeListener('stderr', onStderr)
+
+      if (tunnel.publicUrl) {
+        startReadinessProbe(siteId, tunnel.publicUrl)
+      }
     }
   }, 10_000)
 
