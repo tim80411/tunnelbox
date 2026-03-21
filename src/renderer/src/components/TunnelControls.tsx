@@ -138,6 +138,17 @@ function TunnelControls({
           <span className="cloudflared-spinner" />
         )}
 
+        {/* Info */}
+        <span className="btn-icon btn-icon--info" data-tooltip={
+          isNamed
+            ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
+            : tunnel?.status === 'running'
+              ? '類型：Quick Tunnel（隨機網址）'
+              : 'Cloudflare Tunnel 公開分享'
+        }>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </span>
+
         {/* Play / Stop */}
         <button
           className="btn-icon"
