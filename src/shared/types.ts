@@ -53,6 +53,7 @@ export type TunnelType = 'quick' | 'named'
 
 export type TunnelStatus =
   | 'starting'
+  | 'verifying'
   | 'running'
   | 'reconnecting'
   | 'stopped'
