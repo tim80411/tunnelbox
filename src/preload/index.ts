@@ -66,7 +66,7 @@ const electronAPI: ElectronAPI = {
       try {
         return statSync(p).isDirectory()
       } catch {
-        return false // path doesn't exist (spec scenario 5)
+        return true // path doesn't exist — let addSite handle error (spec scenario 5)
       }
     })
   },
