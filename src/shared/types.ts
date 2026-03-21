@@ -12,6 +12,7 @@ interface BaseSiteInfo {
   url: string // e.g., "http://localhost:3001"
   lanUrl?: string // e.g., "http://192.168.1.100:3001" — present when LAN sharing is enabled
   lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
+  lanHasMultipleInterfaces?: boolean // true when multiple non-VPN LAN interfaces detected
   tunnel?: TunnelInfo
 }
 

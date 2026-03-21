@@ -19,3 +19,9 @@ export function output(data: unknown, json: boolean): void {
     console.log(data)
   }
 }
+
+export async function printLanQr(url: string): Promise<void> {
+  const QRCode = await import('qrcode')
+  const qrStr = await QRCode.default.toString(url, { type: 'terminal', small: true })
+  console.log(qrStr)
+}

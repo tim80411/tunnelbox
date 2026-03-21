@@ -5,7 +5,7 @@ import type { TunnelProviderManager } from './tunnel-provider-manager'
 import type { SiteInfo, CloudflaredEnv, LanInfo, AddSiteParams } from '../shared/types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
-import { getLanIp, getAllLanIps } from '../core/lan-ip'
+import { getLanIp, getAllLanIps, isVpnInterface } from '../core/lan-ip'
 
 let serverManager: ServerManager
 
@@ -63,6 +63,8 @@ export function registerIpcHandlers(
       if (allIps.length > 0) {
         ;(base as any).lanUrl = `http://${allIps[0].ip}:${server.port}`
         ;(base as any).lanInterfaceName = allIps[0].name
+        const nonVpnCount = allIps.filter((i) => !isVpnInterface(i.name)).length
+        ;(base as any).lanHasMultipleInterfaces = nonVpnCount > 1
       }
     }
 

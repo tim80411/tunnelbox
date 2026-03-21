@@ -14,7 +14,7 @@ const VPN_PATTERNS = [/^utun/i, /^tun/i, /^ppp/i, /^ipsec/i, /^tap/i, /^wg/i]
 /**
  * Returns true when the interface name looks like a VPN adapter.
  */
-function isVpnInterface(name: string): boolean {
+export function isVpnInterface(name: string): boolean {
   return VPN_PATTERNS.some((p) => p.test(name))
 }
 

@@ -5,6 +5,13 @@ import type { IStore } from '@/core/store-interface'
 import type { ServerManager, SiteServer } from '@/main/server-manager'
 import type { StoredSite } from '@/shared/types'
 
+// Mock getLanIp to return null so tests don't depend on the host's network
+vi.mock('@/core/lan-ip', () => ({
+  getLanIp: vi.fn(() => null),
+  getAllLanIps: vi.fn(() => []),
+  isVpnInterface: vi.fn(() => false),
+}))
+
 // --- Helpers ---
 
 function createMockStore(sites: StoredSite[] = []): IStore {
