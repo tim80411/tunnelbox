@@ -878,6 +878,57 @@ html, body, #root {
   color: var(--text-tertiary);
 }
 
+.lan-multi-hint {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--info-text);
+  background: var(--info-bg);
+  border-radius: 3px;
+  padding: 0 3px;
+  cursor: help;
+  user-select: none;
+}
+
+/* QR Code Popover */
+.qr-popover {
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.qr-popover__url {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  max-width: 180px;
+  text-align: center;
+  margin: 0;
+}
+
+.qr-popover__close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 0;
+}
+
+.qr-popover__close:hover {
+  color: var(--text-primary);
+}
+
 /* Status text */
 .sharing-status-text {
   display: flex;

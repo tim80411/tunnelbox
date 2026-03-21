@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import LanSharingControls from './components/LanSharingControls'
+import LanQrButton from './components/LanQrButton'
 import AuthPanel from './components/AuthPanel'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
@@ -623,6 +624,9 @@ function App(): React.ReactElement {
                           {site.lanInterfaceName && (
                             <span className="sharing-iface">({site.lanInterfaceName})</span>
                           )}
+                          {site.lanHasMultipleInterfaces && (
+                            <span className="lan-multi-hint" title="有多個可用的區網介面，目前使用最佳介面">+</span>
+                          )}
                           <button
                             className="btn-copy"
                             onClick={async () => {
@@ -632,6 +636,7 @@ function App(): React.ReactElement {
                           >
                             📋
                           </button>
+                          <LanQrButton lanUrl={site.lanUrl} />
                         </div>
                       )}
                       {site.tunnel?.status === 'running' && site.tunnel.publicUrl && (

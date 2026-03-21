@@ -3,7 +3,7 @@ import type { IStore } from '../../core/store-interface'
 import type { ServerManager } from '../../main/server-manager'
 import type { StoredSite } from '../../shared/types'
 import { CLIError } from '../errors'
-import { output, link } from '../output'
+import { output, link, printLanQr } from '../output'
 import { getLanIp } from '../../core/lan-ip'
 
 /**
@@ -130,6 +130,9 @@ export function registerServerCommands(
             output(`Server already running at ${link(result.url)}${lanLine}`, json)
           } else {
             output(`Server started at ${link(result.url)}${lanLine}`, json)
+          }
+          if (result.lanUrl) {
+            await printLanQr(result.lanUrl).catch(() => {/* QR unavailable, non-fatal */})
           }
         }
       } catch (err) {
