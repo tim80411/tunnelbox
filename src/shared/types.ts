@@ -1,3 +1,5 @@
+import type { UpdateState, ForceUpdateCheckResult } from './update-types'
+
 // --- Site Serve Mode ---
 
 export type ServeMode = 'static' | 'proxy'
@@ -219,6 +221,15 @@ export interface ElectronAPI {
   onMenuRestartServer: (callback: () => void) => () => void
   onMenuRemoveSite: (callback: () => void) => () => void
   onMenuShowShortcuts: (callback: () => void) => () => void
+
+  // Auto Update
+  getAppVersion: () => Promise<string>
+  getUpdateState: () => Promise<UpdateState>
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
+  checkForceUpdate: () => Promise<ForceUpdateCheckResult>
+  onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void
 }
 
 declare global {

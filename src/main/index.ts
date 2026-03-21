@@ -12,6 +12,7 @@ import { registerProtocolClient, setupOpenUrlHandler, flushPendingUrl } from './
 import { createTray, destroyTray } from './tray-manager'
 import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
 import { setAppMenu } from './app-menu'
+import { registerUpdaterHandlers } from './updater'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -96,6 +97,7 @@ app.whenReady().then(async () => {
     // Register IPC handlers
     registerIpcHandlers(serverManager, tunnelManager)
     registerSettingsIpcHandlers()
+    registerUpdaterHandlers()
     registerQuickActionHandlers()
 
     // Start local HTTP API for CLI communication

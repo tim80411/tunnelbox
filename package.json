@@ -30,6 +30,11 @@
   "build": {
     "appId": "com.tunnelbox.app",
     "productName": "TunnelBox",
+    "publish": {
+      "provider": "github",
+      "owner": "tim80411",
+      "repo": "tunnelbox"
+    },
     "directories": {
       "output": "dist"
     },
@@ -50,6 +55,12 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "universal"
           ]
@@ -128,6 +139,7 @@
     "chokidar": "^4.0.0",
     "commander": "^14.0.3",
     "electron-store": "^10.0.0",
+    "electron-updater": "^6.8.3",
     "get-port": "^7.1.0",
     "qrcode": "^1.5.4",
     "serve-handler": "^6.1.6",

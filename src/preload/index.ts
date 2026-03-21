@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
+import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -246,6 +247,42 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('tunnel-status-changed', handler)
     return () => {
       ipcRenderer.removeListener('tunnel-status-changed', handler)
+    }
+  },
+
+  // --- Auto Update ---
+
+  getAppVersion: (): Promise<string> => {
+    return ipcRenderer.invoke('get-app-version')
+  },
+
+  getUpdateState: (): Promise<UpdateState> => {
+    return ipcRenderer.invoke('get-update-state')
+  },
+
+  checkForUpdates: (): Promise<void> => {
+    return ipcRenderer.invoke('check-for-updates')
+  },
+
+  downloadUpdate: (): Promise<void> => {
+    return ipcRenderer.invoke('download-update')
+  },
+
+  installUpdate: (): Promise<void> => {
+    return ipcRenderer.invoke('install-update')
+  },
+
+  checkForceUpdate: (): Promise<ForceUpdateCheckResult> => {
+    return ipcRenderer.invoke('check-force-update')
+  },
+
+  onUpdateStateChanged: (callback: (state: UpdateState) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: UpdateState): void => {
+      callback(state)
+    }
+    ipcRenderer.on('update-state-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('update-state-changed', handler)
     }
   }
 }
