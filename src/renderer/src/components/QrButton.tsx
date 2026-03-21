@@ -5,11 +5,12 @@ interface QrButtonProps {
   url: string
   title?: string
   subtitle?: string
+  disabled?: boolean
 }
 
 const QR_OPTIONS: QRCode.QRCodeToDataURLOptions = { width: 280, margin: 1 }
 
-function QrButton({ url, title = 'QR Code', subtitle }: QrButtonProps): React.ReactElement {
+function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [dataUrl, setDataUrl] = useState('')
 
@@ -30,6 +31,7 @@ function QrButton({ url, title = 'QR Code', subtitle }: QrButtonProps): React.Re
         className="btn-copy"
         onClick={() => setOpen(true)}
         data-tooltip="顯示 QR Code"
+        disabled={disabled}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="2" width="8" height="8" rx="1" />

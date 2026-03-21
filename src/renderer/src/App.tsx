@@ -594,77 +594,67 @@ function App(): React.ReactElement {
                       tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
                     />
                   </div>
-                  {site.status === 'running' && site.url ? (
-                    <>
-                      <div className="site-item-url-row">
-                        <span className="sharing-badge sharing-badge--local">Local</span>
-                        <a
-                          className="site-item-url"
-                          href={site.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={site.url}
-                        >
-                          {site.url}
-                        </a>
-                        <CopyButton text={site.url} tooltip="複製網址" />
-                      </div>
-                      {site.lanUrl && (
-                        <div className="site-item-url-row">
-                          <span className="sharing-badge sharing-badge--lan">LAN</span>
-                          <a
-                            className="site-item-url"
-                            href={site.lanUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={site.lanUrl}
-                          >
-                            {site.lanUrl}
-                          </a>
-                          {site.lanInterfaceName && (
-                            <span className="sharing-iface">({site.lanInterfaceName})</span>
-                          )}
-                          {site.lanHasMultipleInterfaces && (
-                            <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
-                          )}
-                          <CopyButton text={site.lanUrl} tooltip="複製區網網址" />
-                          <QrButton url={site.lanUrl} title="LAN QR Code" subtitle={site.lanInterfaceName} />
-                          <button
-                            className="btn-copy"
-                            onClick={handleRefreshLan}
-                            data-tooltip="重新偵測區網 IP"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21.5 2v6h-6" />
-                              <path d="M2.5 22v-6h6" />
-                              <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                              <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                      {site.tunnel?.status === 'running' && site.tunnel.publicUrl && (
-                        <div className="site-item-url-row">
-                          <span className="sharing-badge sharing-badge--wan">WAN</span>
-                          <a
-                            className="site-item-url"
-                            href={site.tunnel.publicUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={site.tunnel.publicUrl}
-                          >
-                            {site.tunnel.publicUrl}
-                          </a>
-                          <CopyButton text={site.tunnel.publicUrl} tooltip="複製公開網址" />
-                          <QrButton url={site.tunnel.publicUrl} title="WAN QR Code" />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <span className="site-item-url-unavailable">網址不可用</span>
-                  )}
-                </div>
-                <div className="site-sharing-section">
+                  {/* Local */}
+                  <div className={`site-item-url-row${site.status !== 'running' ? ' site-item-url-row--disabled' : ''}`}>
+                    <span className="sharing-badge sharing-badge--local">Local</span>
+                    {site.status === 'running' && site.url ? (
+                      <a
+                        className="site-item-url"
+                        href={site.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={site.url}
+                      >
+                        {site.url}
+                      </a>
+                    ) : (
+                      <span className="site-item-url site-item-url--placeholder">啟動站點後可使用</span>
+                    )}
+                    <CopyButton text={site.url || ''} tooltip="複製網址" disabled={site.status !== 'running'} />
+                  </div>
+
+                  {/* LAN */}
+                  <div className={`site-item-url-row${site.status !== 'running' ? ' site-item-url-row--disabled' : ''}`}>
+                    <span className="sharing-badge sharing-badge--lan">LAN</span>
+                    {site.lanUrl ? (
+                      <a
+                        className="site-item-url"
+                        href={site.lanUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={site.lanUrl}
+                      >
+                        {site.lanUrl}
+                      </a>
+                    ) : (
+                      <span className="site-item-url site-item-url--placeholder">
+                        {site.status !== 'running' ? '啟動站點後可使用' : '未偵測到區網'}
+                      </span>
+                    )}
+                    {site.lanInterfaceName && (
+                      <span className="sharing-iface">({site.lanInterfaceName})</span>
+                    )}
+                    {site.lanHasMultipleInterfaces && (
+                      <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
+                    )}
+                    <CopyButton text={site.lanUrl || ''} tooltip="複製區網網址" disabled={!site.lanUrl} />
+                    <QrButton url={site.lanUrl || ''} title="LAN QR Code" subtitle={site.lanInterfaceName} disabled={!site.lanUrl} />
+                    <button
+                      className="btn-copy"
+                      onClick={handleRefreshLan}
+                      data-tooltip="重新偵測區網 IP"
+                      disabled={site.status !== 'running'}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* WAN — integrated tunnel controls */}
                   <TunnelControls
                     site={site}
                     cloudflaredAvailable={cloudflaredEnv.status === 'available'}

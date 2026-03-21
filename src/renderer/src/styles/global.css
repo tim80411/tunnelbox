@@ -230,19 +230,6 @@ html, body, #root {
   min-width: 0;
 }
 
-/* ── Sharing Section ──────────────────────────────────────────── */
-.site-sharing-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: var(--sp-3);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.site-sharing-section > * {
-  margin-top: 0;
-}
 
 .site-item-name {
   font-weight: 700;
@@ -389,6 +376,15 @@ html, body, #root {
   color: var(--accent);
 }
 
+.site-item-url--placeholder {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.site-item-url--placeholder:hover {
+  color: var(--text-tertiary);
+}
+
 .site-item-url-row {
   display: flex;
   align-items: center;
@@ -396,10 +392,8 @@ html, body, #root {
   min-width: 0;
 }
 
-.site-item-url-unavailable {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  font-size: 11px;
+.site-item-url-row--disabled {
+  opacity: 0.4;
 }
 
 /* ── Copy Button ───────────────────────────────────────────────── */
@@ -419,6 +413,11 @@ html, body, #root {
 
 .btn-copy[data-copied] {
   opacity: 0.8;
+}
+
+.btn-copy:disabled {
+  opacity: 0.15;
+  cursor: default;
 }
 
 /* ── Tooltip ───────────────────────────────────────────────────── */
@@ -503,6 +502,11 @@ html, body, #root {
 .btn-sm {
   padding: 3px 10px;
   font-size: 11px;
+}
+
+.btn-xs {
+  padding: 2px 8px;
+  font-size: 10px;
 }
 
 .btn:disabled {
@@ -831,17 +835,6 @@ html, body, #root {
   margin-bottom: var(--sp-1);
 }
 
-/* ── Sharing Controls (unified LAN + Tunnel) ─────────────────── */
-.sharing-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-top: var(--sp-1);
-}
-
-.sharing-row--disabled {
-  opacity: 0.4;
-}
 
 /* Badge — shared base with fixed width for alignment */
 .sharing-badge {
@@ -889,37 +882,6 @@ html, body, #root {
   padding: 1px 6px;
 }
 
-/* Hint text — shown when feature is unavailable */
-.sharing-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-/* URL row */
-.sharing-url-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sharing-url {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-primary);
-  text-decoration: underline;
-  text-decoration-color: var(--border-default);
-  text-underline-offset: 2px;
-  word-break: break-all;
-  transition: text-decoration-color var(--duration);
-}
-
-.sharing-url:hover {
-  text-decoration-color: var(--accent);
-}
-
-.sharing-url--dimmed {
-  opacity: 0.35;
-}
 
 .sharing-iface {
   font-family: var(--font-mono);
@@ -965,33 +927,6 @@ html, body, #root {
   margin: var(--sp-1) 0 0;
 }
 
-/* Status text */
-.sharing-status-text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.sharing-status-text--starting {
-  color: var(--info-text);
-}
-
-.sharing-status-text--reconnecting {
-  color: var(--warning-text);
-}
-
-.sharing-status-text--error {
-  color: var(--danger);
-}
-
-/* Error row */
-.sharing-error-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
 
 /* Buttons — share (accent fill) */
 .btn-sharing-action {
@@ -1006,60 +941,13 @@ html, body, #root {
   color: var(--text-on-accent);
 }
 
-/* Buttons — LAN share (blue fill) */
-.btn-sharing-action--lan {
-  background: var(--info-bg);
-  color: var(--info-text);
-  border-color: #b8cfe6;
-}
 
-.btn-sharing-action--lan:hover {
-  background: #dae6f5;
-  border-color: #9ab8d8;
-  color: var(--info-text);
-}
-
-/* Buttons — stop */
-.btn-sharing-stop {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.btn-sharing-stop:hover {
-  background: var(--danger-bg);
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* Buttons — neutral stop (e.g., LAN off) */
-.btn-sharing-stop--neutral {
-  color: var(--text-secondary);
-  border-color: var(--border-default);
-}
-
-.btn-sharing-stop--neutral:hover {
-  background: var(--bg-muted);
-  border-color: var(--border-hard);
-  color: var(--text-secondary);
-}
-
-/* Buttons — disabled action */
-.btn-sharing-action--disabled {
-  background: var(--bg-muted);
-  color: var(--text-tertiary);
-  border-color: var(--border-default);
-  cursor: pointer;
-}
-
-.btn-sharing-action--disabled:hover {
-  border-color: var(--text-tertiary);
-  color: var(--text-secondary);
-}
-
-/* Named tunnel actions group */
-.sharing-actions-group {
+/* WAN inline actions (in URL row) */
+.wan-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* ── Auth Panel ────────────────────────────────────────────────── */

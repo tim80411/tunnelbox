@@ -3,9 +3,10 @@ import { useState, useRef } from 'react'
 interface CopyButtonProps {
   text: string
   tooltip: string
+  disabled?: boolean
 }
 
-function CopyButton({ text, tooltip }: CopyButtonProps): React.ReactElement {
+function CopyButton({ text, tooltip, disabled }: CopyButtonProps): React.ReactElement {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -22,6 +23,7 @@ function CopyButton({ text, tooltip }: CopyButtonProps): React.ReactElement {
       onClick={handleClick}
       data-tooltip={copied ? '已複製！' : tooltip}
       data-copied={copied || undefined}
+      disabled={disabled}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="9" y="2" width="6" height="4" rx="1" />
