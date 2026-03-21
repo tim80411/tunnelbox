@@ -219,9 +219,22 @@ function TunnelControls({
         <span className={`provider-badge provider-badge--${isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
 
         {wanUrl ? (
-          <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
-            {wanUrl}
-          </a>
+          <>
+            {lightColor === 'orange' ? (
+              <span className="site-item-url site-item-url--pending" title={wanUrl}>
+                {wanUrl}
+              </span>
+            ) : (
+              <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
+                {wanUrl}
+              </a>
+            )}
+            {tunnel?.warningMessage && (
+              <span className="btn-icon btn-icon--warning" data-tooltip={tunnel.warningMessage}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--warning-color, #f59e0b)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            )}
+          </>
         ) : (
           <span className="site-item-url site-item-url--placeholder">
             {placeholderText}

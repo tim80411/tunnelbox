@@ -390,6 +390,16 @@ html, body, #root {
   color: var(--text-tertiary);
 }
 
+.site-item-url--pending {
+  color: var(--text-secondary);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.site-item-url--pending:hover {
+  color: var(--text-secondary);
+}
+
 
 .url-row-actions {
   display: flex;

@@ -53,7 +53,7 @@ const NAMED_TUNNEL_ERRORS: Array<{ pattern: RegExp; message: string }> = [
 ]
 
 let processManager: ProcessManager
-let lastStderrError: Map<string, string> = new Map()
+const lastStderrError: Map<string, string> = new Map()
 
 /** Track readiness probe abort controllers */
 const readinessAbortControllers: Map<string, AbortController> = new Map()
@@ -421,14 +421,17 @@ function startReadinessProbe(siteId: string, url: string): void {
       const current = activeNamedTunnels.get(siteId)
       if (current && current.status === 'verifying') {
         current.status = 'running'
+        current.warningMessage = undefined
         reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, current)
       }
     })
-    .catch(() => {
+    .catch((err) => {
+      log.info(`Readiness probe failed for ${siteId}: ${err instanceof Error ? err.message : String(err)}`)
       const current = activeNamedTunnels.get(siteId)
       if (current && current.status === 'verifying') {
-        current.status = 'running' // Fall through to running even if probe times out
+        current.status = 'running'
+        current.warningMessage = '本機 DNS 可能有快取問題，若無法開啟網址，請清除 DNS 快取後重試'
         reconnectAttempts.delete(siteId)
         broadcastTunnelStatus(siteId, current)
       }

@@ -67,6 +67,7 @@ export interface TunnelInfo {
   publicUrl?: string
   tunnelId?: string // For named tunnels
   errorMessage?: string
+  warningMessage?: string
 }
 
 // --- Cloudflare Auth ---

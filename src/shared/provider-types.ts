@@ -21,6 +21,7 @@ export interface ProviderTunnelInfo {
   publicUrl?: string
   tunnelId?: string
   errorMessage?: string
+  warningMessage?: string
 }
 
 /** Provider-specific tunnel options — each provider casts to its own type */
