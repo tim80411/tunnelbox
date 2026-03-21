@@ -376,25 +376,23 @@ html, body, #root {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  text-decoration: underline;
-  text-decoration-color: var(--border-default);
-  text-underline-offset: 2px;
+  text-decoration: none;
   cursor: pointer;
-  transition: text-decoration-color var(--duration);
 }
 
 .site-item-url:hover {
-  text-decoration-color: var(--accent);
+  color: var(--accent);
 }
 
 .site-item-url-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
+  gap: var(--sp-2);
   min-width: 0;
 }
 
