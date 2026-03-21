@@ -48,7 +48,6 @@ export async function envInstall(
   detectFn: () => Promise<CloudflaredEnv>,
   installDeps: EnvInstallDeps
 ): Promise<EnvInstallResult> {
-  // Check if already installed
   const current = await detectFn()
   if (current.status === 'available') {
     return { installed: true, alreadyInstalled: true, version: current.version }
@@ -100,11 +99,10 @@ export function registerEnvCommands(
       const json = program.opts().json
       try {
         if (!getInstallDeps) {
-          const { handleError } = await import('../errors')
-          const { CLIError } = await import('../errors')
-          handleError(CLIError.system('TunnelBox app is not running. Please open TunnelBox first.'), json)
+          const { handleError, CLIError } = await import('../errors')
+          return handleError(CLIError.system('TunnelBox app is not running. Please open TunnelBox first.'), json)
         }
-        const result = await envInstall(detectFn, getInstallDeps!())
+        const result = await envInstall(detectFn, getInstallDeps())
 
         if (json) {
           output(result, true)

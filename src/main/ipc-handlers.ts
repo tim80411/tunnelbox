@@ -408,14 +408,13 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle('install-frp', async () => {
+    const broadcastFrpStatus = (env: ProviderEnv): void => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('frp-status-changed', env)
+      }
+    }
     try {
       const frpProvider = tunnelManager.get('frp')
-      const broadcastFrpStatus = (env: ProviderEnv): void => {
-        const windows = BrowserWindow.getAllWindows()
-        for (const win of windows) {
-          win.webContents.send('frp-status-changed', env)
-        }
-      }
       broadcastFrpStatus({ status: 'installing' })
       await frpProvider.install()
       const env = await frpProvider.detect()
@@ -425,10 +424,7 @@ export function registerIpcHandlers(
         status: 'install_failed',
         errorMessage: err instanceof Error ? err.message : '安裝 frpc 失敗'
       }
-      const windows = BrowserWindow.getAllWindows()
-      for (const win of windows) {
-        win.webContents.send('frp-status-changed', errorEnv)
-      }
+      broadcastFrpStatus(errorEnv)
       throw new Error(errorEnv.errorMessage)
     }
   })

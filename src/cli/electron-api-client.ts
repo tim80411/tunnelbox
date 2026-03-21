@@ -15,6 +15,17 @@ interface ApiResponse {
 }
 
 /**
+ * Get the Electron API server port, throwing if the app is not running.
+ */
+function requireApiPort(): number {
+  const info = readApiInfo()
+  if (!info) {
+    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
+  }
+  return info.port
+}
+
+/**
  * Check if the TunnelBox Electron app is running by reading the API discovery file
  * and verifying the PID is alive.
  */
@@ -98,11 +109,7 @@ function apiRequest(port: number, method: string, path: string, body?: Record<st
  * Create a TunnelDeps implementation that delegates to the running Electron app.
  */
 export function createElectronApiClient(): TunnelDeps {
-  const info = readApiInfo()
-  if (!info) {
-    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
-  }
-  const apiPort = info.port
+  const apiPort = requireApiPort()
 
   return {
     findBinary,
@@ -137,11 +144,7 @@ export function createElectronApiClient(): TunnelDeps {
  * Create an AuthDeps implementation that delegates to the running Electron app.
  */
 export function createElectronAuthClient(): AuthDeps {
-  const info = readApiInfo()
-  if (!info) {
-    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
-  }
-  const apiPort = info.port
+  const apiPort = requireApiPort()
 
   return {
     async login(): Promise<CloudflareAuth> {
@@ -164,11 +167,7 @@ export function createElectronAuthClient(): AuthDeps {
  * Create a DomainDeps implementation that delegates to the running Electron app.
  */
 export function createElectronDomainClient(): DomainDeps {
-  const info = readApiInfo()
-  if (!info) {
-    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
-  }
-  const apiPort = info.port
+  const apiPort = requireApiPort()
 
   return {
     async bind(siteId: string, domain: string): Promise<string> {
@@ -191,11 +190,7 @@ export function createElectronDomainClient(): DomainDeps {
  * Create an EnvInstallDeps implementation that delegates to the running Electron app.
  */
 export function createElectronEnvClient(): EnvInstallDeps {
-  const info = readApiInfo()
-  if (!info) {
-    throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
-  }
-  const apiPort = info.port
+  const apiPort = requireApiPort()
 
   return {
     async install(): Promise<{ installed: boolean; version?: string }> {

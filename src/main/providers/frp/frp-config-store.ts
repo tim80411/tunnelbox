@@ -1,14 +1,11 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
 import { createLogger } from '../../logger'
+import type { FrpServerConfig } from '../../../shared/types'
+
+export type { FrpServerConfig }
 
 const log = createLogger('FrpConfigStore')
-
-export interface FrpServerConfig {
-  serverAddr: string
-  serverPort: number
-  authToken?: string
-}
 
 interface FrpStoreSchema {
   frpConfig: {

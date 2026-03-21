@@ -33,7 +33,6 @@ export async function domainBind(
   domain: string,
   deps: DomainDeps
 ): Promise<DomainBindResult> {
-  // Check auth
   const auth = await deps.getAuthStatus()
   if (auth.status !== 'logged_in') {
     throw CLIError.input('Not logged in. Use `tunnelbox auth login` to login first.')
@@ -58,7 +57,6 @@ export async function domainUnbind(
   nameOrId: string,
   deps: DomainDeps
 ): Promise<DomainUnbindResult> {
-  // Check auth
   const auth = await deps.getAuthStatus()
   if (auth.status !== 'logged_in') {
     throw CLIError.input('Not logged in. Use `tunnelbox auth login` to login first.')

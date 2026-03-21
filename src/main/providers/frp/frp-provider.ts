@@ -32,6 +32,7 @@ interface FrpTunnelState {
 export class FrpProvider implements TunnelProvider {
   readonly type = 'frp'
   private tunnels: Map<string, FrpTunnelState> = new Map()
+  private exitListeners: Map<string, (id: string) => void> = new Map()
   private processManager: ProcessManager
 
   constructor(processManager: ProcessManager) {
@@ -56,10 +57,6 @@ export class FrpProvider implements TunnelProvider {
   }
 
   getAuthStatus(): ProviderAuthInfo {
-    const config = getFrpConfig()
-    if (config) {
-      return { status: 'not_required' }
-    }
     return { status: 'not_required' }
   }
 
@@ -174,8 +171,8 @@ export class FrpProvider implements TunnelProvider {
         this.broadcastStatus(siteId)
       }
 
-      // Listen for process exit after running
-      this.processManager.on('exit', (id: string) => {
+      // Listen for process exit after running (store ref for cleanup)
+      const onProcessExit = (id: string): void => {
         if (id !== processId) return
         const t = this.tunnels.get(siteId)
         if (t && t.status === 'running') {
@@ -183,7 +180,9 @@ export class FrpProvider implements TunnelProvider {
           t.publicUrl = undefined
           this.broadcastStatus(siteId)
         }
-      })
+      }
+      this.exitListeners.set(siteId, onProcessExit)
+      this.processManager.on('exit', onProcessExit)
 
       return publicUrl
     } catch (err) {
@@ -195,6 +194,12 @@ export class FrpProvider implements TunnelProvider {
 
   async stopTunnel(siteId: string): Promise<void> {
     const processId = `${PROCESS_ID_PREFIX}${siteId}`
+    // Remove exit listener to prevent leak
+    const listener = this.exitListeners.get(siteId)
+    if (listener) {
+      this.processManager.removeListener('exit', listener)
+      this.exitListeners.delete(siteId)
+    }
     this.processManager.kill(processId)
     const tunnel = this.tunnels.get(siteId)
     if (tunnel) {
