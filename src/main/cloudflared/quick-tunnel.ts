@@ -3,6 +3,7 @@ import { ProcessManager } from './process-manager'
 import { findBinary } from './detector'
 import { createLogger } from '../logger'
 import type { TunnelInfo } from '../../shared/types'
+import { waitForTunnelReady } from './tunnel-readiness'
 
 const log = createLogger('QuickTunnel')
 
@@ -14,6 +15,9 @@ const sitePorts: Map<string, number> = new Map()
 
 /** Track reconnect attempts per site */
 const reconnectAttempts: Map<string, number> = new Map()
+
+/** Track readiness probe abort controllers */
+const readinessAbortControllers: Map<string, AbortController> = new Map()
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const BACKOFF_BASE_MS = 2000
@@ -42,6 +46,10 @@ export function initQuickTunnel(pm: ProcessManager): void {
     const siteId = id.replace('quick-tunnel-', '')
     const tunnel = activeTunnels.get(siteId)
     if (!tunnel) return
+
+    // Cancel any in-flight readiness probe
+    readinessAbortControllers.get(siteId)?.abort()
+    readinessAbortControllers.delete(siteId)
 
     // If explicitly stopped, don't reconnect
     if (tunnel.status === 'stopped') return
@@ -112,6 +120,32 @@ async function attemptReconnect(siteId: string): Promise<void> {
   }
 }
 
+/** Start readiness probe for a tunnel URL, transitioning to running when ready */
+function startReadinessProbe(siteId: string, url: string): void {
+  const controller = new AbortController()
+  readinessAbortControllers.set(siteId, controller)
+  waitForTunnelReady(url, { signal: controller.signal })
+    .then(() => {
+      const current = activeTunnels.get(siteId)
+      if (current && current.status === 'verifying') {
+        current.status = 'running'
+        reconnectAttempts.delete(siteId)
+        broadcastTunnelStatus(siteId, current)
+      }
+    })
+    .catch(() => {
+      const current = activeTunnels.get(siteId)
+      if (current && current.status === 'verifying') {
+        current.status = 'running' // Fall through to running even if probe times out
+        reconnectAttempts.delete(siteId)
+        broadcastTunnelStatus(siteId, current)
+      }
+    })
+    .finally(() => {
+      readinessAbortControllers.delete(siteId)
+    })
+}
+
 /** Spawn the cloudflared tunnel process and listen for URL */
 function spawnTunnelProcess(
   siteId: string,
@@ -127,15 +161,15 @@ function spawnTunnelProcess(
       processManager.removeListener('stderr', onStderr)
       const tunnel = activeTunnels.get(siteId) || {
         type: 'quick' as const,
-        status: 'running' as const,
+        status: 'verifying' as const,
         publicUrl: ''
       }
-      tunnel.status = 'running'
+      tunnel.status = 'verifying'
       tunnel.publicUrl = match[0]
       tunnel.errorMessage = undefined
       activeTunnels.set(siteId, tunnel)
-      reconnectAttempts.delete(siteId)
       broadcastTunnelStatus(siteId, tunnel)
+      startReadinessProbe(siteId, match[0])
     }
   }
 
@@ -150,7 +184,7 @@ function spawnTunnelProcess(
 export async function startQuickTunnel(siteId: string, port: number): Promise<string> {
   // Edge case: already has a tunnel
   const existing = activeTunnels.get(siteId)
-  if (existing && (existing.status === 'running' || existing.status === 'starting')) {
+  if (existing && (existing.status === 'running' || existing.status === 'starting' || existing.status === 'verifying')) {
     if (existing.publicUrl) return existing.publicUrl
     throw new Error('此網頁已有進行中的 Tunnel')
   }
@@ -195,11 +229,12 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
       const match = data.match(TUNNEL_URL_REGEX)
       if (match) {
         cleanup()
-        tunnelInfo.status = 'running'
+        tunnelInfo.status = 'verifying'
         tunnelInfo.publicUrl = match[0]
         tunnelInfo.errorMessage = undefined
         activeTunnels.set(siteId, tunnelInfo)
         broadcastTunnelStatus(siteId, tunnelInfo)
+        startReadinessProbe(siteId, match[0])
         resolve(match[0])
         return
       }
@@ -287,6 +322,10 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
  * Stop a Quick Tunnel for the given site.
  */
 export function stopQuickTunnel(siteId: string): void {
+  // Cancel any in-flight readiness probe
+  readinessAbortControllers.get(siteId)?.abort()
+  readinessAbortControllers.delete(siteId)
+
   const processId = `quick-tunnel-${siteId}`
   const tunnel = activeTunnels.get(siteId)
 
