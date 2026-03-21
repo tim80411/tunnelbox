@@ -33,7 +33,7 @@ function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps)
         data-tooltip="顯示 QR Code"
         disabled={disabled}
       >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="2" width="8" height="8" rx="1" />
           <rect x="14" y="2" width="8" height="8" rx="1" />
           <rect x="2" y="14" width="8" height="8" rx="1" />

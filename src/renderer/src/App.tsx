@@ -409,6 +409,17 @@ function App(): React.ReactElement {
 
   return (
     <div className="app-container">
+      <div className="app-layout">
+        <SettingsPanel
+          open={showSettings}
+          settings={settings}
+          onClose={() => setShowSettings(false)}
+          onUpdate={updateSettings}
+          appVersion={appVersion}
+          updateState={updateState}
+          onCheckForUpdates={checkForUpdates}
+        />
+        <div className="app-main">
       <header className="app-header">
         <h1>TunnelBox</h1>
         <div className="app-header-actions">
@@ -603,7 +614,7 @@ function App(): React.ReactElement {
                       onClick={() => navigator.clipboard.writeText(site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath)}
                       data-tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="2" width="6" height="4" rx="1" />
                         <path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" />
                       </svg>
@@ -620,14 +631,16 @@ function App(): React.ReactElement {
                     ) : (
                       <span className="site-item-url site-item-url--placeholder">啟動站點後可使用</span>
                     )}
-                    <span className="btn-icon btn-icon--info" data-tooltip={`Port：${site.port}｜模式：${site.serveMode === 'proxy' ? 'Proxy' : '靜態檔案'}`}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    </span>
-                    <button className="btn-icon" disabled data-tooltip="啟動"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
-                    <button className="btn-icon" disabled data-tooltip="停止"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
-                    <CopyButton text={site.url || ''} tooltip="複製網址" disabled={site.status !== 'running'} />
-                    <QrButton url={site.url || ''} title="Local QR Code" disabled={site.status !== 'running'} />
-                    <button className="btn-icon" disabled data-tooltip="重新偵測"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg></button>
+                    <div className="url-row-actions">
+                      <span className="btn-icon btn-icon--info" data-tooltip={`Port：${site.port}｜模式：${site.serveMode === 'proxy' ? 'Proxy' : '靜態檔案'}`}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      </span>
+                      <button className="btn-icon" disabled data-tooltip="啟動"><svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
+                      <button className="btn-icon" disabled data-tooltip="停止"><svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
+                      <CopyButton text={site.url || ''} tooltip="複製網址" disabled={site.status !== 'running'} />
+                      <QrButton url={site.url || ''} title="Local QR Code" disabled={site.status !== 'running'} />
+                      <button className="btn-icon" disabled data-tooltip="重新偵測"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg></button>
+                    </div>
                   </div>
 
                   {/* LAN */}
@@ -643,16 +656,18 @@ function App(): React.ReactElement {
                         {site.status !== 'running' ? '啟動站點後可使用' : '未偵測到區網'}
                       </span>
                     )}
-                    <span className="btn-icon btn-icon--info" data-tooltip={site.lanInterfaceName ? `介面：${site.lanInterfaceName}${site.lanHasMultipleInterfaces ? '（有多個可用介面，目前使用最佳介面）' : ''}` : '區域網路分享'}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    </span>
-                    <button className="btn-icon" disabled data-tooltip="啟動"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
-                    <button className="btn-icon" disabled data-tooltip="停止"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
-                    <CopyButton text={site.lanUrl || ''} tooltip="複製區網網址" disabled={!site.lanUrl} />
-                    <QrButton url={site.lanUrl || ''} title="LAN QR Code" subtitle={site.lanInterfaceName} disabled={!site.lanUrl} />
-                    <button className="btn-icon" onClick={handleRefreshLan} disabled={site.status !== 'running'} data-tooltip="重新偵測區網 IP">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-                    </button>
+                    <div className="url-row-actions">
+                      <span className="btn-icon btn-icon--info" data-tooltip={site.lanInterfaceName ? `介面：${site.lanInterfaceName}${site.lanHasMultipleInterfaces ? '（有多個可用介面，目前使用最佳介面）' : ''}` : '區域網路分享'}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      </span>
+                      <button className="btn-icon" disabled data-tooltip="啟動"><svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
+                      <button className="btn-icon" disabled data-tooltip="停止"><svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
+                      <CopyButton text={site.lanUrl || ''} tooltip="複製區網網址" disabled={!site.lanUrl} />
+                      <QrButton url={site.lanUrl || ''} title="LAN QR Code" subtitle={site.lanInterfaceName} disabled={!site.lanUrl} />
+                      <button className="btn-icon" onClick={handleRefreshLan} disabled={site.status !== 'running'} data-tooltip="重新偵測區網 IP">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
+                      </button>
+                    </div>
                   </div>
 
                   {/* WAN — integrated tunnel controls */}
@@ -705,6 +720,8 @@ function App(): React.ReactElement {
           )}
         </div>
       </div>
+        </div>{/* end app-main */}
+      </div>{/* end app-layout */}
 
       {/* Confirm Remove Modal */}
       {confirmRemove && (
@@ -769,21 +786,6 @@ function App(): React.ReactElement {
           </div>
         </div>
       )}
-
-      <SettingsPanel
-        open={showSettings}
-        settings={settings}
-        onClose={() => setShowSettings(false)}
-        onUpdate={updateSettings}
-        appVersion={appVersion}
-        updateState={updateState}
-        onCheckForUpdates={checkForUpdates}
-      />
-
-      <ShortcutsPanel
-        open={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
 
       <ShortcutsPanel
         open={showShortcuts}

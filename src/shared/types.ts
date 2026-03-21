@@ -17,6 +17,7 @@ interface BaseSiteInfo {
   lanHasMultipleInterfaces?: boolean // true when multiple non-VPN LAN interfaces detected
   tunnel?: TunnelInfo
   providerType?: string // 'cloudflare' | 'frp' — for UI badge
+  defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
 export interface StaticSiteInfo extends BaseSiteInfo {
@@ -54,6 +55,7 @@ export type TunnelType = 'quick' | 'named'
 
 export type TunnelStatus =
   | 'starting'
+  | 'verifying'
   | 'running'
   | 'reconnecting'
   | 'stopped'
@@ -99,6 +101,7 @@ export interface StoredStaticSite {
   serveMode: 'static'
   folderPath: string
   providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
 export interface StoredProxySite {
@@ -107,6 +110,7 @@ export interface StoredProxySite {
   serveMode: 'proxy'
   proxyTarget: string
   providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
 export type StoredSite = StoredStaticSite | StoredProxySite
@@ -127,6 +131,10 @@ export function migrateSite(raw: Record<string, unknown>): StoredSite {
     ...(raw.providerType ? { providerType: raw.providerType as string } : {})
   }
 }
+
+// --- Validation ---
+
+export const DOMAIN_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/
 
 // --- App Settings ---
 
@@ -211,6 +219,10 @@ export interface ElectronAPI {
   startFrpTunnel: (siteId: string, opts?: Record<string, unknown>) => Promise<string>
   setSiteProvider: (siteId: string, providerType: string) => Promise<void>
   onFrpStatusChanged: (callback: (env: CloudflaredEnv) => void) => () => void
+
+  // Default Domain
+  setDefaultDomain: (siteId: string, domain: string) => Promise<void>
+  clearDefaultDomain: (siteId: string) => Promise<void>
 
   // LAN Sharing
   refreshLan: () => Promise<void>

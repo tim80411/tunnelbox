@@ -151,6 +151,12 @@ html, body, #root {
   position: relative;
 }
 
+.site-list > *:not(.site-list-empty):not(.site-list-drop-hint) {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ── Empty State ───────────────────────────────────────────────── */
 .site-list-empty {
   display: flex;
@@ -363,8 +369,7 @@ html, body, #root {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
-  width: 220px;
-  flex-shrink: 0;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -386,6 +391,14 @@ html, body, #root {
 }
 
 
+.url-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .site-item-url-row {
   display: flex;
   align-items: center;
@@ -395,8 +408,8 @@ html, body, #root {
 
 /* ── Status Light ─────────────────────────────────────────────── */
 .status-light {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -425,8 +438,8 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
@@ -569,6 +582,52 @@ html, body, #root {
 .btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* ── Overflow Menu ─────────────────────────────────────────────── */
+
+.overflow-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.overflow-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  margin-top: 2px;
+}
+
+.overflow-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.overflow-menu-item:hover {
+  background: var(--bg-muted);
+}
+
+.overflow-menu-item--danger {
+  color: var(--danger);
+}
+
+.overflow-menu-item--danger:hover {
+  background: rgba(255, 59, 48, 0.1);
 }
 
 /* ── Site Actions ──────────────────────────────────────────────── */
@@ -912,7 +971,7 @@ html, body, #root {
 .sharing-badge--local {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  border-color: var(--border);
+  border-color: var(--border-default);
 }
 
 .sharing-badge--lan {
@@ -1189,6 +1248,24 @@ html, body, #root {
   background: var(--bg-muted);
 }
 
+/* ── App Layout Wrapper (sidebar + main) ──────────────────────── */
+.app-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  transition: margin-left 200ms ease-out;
+}
+
+/* ── Settings Panel — narrow screen: overlay from right ───────── */
 .settings-overlay {
   position: fixed;
   inset: 0;
@@ -1216,6 +1293,41 @@ html, body, #root {
   transform: translateX(0);
 }
 
+/* ── Settings Panel — wide screen: fixed left sidebar ─────────── */
+@media (min-width: 768px) {
+  .settings-overlay {
+    display: none;
+  }
+
+  .settings-panel {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+    border-left: none;
+    border-right: 1px solid var(--border-default);
+    transform: none;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    transition: width 200ms ease-out, min-width 200ms ease-out;
+    flex-shrink: 0;
+  }
+
+  .settings-panel-open {
+    width: 280px;
+    min-width: 280px;
+    overflow-y: auto;
+  }
+
+  /* Prevent content reflow during width animation */
+  .settings-panel .settings-header,
+  .settings-panel .settings-body {
+    min-width: 280px;
+  }
+}
+
 .settings-header {
   display: flex;
   align-items: center;
@@ -1224,14 +1336,14 @@ html, body, #root {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.settings-title {
+.panel-title {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.settings-close {
+.panel-close {
   background: none;
   border: none;
   font-size: 20px;
@@ -1243,7 +1355,7 @@ html, body, #root {
   transition: all var(--duration);
 }
 
-.settings-close:hover {
+.panel-close:hover {
   color: var(--text-primary);
   background: var(--bg-muted);
 }
@@ -1353,7 +1465,48 @@ html, body, #root {
   border-color: var(--accent);
 }
 
-/* ── Shortcuts Panel ───────────────────────────────────────────── */
+/* ── Shortcuts Panel (always overlay, never sidebar) ──────────── */
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  z-index: 50;
+  animation: fade-in var(--duration) ease-out;
+}
+
+.shortcuts-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+  z-index: 51;
+  transform: translateX(100%);
+  transition: transform 200ms ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-panel-open {
+  transform: translateX(0);
+}
+
+.shortcuts-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcuts-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-5);
+}
+
 .shortcuts-section {
   font-size: 11px;
   font-weight: 700;

@@ -2,6 +2,7 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
+import { DOMAIN_REGEX } from '../shared/types'
 import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
 import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
@@ -34,7 +35,8 @@ export function registerIpcHandlers(
 
   function toSiteInfo(
     server: SiteServer,
-    lanIps?: Array<{ name: string; ip: string }>
+    lanIps?: Array<{ name: string; ip: string }>,
+    storedSites?: import('../shared/types').StoredSite[]
   ): SiteInfo {
     const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
     const tunnel = providerInfo
@@ -51,11 +53,9 @@ export function registerIpcHandlers(
           errorMessage: providerInfo.errorMessage
         }
       : undefined
-    // Look up stored site providerType
-    const storedSites = siteStore.getSites()
-    const storedSite = storedSites.find((s) => s.id === server.id)
+    const allStored = storedSites ?? siteStore.getSites()
+    const storedSite = allStored.find((s) => s.id === server.id)
     const providerType = storedSite?.providerType || 'cloudflare'
-
     const base = {
       id: server.id,
       name: server.name,
@@ -63,7 +63,8 @@ export function registerIpcHandlers(
       status: server.status,
       url: server.status === 'running' ? `http://localhost:${server.port}` : '',
       providerType,
-      ...(tunnel && { tunnel })
+      ...(tunnel && { tunnel }),
+      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain })
     }
 
     // LAN URL — always computed for running sites
@@ -94,7 +95,8 @@ export function registerIpcHandlers(
 
   function broadcastSiteUpdate(): void {
     const lanIps = getAllLanIps()
-    const sites = serverManager.getServers().map((s) => toSiteInfo(s, lanIps))
+    const storedSites = siteStore.getSites()
+    const sites = serverManager.getServers().map((s) => toSiteInfo(s, lanIps, storedSites))
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('site-updated', sites)
@@ -194,7 +196,8 @@ export function registerIpcHandlers(
 
   ipcMain.handle('get-sites', async () => {
     try {
-      return serverManager.getServers().map(toSiteInfo)
+      const storedSites = siteStore.getSites()
+      return serverManager.getServers().map((s) => toSiteInfo(s, undefined, storedSites))
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to get sites')
     }
@@ -467,6 +470,33 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '設定 Provider 失敗')
+    }
+  })
+
+  // --- Default Domain ---
+
+  ipcMain.handle('set-default-domain', async (_event, siteId: string, domain: string) => {
+    try {
+      if (typeof siteId !== 'string' || !siteId) throw new Error('Invalid siteId')
+      if (typeof domain !== 'string' || !domain.trim()) throw new Error('Invalid domain')
+      const trimmed = domain.trim()
+      if (!DOMAIN_REGEX.test(trimmed)) {
+        throw new Error('Invalid domain format')
+      }
+      siteStore.updateSite(siteId, { defaultDomain: trimmed })
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定預設網域失敗')
+    }
+  })
+
+  ipcMain.handle('clear-default-domain', async (_event, siteId: string) => {
+    try {
+      if (typeof siteId !== 'string' || !siteId) throw new Error('Invalid siteId')
+      siteStore.updateSite(siteId, { defaultDomain: undefined })
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '清除預設網域失敗')
     }
   })
 
