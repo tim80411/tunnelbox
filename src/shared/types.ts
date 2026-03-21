@@ -1,12 +1,29 @@
-export interface SiteInfo {
+// --- Site Serve Mode ---
+
+export type ServeMode = 'static' | 'proxy'
+
+// --- SiteInfo (renderer-facing) ---
+
+interface BaseSiteInfo {
   id: string
   name: string
-  folderPath: string
   port: number
   status: 'running' | 'stopped' | 'error'
   url: string // e.g., "http://localhost:3001"
   tunnel?: TunnelInfo
 }
+
+export interface StaticSiteInfo extends BaseSiteInfo {
+  serveMode: 'static'
+  folderPath: string
+}
+
+export interface ProxySiteInfo extends BaseSiteInfo {
+  serveMode: 'proxy'
+  proxyTarget: string
+}
+
+export type SiteInfo = StaticSiteInfo | ProxySiteInfo
 
 // --- Cloudflared Environment ---
 
@@ -68,12 +85,48 @@ export interface StoredAuth {
   accountId?: string
 }
 
-export interface StoredSite {
+// --- StoredSite (persisted) ---
+
+export interface StoredStaticSite {
   id: string
   name: string
+  serveMode: 'static'
   folderPath: string
   providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
 }
+
+export interface StoredProxySite {
+  id: string
+  name: string
+  serveMode: 'proxy'
+  proxyTarget: string
+  providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+}
+
+export type StoredSite = StoredStaticSite | StoredProxySite
+
+// --- Migration ---
+
+export function migrateSite(raw: Record<string, unknown>): StoredSite {
+  // Already migrated — return as-is without allocating a new object
+  if (raw.serveMode === 'static' || raw.serveMode === 'proxy') {
+    return raw as unknown as StoredSite
+  }
+  // Legacy record without serveMode — normalize to static
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    serveMode: 'static',
+    folderPath: raw.folderPath as string,
+    ...(raw.providerType ? { providerType: raw.providerType as string } : {})
+  }
+}
+
+// --- Add Site Params (IPC) ---
+
+export type AddSiteParams =
+  | { serveMode: 'static'; name: string; folderPath: string }
+  | { serveMode: 'proxy'; name: string; proxyTarget: string }
 
 export interface UrlAddResult {
   success: boolean
@@ -83,7 +136,7 @@ export interface UrlAddResult {
 
 export interface ElectronAPI {
   // Site management
-  addSite: (name: string, folderPath: string) => Promise<SiteInfo>
+  addSite: (params: AddSiteParams) => Promise<SiteInfo>
   removeSite: (id: string) => Promise<void>
   getSites: () => Promise<SiteInfo[]>
 
