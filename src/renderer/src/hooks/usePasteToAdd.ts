@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { isFocusOnEditable } from '../utils/dom'
 
 interface UsePasteToAddOptions {
   onError: (message: string) => void
@@ -6,15 +7,7 @@ interface UsePasteToAddOptions {
 
 export function usePasteToAdd({ onError }: UsePasteToAddOptions): void {
   const handlePaste = useCallback(async () => {
-    // Skip if focus is on an interactive element
-    const el = document.activeElement as HTMLElement | null
-    const tag = el?.tagName?.toLowerCase()
-    if (
-      tag === 'input' ||
-      tag === 'textarea' ||
-      tag === 'select' ||
-      el?.isContentEditable
-    ) return
+    if (isFocusOnEditable()) return
 
     let text = window.electron.readClipboardText().trim()
     // Strip surrounding quotes (single or double)

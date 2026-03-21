@@ -205,6 +205,7 @@ html, body, #root {
 .site-item-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+  background: var(--bg-card-hover);
 }
 
 .site-item-info {

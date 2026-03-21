@@ -16,25 +16,27 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
   optionsRef.current = options
 
   useEffect(() => {
+    const findSelected = (): SiteInfo | undefined => {
+      const { sites, selectedSiteId } = optionsRef.current
+      return sites.find((s) => s.id === selectedSiteId)
+    }
+
     const unsubAdd = window.electron.onMenuAddSite(() => optionsRef.current.onAddSite())
     const unsubSettings = window.electron.onMenuOpenSettings(() => optionsRef.current.onOpenSettings())
 
     const unsubOpen = window.electron.onMenuOpenInBrowser(() => {
-      const { sites, selectedSiteId, onOpenInBrowser } = optionsRef.current
-      const site = sites.find((s) => s.id === selectedSiteId)
-      if (site && site.status === 'running') onOpenInBrowser(site)
+      const site = findSelected()
+      if (site && site.status === 'running') optionsRef.current.onOpenInBrowser(site)
     })
 
     const unsubRestart = window.electron.onMenuRestartServer(() => {
-      const { sites, selectedSiteId, onRestartServer } = optionsRef.current
-      const site = sites.find((s) => s.id === selectedSiteId)
-      if (site) onRestartServer(site)
+      const site = findSelected()
+      if (site) optionsRef.current.onRestartServer(site)
     })
 
     const unsubRemove = window.electron.onMenuRemoveSite(() => {
-      const { sites, selectedSiteId, onRemoveSite } = optionsRef.current
-      const site = sites.find((s) => s.id === selectedSiteId)
-      if (site) onRemoveSite(site)
+      const site = findSelected()
+      if (site) optionsRef.current.onRemoveSite(site)
     })
 
     return () => {

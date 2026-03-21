@@ -360,7 +360,11 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation(sites)
+  const isModalOpen = showAddModal || showSettings || !!confirmRemove
+  const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
+    sites,
+    disabled: isModalOpen
+  })
 
   const handleOpenSettings = useCallback(() => setShowSettings(true), [])
   const handleRemoveSiteConfirm = useCallback((site: SiteInfo) => setConfirmRemove(site), [])
