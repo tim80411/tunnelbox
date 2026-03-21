@@ -1166,6 +1166,24 @@ html, body, #root {
   background: var(--bg-muted);
 }
 
+/* ── App Layout Wrapper (sidebar + main) ──────────────────────── */
+.app-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  transition: margin-left 200ms ease-out;
+}
+
+/* ── Settings Panel — narrow screen: overlay from right ───────── */
 .settings-overlay {
   position: fixed;
   inset: 0;
@@ -1191,6 +1209,34 @@ html, body, #root {
 
 .settings-panel-open {
   transform: translateX(0);
+}
+
+/* ── Settings Panel — wide screen: fixed left sidebar ─────────── */
+@media (min-width: 768px) {
+  .settings-overlay {
+    display: none;
+  }
+
+  .settings-panel {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+    border-left: none;
+    border-right: 1px solid var(--border-default);
+    transform: none;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    transition: width 200ms ease-out, min-width 200ms ease-out;
+    flex-shrink: 0;
+  }
+
+  .settings-panel-open {
+    width: 280px;
+    min-width: 280px;
+  }
 }
 
 .settings-header {
