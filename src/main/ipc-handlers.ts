@@ -3,6 +3,7 @@ import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import type { SiteInfo, CloudflaredEnv } from '../shared/types'
+import { initSiteActions } from './site-actions'
 
 let serverManager: ServerManager
 
