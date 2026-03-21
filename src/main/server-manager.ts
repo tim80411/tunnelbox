@@ -76,10 +76,16 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
 
 // ---------- ServerManager ----------
 
+export type StatusChangeCallback = (siteId: string, status: 'running' | 'error') => void
+
+const PROXY_ERROR_THRESHOLD_MS = 30_000
+
 export class ServerManager {
   private servers: Map<string, SiteServer> = new Map()
   private fileChangeCallbacks: Set<FileChangeCallback> = new Set()
+  private statusChangeCallbacks: Set<StatusChangeCallback> = new Set()
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+  private proxyErrorStart: Map<string, number> = new Map() // siteId -> first error timestamp
 
   // Global WebSocket server for all sites
   private globalWsServer: WebSocketServer | null = null
@@ -287,6 +293,30 @@ export class ServerManager {
 
     const httpServer = createProxyServer(site.proxyTarget)
 
+    // Track proxy target health for status updates
+    httpServer.on('proxy:error', () => {
+      if (!this.proxyErrorStart.has(site.id)) {
+        this.proxyErrorStart.set(site.id, Date.now())
+      }
+      const errorStart = this.proxyErrorStart.get(site.id)!
+      const server = this.servers.get(site.id)
+      if (server && server.status === 'running' && Date.now() - errorStart >= PROXY_ERROR_THRESHOLD_MS) {
+        server.status = 'error'
+        log.warn(`Proxy target for "${site.name}" unreachable for >30s, status → error`)
+        this.notifyStatusChange(site.id, 'error')
+      }
+    })
+
+    httpServer.on('proxy:success', () => {
+      this.proxyErrorStart.delete(site.id)
+      const server = this.servers.get(site.id)
+      if (server && server.status === 'error') {
+        server.status = 'running'
+        log.info(`Proxy target for "${site.name}" recovered, status → running`)
+        this.notifyStatusChange(site.id, 'running')
+      }
+    })
+
     // Start listening
     await this.listenOnPort(httpServer, port)
 
@@ -328,6 +358,9 @@ export class ServerManager {
       await server.watcher.close()
       server.watcher = undefined
     }
+
+    // Clear proxy error tracking
+    this.proxyErrorStart.delete(id)
 
     // Clear debounce timer
     const timer = this.debounceTimers.get(id)
@@ -411,6 +444,14 @@ export class ServerManager {
         status: 'stopped'
       })
     }
+  }
+
+  /**
+   * Register a callback for proxy status changes (error / recovery).
+   */
+  onStatusChange(callback: StatusChangeCallback): () => void {
+    this.statusChangeCallbacks.add(callback)
+    return () => { this.statusChangeCallbacks.delete(callback) }
   }
 
   /**
@@ -499,6 +540,16 @@ export class ServerManager {
     })
 
     return watcher
+  }
+
+  private notifyStatusChange(siteId: string, status: 'running' | 'error'): void {
+    for (const cb of this.statusChangeCallbacks) {
+      try {
+        cb(siteId, status)
+      } catch (err) {
+        log.error('Status change callback error:', err)
+      }
+    }
   }
 
   private notifyFileChange(siteId: string): void {

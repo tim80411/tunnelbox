@@ -419,4 +419,10 @@ export function registerIpcHandlers(
       win.webContents.send('file-changed', siteId)
     }
   })
+
+  // --- Proxy Status Change Forwarding ---
+
+  serverManager.onStatusChange(() => {
+    broadcastSiteUpdate()
+  })
 }

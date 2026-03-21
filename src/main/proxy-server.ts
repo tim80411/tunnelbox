@@ -52,12 +52,14 @@ export function createProxyServer(target: string): http.Server {
     }
 
     const proxyReq = http.request(options, (proxyRes) => {
+      httpServer.emit('proxy:success')
       clientRes.writeHead(proxyRes.statusCode || 502, proxyRes.headers)
       proxyRes.pipe(clientRes)
     })
 
     proxyReq.on('error', (err) => {
       log.error(`Proxy error for target ${target}:`, err.message)
+      httpServer.emit('proxy:error')
       error502(clientRes)
     })
 
