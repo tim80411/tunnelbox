@@ -454,29 +454,11 @@ html, body, #root {
   cursor: default;
 }
 
-/* ── Copy Button ───────────────────────────────────────────────── */
-.btn-copy {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 1px 3px;
-  opacity: 0.3;
-  transition: opacity var(--duration);
+.btn-icon--active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.btn-copy:hover {
-  opacity: 0.8;
-}
-
-.btn-copy[data-copied] {
-  opacity: 0.8;
-}
-
-.btn-copy:disabled {
-  opacity: 0.15;
-  cursor: default;
-}
 
 /* ── Tooltip ───────────────────────────────────────────────────── */
 [data-tooltip] {
