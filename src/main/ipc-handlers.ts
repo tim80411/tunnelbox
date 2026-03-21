@@ -2,15 +2,13 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
-import type { SiteInfo, CloudflaredEnv, LanInfo, AddSiteParams } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
-import { getLanIp, getAllLanIps, isVpnInterface } from '../core/lan-ip'
+import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 
 let serverManager: ServerManager
 
-/** Sites with LAN sharing enabled (runtime state, not persisted). */
-const lanSharingSites = new Set<string>()
 
 function broadcastCloudflaredStatus(env: CloudflaredEnv): void {
   const windows = BrowserWindow.getAllWindows()
@@ -32,7 +30,10 @@ export function registerIpcHandlers(
 
   const cfProvider = tunnelManager.get('cloudflare')
 
-  function toSiteInfo(server: SiteServer): SiteInfo {
+  function toSiteInfo(
+    server: SiteServer,
+    lanIps?: Array<{ name: string; ip: string }>
+  ): SiteInfo {
     const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(server.id)
     const tunnel = providerInfo
       ? {
@@ -57,13 +58,13 @@ export function registerIpcHandlers(
       ...(tunnel && { tunnel })
     }
 
-    // LAN sharing URL
-    if (server.status === 'running' && lanSharingSites.has(server.id)) {
-      const allIps = getAllLanIps()
-      if (allIps.length > 0) {
-        ;(base as any).lanUrl = `http://${allIps[0].ip}:${server.port}`
-        ;(base as any).lanInterfaceName = allIps[0].name
-        const nonVpnCount = allIps.filter((i) => !isVpnInterface(i.name)).length
+    // LAN URL — always computed for running sites
+    if (server.status === 'running') {
+      const ips = lanIps ?? getAllLanIps()
+      if (ips.length > 0) {
+        ;(base as any).lanUrl = `http://${ips[0].ip}:${server.port}`
+        ;(base as any).lanInterfaceName = ips[0].name
+        const nonVpnCount = ips.filter((i) => !isVpnInterface(i.name)).length
         ;(base as any).lanHasMultipleInterfaces = nonVpnCount > 1
       }
     }
@@ -84,7 +85,8 @@ export function registerIpcHandlers(
   }
 
   function broadcastSiteUpdate(): void {
-    const sites = serverManager.getServers().map(toSiteInfo)
+    const lanIps = getAllLanIps()
+    const sites = serverManager.getServers().map((s) => toSiteInfo(s, lanIps))
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('site-updated', sites)
@@ -149,8 +151,6 @@ export function registerIpcHandlers(
       } catch {
         /* ignore */
       }
-      lanSharingSites.delete(id)
-
       await serverManager.removeServer(id)
       siteStore.removeSite(id)
 
@@ -215,8 +215,6 @@ export function registerIpcHandlers(
       } catch {
         /* ignore */
       }
-      // Auto-disable LAN sharing when stopping server
-      lanSharingSites.delete(id)
       await serverManager.stopServer(id)
       broadcastSiteUpdate()
     } catch (err) {
@@ -255,34 +253,11 @@ export function registerIpcHandlers(
 
   // --- LAN Sharing ---
 
-  ipcMain.handle('get-lan-info', async (): Promise<LanInfo> => {
+  ipcMain.handle('refresh-lan', async () => {
     try {
-      return {
-        ip: getLanIp(),
-        interfaces: getAllLanIps()
-      }
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '取得區網資訊失敗')
-    }
-  })
-
-  ipcMain.handle('set-lan-sharing', async (_event, siteId: string, enabled: boolean) => {
-    try {
-      const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
-      if (enabled && server.status !== 'running') throw new Error('本地伺服器尚未啟動')
-
-      if (enabled) {
-        const ip = getLanIp()
-        if (!ip) throw new Error('未偵測到區網連線')
-        lanSharingSites.add(siteId)
-      } else {
-        lanSharingSites.delete(siteId)
-      }
-
       broadcastSiteUpdate()
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '設定區網分享失敗')
+      throw new Error(err instanceof Error ? err.message : '重新偵測區網失敗')
     }
   })
 

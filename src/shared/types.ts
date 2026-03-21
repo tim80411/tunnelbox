@@ -10,15 +10,10 @@ interface BaseSiteInfo {
   port: number
   status: 'running' | 'stopped' | 'error'
   url: string // e.g., "http://localhost:3001"
-  lanUrl?: string // e.g., "http://192.168.1.100:3001" — present when LAN sharing is enabled
+  lanUrl?: string // e.g., "http://192.168.1.100:3001" — auto-detected for running sites
   lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
   lanHasMultipleInterfaces?: boolean // true when multiple non-VPN LAN interfaces detected
   tunnel?: TunnelInfo
-}
-
-export interface LanInfo {
-  ip: string | null
-  interfaces: Array<{ name: string; ip: string }>
 }
 
 export interface StaticSiteInfo extends BaseSiteInfo {
@@ -198,8 +193,7 @@ export interface ElectronAPI {
   stopNamedTunnel: (siteId: string) => Promise<void>
 
   // LAN Sharing
-  getLanInfo: () => Promise<LanInfo>
-  setLanSharing: (siteId: string, enabled: boolean) => Promise<void>
+  refreshLan: () => Promise<void>
 
   // Finder right-click integration
   onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void

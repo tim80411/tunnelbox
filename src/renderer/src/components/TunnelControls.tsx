@@ -31,6 +31,7 @@ function TunnelControls({
   const [domainError, setDomainError] = useState<string | null>(null)
   const [binding, setBinding] = useState(false)
   const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
+  const [unbinding, setUnbinding] = useState(false)
 
   const handleBindDomain = useCallback(async () => {
     const trimmed = domainInput.trim()
@@ -166,7 +167,7 @@ function TunnelControls({
                 className="btn btn-sm btn-sharing-stop"
                 onClick={() => onStopNamedTunnel(site.id)}
               >
-                停止公開
+                暫停公開
               </button>
               <button
                 className="btn btn-sm btn-danger"
@@ -197,7 +198,7 @@ function TunnelControls({
             onClick={() => isNamed ? onStopNamedTunnel(site.id) : onStopSharing(site.id)}
             disabled
           >
-            停止公開
+            {isNamed ? '暫停公開' : '停止公開'}
           </button>
         </>
       )}
@@ -221,7 +222,7 @@ function TunnelControls({
                 className="btn btn-sm btn-sharing-action"
                 onClick={() => onStartNamedTunnel(site.id)}
               >
-                啟動
+                恢復公開
               </button>
               <button
                 className="btn btn-sm btn-danger"
@@ -243,24 +244,37 @@ function TunnelControls({
 
       {/* Unbind Confirmation Modal */}
       {showUnbindConfirm && (
-        <div className="modal-overlay" data-dismiss onClick={() => setShowUnbindConfirm(false)}>
+        <div className="modal-overlay" data-dismiss={!unbinding ? true : undefined} onClick={() => { if (!unbinding) setShowUnbindConfirm(false) }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認解除綁定</h2>
             <p className="confirm-text">
-              確定要解除網域綁定嗎？Tunnel 和 DNS 路由將一併刪除。
+              {unbinding
+                ? '正在解除綁定，請稍候...'
+                : '確定要解除網域綁定嗎？Tunnel 和 DNS 路由將一併刪除。'}
             </p>
+            {unbinding && (
+              <div className="modal-loading">
+                <span className="cloudflared-spinner" />
+              </div>
+            )}
             <div className="modal-actions">
-              <button className="btn" onClick={() => setShowUnbindConfirm(false)}>
+              <button className="btn" onClick={() => setShowUnbindConfirm(false)} disabled={unbinding}>
                 取消
               </button>
               <button
                 className="btn btn-danger"
+                disabled={unbinding}
                 onClick={async () => {
-                  setShowUnbindConfirm(false)
-                  await onUnbindFixedDomain(site.id)
+                  setUnbinding(true)
+                  try {
+                    await onUnbindFixedDomain(site.id)
+                  } finally {
+                    setUnbinding(false)
+                    setShowUnbindConfirm(false)
+                  }
                 }}
               >
-                確認解除
+                {unbinding ? '解除中...' : '確認解除'}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, ElectronAPI, AddSiteParams, AppSettings } from '../shared/types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -96,12 +96,8 @@ const electronAPI: ElectronAPI = {
   },
 
   // LAN Sharing
-  getLanInfo: (): Promise<LanInfo> => {
-    return ipcRenderer.invoke('get-lan-info')
-  },
-
-  setLanSharing: (siteId: string, enabled: boolean): Promise<void> => {
-    return ipcRenderer.invoke('set-lan-sharing', siteId, enabled)
+  refreshLan: (): Promise<void> => {
+    return ipcRenderer.invoke('refresh-lan')
   },
 
   // Settings

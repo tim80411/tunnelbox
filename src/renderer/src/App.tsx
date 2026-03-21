@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
-import LanSharingControls from './components/LanSharingControls'
-import LanQrButton from './components/LanQrButton'
+import QrButton from './components/QrButton'
 import CopyButton from './components/CopyButton'
 import AuthPanel from './components/AuthPanel'
 import SettingsPanel from './components/SettingsPanel'
@@ -223,21 +222,12 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  const handleEnableLanSharing = useCallback(async (siteId: string) => {
+  const handleRefreshLan = useCallback(async () => {
     try {
       setError(null)
-      await window.electron.setLanSharing(siteId, true)
+      await window.electron.refreshLan()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '啟用區網分享失敗')
-    }
-  }, [])
-
-  const handleDisableLanSharing = useCallback(async (siteId: string) => {
-    try {
-      setError(null)
-      await window.electron.setLanSharing(siteId, false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '關閉區網分享失敗')
+      setError(err instanceof Error ? err.message : '重新偵測區網失敗')
     }
   }, [])
 
@@ -614,7 +604,19 @@ function App(): React.ReactElement {
                             <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
                           )}
                           <CopyButton text={site.lanUrl} tooltip="複製區網網址" />
-                          <LanQrButton lanUrl={site.lanUrl} lanInterfaceName={site.lanInterfaceName} />
+                          <QrButton url={site.lanUrl} title="LAN QR Code" subtitle={site.lanInterfaceName} />
+                          <button
+                            className="btn-copy"
+                            onClick={handleRefreshLan}
+                            data-tooltip="重新偵測區網 IP"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21.5 2v6h-6" />
+                              <path d="M2.5 22v-6h6" />
+                              <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                              <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                            </svg>
+                          </button>
                         </div>
                       )}
                       {site.tunnel?.status === 'running' && site.tunnel.publicUrl && (
@@ -629,6 +631,7 @@ function App(): React.ReactElement {
                             {site.tunnel.publicUrl}
                           </a>
                           <CopyButton text={site.tunnel.publicUrl} tooltip="複製公開網址" />
+                          <QrButton url={site.tunnel.publicUrl} title="WAN QR Code" />
                         </div>
                       )}
                     </>
@@ -637,11 +640,6 @@ function App(): React.ReactElement {
                   )}
                 </div>
                 <div className="site-sharing-section">
-                  <LanSharingControls
-                    site={site}
-                    onEnable={handleEnableLanSharing}
-                    onDisable={handleDisableLanSharing}
-                  />
                   <TunnelControls
                     site={site}
                     cloudflaredAvailable={cloudflaredEnv.status === 'available'}

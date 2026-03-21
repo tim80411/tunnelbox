@@ -724,6 +724,12 @@ html, body, #root {
   border-left: 3px solid var(--danger);
 }
 
+.modal-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-4) 0;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

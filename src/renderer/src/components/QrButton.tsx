@@ -1,27 +1,28 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 
-interface LanQrButtonProps {
-  lanUrl: string
-  lanInterfaceName?: string
+interface QrButtonProps {
+  url: string
+  title?: string
+  subtitle?: string
 }
 
 const QR_OPTIONS: QRCode.QRCodeToDataURLOptions = { width: 280, margin: 1 }
 
-function LanQrButton({ lanUrl, lanInterfaceName }: LanQrButtonProps): React.ReactElement {
+function QrButton({ url, title = 'QR Code', subtitle }: QrButtonProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [dataUrl, setDataUrl] = useState('')
 
   useEffect(() => {
     let cancelled = false
     setDataUrl('')
-    QRCode.toDataURL(lanUrl, QR_OPTIONS).then((url) => {
-      if (!cancelled) setDataUrl(url)
-    })
+    QRCode.toDataURL(url, QR_OPTIONS)
+      .then((result) => { if (!cancelled) setDataUrl(result) })
+      .catch(() => { if (!cancelled) setDataUrl('') })
     return () => {
       cancelled = true
     }
-  }, [lanUrl])
+  }, [url])
 
   return (
     <>
@@ -43,13 +44,13 @@ function LanQrButton({ lanUrl, lanInterfaceName }: LanQrButtonProps): React.Reac
       {open && (
         <div className="modal-overlay" data-dismiss onClick={() => setOpen(false)}>
           <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">LAN QR Code</h2>
+            <h2 className="modal-title">{title}</h2>
             {dataUrl && (
               <img className="qr-modal__img" src={dataUrl} width={280} height={280} alt="QR Code" />
             )}
-            <p className="qr-modal__url">{lanUrl}</p>
-            {lanInterfaceName && (
-              <p className="qr-modal__iface">{lanInterfaceName}</p>
+            <p className="qr-modal__url">{url}</p>
+            {subtitle && (
+              <p className="qr-modal__iface">{subtitle}</p>
             )}
           </div>
         </div>
@@ -58,4 +59,4 @@ function LanQrButton({ lanUrl, lanInterfaceName }: LanQrButtonProps): React.Reac
   )
 }
 
-export default LanQrButton
+export default QrButton
