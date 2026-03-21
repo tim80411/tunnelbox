@@ -595,35 +595,29 @@ function App(): React.ReactElement {
                     />
                   </div>
                   {/* Local */}
-                  <div className={`site-item-url-row${site.status !== 'running' ? ' site-item-url-row--disabled' : ''}`}>
+                  <div className="site-item-url-row">
+                    <span className={`status-light status-light--${site.status === 'running' ? 'green' : 'gray'}`} />
                     <span className="sharing-badge sharing-badge--local">Local</span>
                     {site.status === 'running' && site.url ? (
-                      <a
-                        className="site-item-url"
-                        href={site.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={site.url}
-                      >
+                      <a className="site-item-url" href={site.url} target="_blank" rel="noopener noreferrer" title={site.url}>
                         {site.url}
                       </a>
                     ) : (
                       <span className="site-item-url site-item-url--placeholder">啟動站點後可使用</span>
                     )}
+                    <button className="btn-icon" disabled data-tooltip="啟動"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
+                    <button className="btn-icon" disabled data-tooltip="停止"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
                     <CopyButton text={site.url || ''} tooltip="複製網址" disabled={site.status !== 'running'} />
+                    <QrButton url={site.url || ''} title="Local QR Code" disabled={site.status !== 'running'} />
+                    <button className="btn-icon" disabled data-tooltip="重新偵測"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg></button>
                   </div>
 
                   {/* LAN */}
-                  <div className={`site-item-url-row${site.status !== 'running' ? ' site-item-url-row--disabled' : ''}`}>
+                  <div className="site-item-url-row">
+                    <span className={`status-light status-light--${site.lanUrl ? 'green' : 'gray'}`} />
                     <span className="sharing-badge sharing-badge--lan">LAN</span>
                     {site.lanUrl ? (
-                      <a
-                        className="site-item-url"
-                        href={site.lanUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={site.lanUrl}
-                      >
+                      <a className="site-item-url" href={site.lanUrl} target="_blank" rel="noopener noreferrer" title={site.lanUrl}>
                         {site.lanUrl}
                       </a>
                     ) : (
@@ -637,20 +631,12 @@ function App(): React.ReactElement {
                     {site.lanHasMultipleInterfaces && (
                       <span className="lan-multi-hint" data-tooltip="有多個可用的區網介面，目前使用最佳介面">+</span>
                     )}
+                    <button className="btn-icon" disabled data-tooltip="啟動"><svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
+                    <button className="btn-icon" disabled data-tooltip="停止"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
                     <CopyButton text={site.lanUrl || ''} tooltip="複製區網網址" disabled={!site.lanUrl} />
                     <QrButton url={site.lanUrl || ''} title="LAN QR Code" subtitle={site.lanInterfaceName} disabled={!site.lanUrl} />
-                    <button
-                      className="btn-copy"
-                      onClick={handleRefreshLan}
-                      data-tooltip="重新偵測區網 IP"
-                      disabled={site.status !== 'running'}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.5 2v6h-6" />
-                        <path d="M2.5 22v-6h6" />
-                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                      </svg>
+                    <button className="btn-icon" onClick={handleRefreshLan} disabled={site.status !== 'running'} data-tooltip="重新偵測區網 IP">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
                     </button>
                   </div>
 

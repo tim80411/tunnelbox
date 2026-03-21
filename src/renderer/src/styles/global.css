@@ -392,8 +392,59 @@ html, body, #root {
   min-width: 0;
 }
 
-.site-item-url-row--disabled {
-  opacity: 0.4;
+/* ── Status Light ─────────────────────────────────────────────── */
+.status-light {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-light--green {
+  background: #4caf50;
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.status-light--orange {
+  background: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+}
+
+.status-light--red {
+  background: #c9553e;
+  box-shadow: 0 0 4px rgba(201, 85, 62, 0.5);
+}
+
+.status-light--gray {
+  background: var(--border-default);
+}
+
+/* ── Icon Button (play/stop/refresh) ──────────────────────────── */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-root);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--duration), color var(--duration), background var(--duration);
+}
+
+.btn-icon:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.btn-icon:disabled {
+  opacity: 0.25;
+  cursor: default;
 }
 
 /* ── Copy Button ───────────────────────────────────────────────── */
@@ -928,27 +979,6 @@ html, body, #root {
 }
 
 
-/* Buttons — share (accent fill) */
-.btn-sharing-action {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  border-color: var(--accent);
-}
-
-.btn-sharing-action:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--text-on-accent);
-}
-
-
-/* WAN inline actions (in URL row) */
-.wan-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
 
 /* ── Auth Panel ────────────────────────────────────────────────── */
 .auth-panel {

@@ -62,68 +62,127 @@ function TunnelControls({
   const isNamed = tunnel?.type === 'named'
   const isLoggedIn = authStatus === 'logged_in'
   const isRunning = site.status === 'running'
-  const isDisabled = !isRunning || !cloudflaredAvailable
+  const isAvailable = isRunning && cloudflaredAvailable
 
-  // WAN URL display — only when tunnel is running with a URL
+  // Status light color
+  const lightColor = tunnel?.status === 'running'
+    ? 'green'
+    : tunnel?.status === 'error'
+      ? 'red'
+      : (tunnel?.status === 'stopped' && isNamed)
+        ? 'orange'
+        : (tunnel?.status === 'starting' || tunnel?.status === 'reconnecting')
+          ? 'orange'
+          : 'gray'
+
+  // WAN URL
   const wanUrl = tunnel?.status === 'running' && tunnel.publicUrl ? tunnel.publicUrl : null
+
+  // Play button: start quick tunnel or resume named tunnel
+  const canPlay = isAvailable && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
+  const handlePlay = () => {
+    if (!canPlay) return
+    if (isNamed) {
+      onStartNamedTunnel(site.id)
+    } else {
+      const isAuthError = tunnel?.errorMessage?.includes('認證已過期') || tunnel?.errorMessage?.includes('過期')
+      if (tunnel?.status === 'error' && isAuthError) {
+        onLogin()
+      } else {
+        onShare(site.id)
+      }
+    }
+  }
+
+  // Stop button: stop quick tunnel or unbind named tunnel
+  const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting'
+  const handleStop = () => {
+    if (!canStop) return
+    if (isNamed) {
+      onStopNamedTunnel(site.id)
+    } else {
+      onStopSharing(site.id)
+    }
+  }
+
+  // Placeholder text
+  const placeholderText = tunnel?.status === 'starting'
+    ? (isNamed ? '固定網域啟動中...' : '啟動中...')
+    : tunnel?.status === 'reconnecting'
+      ? 'Tunnel 重連中...'
+      : tunnel?.status === 'error'
+        ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
+        : !cloudflaredAvailable
+          ? '需安裝 cloudflared'
+          : !isRunning
+            ? '啟動站點後可使用'
+            : '尚未公開'
 
   return (
     <>
-      <div className={`site-item-url-row${isDisabled ? ' site-item-url-row--disabled' : ''}`}>
+      <div className="site-item-url-row">
+        <span className={`status-light status-light--${lightColor}`} />
         <span className="sharing-badge sharing-badge--wan">WAN</span>
 
-        {/* URL or status text */}
         {wanUrl ? (
-          <a
-            className="site-item-url"
-            href={wanUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={wanUrl}
-          >
+          <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
             {wanUrl}
           </a>
         ) : (
           <span className="site-item-url site-item-url--placeholder">
-            {tunnel?.status === 'starting'
-              ? (isNamed ? '固定網域啟動中...' : '啟動中...')
-              : tunnel?.status === 'reconnecting'
-                ? 'Tunnel 重連中...'
-                : tunnel?.status === 'error'
-                  ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
-                  : !cloudflaredAvailable
-                    ? '需安裝 cloudflared'
-                    : !isRunning
-                      ? '啟動站點後可使用'
-                      : '尚未公開'}
+            {placeholderText}
           </span>
         )}
 
-        {/* Spinner for starting/reconnecting */}
         {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting') && (
           <span className="cloudflared-spinner" />
         )}
 
-        {/* Copy + QR — enabled only when WAN URL exists */}
+        {/* Play / Stop */}
+        <button
+          className="btn-icon"
+          onClick={handlePlay}
+          disabled={!canPlay}
+          data-tooltip={isNamed && tunnel?.status === 'stopped' ? '恢復公開' : '公開分享'}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
+        </button>
+        <button
+          className="btn-icon"
+          onClick={handleStop}
+          disabled={!canStop}
+          data-tooltip={isNamed ? '暫停公開' : '停止公開'}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
+        </button>
+
+        {/* Copy / QR / Refresh */}
         <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
         <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
+        <button className="btn-icon" disabled data-tooltip="重新偵測">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
+        </button>
 
-        {/* Action buttons */}
-        <WanActions
-          site={site}
-          tunnel={tunnel}
-          isNamed={isNamed}
-          isLoggedIn={isLoggedIn}
-          isDisabled={isDisabled}
-          cloudflaredAvailable={cloudflaredAvailable}
-          onShare={onShare}
-          onStopSharing={onStopSharing}
-          onStopNamedTunnel={onStopNamedTunnel}
-          onStartNamedTunnel={onStartNamedTunnel}
-          onLogin={onLogin}
-          onShowDomainModal={() => setShowDomainModal(true)}
-          onShowUnbindConfirm={() => setShowUnbindConfirm(true)}
-        />
+        {/* Fixed domain button — only when available and no active tunnel */}
+        {isAvailable && !tunnel && cloudflaredAvailable && (
+          <button
+            className="btn btn-xs"
+            onClick={() => isLoggedIn ? setShowDomainModal(true) : onLogin()}
+            title={!isLoggedIn ? '需要先登入 Cloudflare' : undefined}
+          >
+            固定網域
+          </button>
+        )}
+
+        {/* Unbind button — only for named tunnels */}
+        {isNamed && (
+          <button
+            className="btn btn-xs btn-danger"
+            onClick={() => setShowUnbindConfirm(true)}
+          >
+            解除綁定
+          </button>
+        )}
       </div>
 
       {/* Domain binding modal */}
@@ -209,104 +268,6 @@ function TunnelControls({
         </div>
       )}
     </>
-  )
-}
-
-/** WAN action buttons — always visible, disabled when not applicable */
-function WanActions({
-  site,
-  tunnel,
-  isNamed,
-  isLoggedIn,
-  isDisabled,
-  cloudflaredAvailable,
-  onShare,
-  onStopSharing,
-  onStopNamedTunnel,
-  onStartNamedTunnel,
-  onLogin,
-  onShowDomainModal,
-  onShowUnbindConfirm
-}: {
-  site: SiteInfo
-  tunnel: SiteInfo['tunnel']
-  isNamed: boolean
-  isLoggedIn: boolean
-  isDisabled: boolean
-  cloudflaredAvailable: boolean
-  onShare: (id: string) => Promise<void>
-  onStopSharing: (id: string) => Promise<void>
-  onStopNamedTunnel: (id: string) => Promise<void>
-  onStartNamedTunnel: (id: string) => Promise<void>
-  onLogin: () => void
-  onShowDomainModal: () => void
-  onShowUnbindConfirm: () => void
-}): React.ReactElement {
-  // Named tunnel has its own action set
-  if (isNamed) {
-    const running = tunnel?.status === 'running'
-    const stopped = tunnel?.status === 'stopped'
-    const canStop = running || tunnel?.status === 'reconnecting'
-    const canResume = stopped || tunnel?.status === 'error'
-
-    return (
-      <div className="wan-actions">
-        <button
-          className="btn btn-xs"
-          onClick={() => canStop ? onStopNamedTunnel(site.id) : onStartNamedTunnel(site.id)}
-          disabled={!canStop && !canResume}
-        >
-          {canStop ? '暫停公開' : '恢復公開'}
-        </button>
-        <button
-          className="btn btn-xs btn-danger"
-          onClick={onShowUnbindConfirm}
-        >
-          解除綁定
-        </button>
-      </div>
-    )
-  }
-
-  // Quick tunnel or no tunnel
-  const tunnelRunning = tunnel?.status === 'running'
-  const tunnelReconnecting = tunnel?.status === 'reconnecting'
-  const canStop = tunnelRunning || tunnelReconnecting
-  const tunnelError = tunnel?.status === 'error'
-  const isAuthError = tunnel?.errorMessage?.includes('認證已過期') || tunnel?.errorMessage?.includes('過期')
-
-  return (
-    <div className="wan-actions">
-      {canStop ? (
-        <button
-          className="btn btn-xs"
-          onClick={() => onStopSharing(site.id)}
-          disabled={tunnelReconnecting}
-        >
-          停止公開
-        </button>
-      ) : (
-        <>
-          <button
-            className="btn btn-xs btn-sharing-action"
-            onClick={() => tunnelError && isAuthError ? onLogin() : onShare(site.id)}
-            disabled={isDisabled}
-          >
-            公開分享
-          </button>
-          {cloudflaredAvailable && (
-            <button
-              className="btn btn-xs"
-              onClick={() => isLoggedIn ? onShowDomainModal() : onLogin()}
-              disabled={isDisabled}
-              title={!isLoggedIn ? '需要先登入 Cloudflare' : undefined}
-            >
-              固定網域
-            </button>
-          )}
-        </>
-      )}
-    </div>
   )
 }
 
