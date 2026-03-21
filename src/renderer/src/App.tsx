@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import QrButton from './components/QrButton'
@@ -8,6 +8,7 @@ import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
+import { useFrpProvider } from './hooks/useFrpProvider'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -39,6 +40,7 @@ function App(): React.ReactElement {
     state: updateState, appVersion, forceUpdate,
     checkForUpdates, downloadUpdate, installUpdate, dismissUpdate
   } = useAutoUpdate()
+  const { frpcEnv, frpConfig, installFrpc, saveConfig: saveFrpConfig } = useFrpProvider()
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -263,6 +265,16 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleSelectProvider = useCallback(async (siteId: string, provider: 'cloudflare' | 'frp') => {
+    try {
+      setError(null)
+      await window.electron.setSiteProvider(siteId, provider)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '切換 Provider 失敗')
+      throw err
+    }
+  }, [])
+
   const handleLogin = useCallback(async () => {
     try {
       setError(null)
@@ -404,6 +416,7 @@ function App(): React.ReactElement {
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
+  const hasFrpSites = useMemo(() => sites.some((s) => s.providerType === 'frp'), [sites])
 
   const settingsSite = settingsSiteId ? sites.find((s) => s.id === settingsSiteId) ?? null : null
 
@@ -418,6 +431,10 @@ function App(): React.ReactElement {
           appVersion={appVersion}
           updateState={updateState}
           onCheckForUpdates={checkForUpdates}
+          frpcEnv={frpcEnv}
+          frpConfig={frpConfig}
+          onInstallFrpc={installFrpc}
+          onSaveFrpConfig={saveFrpConfig}
         />
         <div className="app-main">
       <header className="app-header">
@@ -517,6 +534,46 @@ function App(): React.ReactElement {
           {cloudflaredEnv.status === 'error' && (
             <span className="cloudflared-bar-text">
               cloudflared 環境錯誤{cloudflaredEnv.errorMessage ? `：${cloudflaredEnv.errorMessage}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {frpcEnv.status !== 'available' && frpcEnv.status !== 'checking' && hasFrpSites && (
+        <div className={`frpc-bar frpc-${frpcEnv.status}`}>
+          {frpcEnv.status === 'not_installed' && (
+            <span className="frpc-bar-text">
+              frpc 尚未安裝，frp Tunnel 無法使用
+              <button className="btn btn-sm btn-primary frpc-bar-btn" onClick={installFrpc}>
+                安裝
+              </button>
+            </span>
+          )}
+          {frpcEnv.status === 'installing' && (
+            <span className="frpc-bar-text">
+              <span className="cloudflared-spinner" />
+              正在安裝 frpc...
+            </span>
+          )}
+          {frpcEnv.status === 'install_failed' && (
+            <span className="frpc-bar-text">
+              frpc 安裝失敗{frpcEnv.errorMessage ? `：${frpcEnv.errorMessage}` : ''}
+              <button className="btn btn-sm frpc-bar-btn" onClick={installFrpc}>
+                重試
+              </button>
+            </span>
+          )}
+          {frpcEnv.status === 'outdated' && (
+            <span className="frpc-bar-text">
+              frpc 版本過舊{frpcEnv.version ? ` (${frpcEnv.version})` : ''}，建議更新
+              <button className="btn btn-sm btn-primary frpc-bar-btn" onClick={installFrpc}>
+                更新
+              </button>
+            </span>
+          )}
+          {frpcEnv.status === 'error' && (
+            <span className="frpc-bar-text">
+              frpc 環境錯誤{frpcEnv.errorMessage ? `：${frpcEnv.errorMessage}` : ''}
             </span>
           )}
         </div>
@@ -683,6 +740,8 @@ function App(): React.ReactElement {
                     onStopNamedTunnel={handleStopNamedTunnel}
                     onLogin={handleLogin}
                     onStartFrpTunnel={handleStartFrpTunnel}
+                    frpcEnv={frpcEnv}
+                    onSelectProvider={handleSelectProvider}
                   />
                 </div>
                 <div className="site-item-actions">

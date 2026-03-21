@@ -1557,3 +1557,132 @@ html, body, #root {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ── frpc Status Bar ─────────────────────────────────────────── */
+
+.frpc-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--sp-6);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.frpc-bar-text {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.frpc-bar-btn {
+  margin-left: var(--sp-1);
+}
+
+.frpc-not_installed {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.frpc-installing {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+}
+
+.frpc-install_failed {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+.frpc-outdated {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.frpc-error {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* ── Provider Select Radio ───────────────────────────────────── */
+
+.provider-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.provider-radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color var(--duration), background var(--duration);
+}
+
+.provider-radio-option:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.provider-radio-option--selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.provider-radio-option--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.provider-radio-option--disabled:hover {
+  border-color: var(--border-default);
+  background: transparent;
+}
+
+.provider-radio-option input[type="radio"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.provider-radio-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.provider-radio-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: var(--sp-1);
+}
+
+.provider-radio-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Settings Section Divider ────────────────────────────────── */
+
+.settings-section-divider {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: var(--sp-3) var(--sp-5) var(--sp-1);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--sp-2);
+}
+
+.settings-frp-saved {
+  font-size: 11px;
+  color: var(--success);
+  margin-left: var(--sp-2);
+}

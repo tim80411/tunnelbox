@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { DOMAIN_REGEX } from '../../../shared/types'
-import type { SiteInfo, AuthStatus } from '../../../shared/types'
+import type { SiteInfo, AuthStatus, CloudflaredEnv } from '../../../shared/types'
 import CopyButton from './CopyButton'
 import QrButton from './QrButton'
+import ProviderSelectModal from './ProviderSelectModal'
 
 interface TunnelControlsProps {
   site: SiteInfo
@@ -16,6 +17,8 @@ interface TunnelControlsProps {
   onStopNamedTunnel: (siteId: string) => Promise<void>
   onLogin: () => void
   onStartFrpTunnel?: (siteId: string) => Promise<void>
+  frpcEnv?: CloudflaredEnv
+  onSelectProvider?: (siteId: string, provider: 'cloudflare' | 'frp') => Promise<void>
 }
 
 function TunnelControls({
@@ -29,9 +32,12 @@ function TunnelControls({
   onStartNamedTunnel,
   onStopNamedTunnel,
   onLogin,
-  onStartFrpTunnel
+  onStartFrpTunnel,
+  frpcEnv,
+  onSelectProvider
 }: TunnelControlsProps): React.ReactElement {
   const [showDomainModal, setShowDomainModal] = useState(false)
+  const [showProviderSelect, setShowProviderSelect] = useState(false)
   const [domainInput, setDomainInput] = useState('')
   const [domainError, setDomainError] = useState<string | null>(null)
   const [binding, setBinding] = useState(false)
@@ -173,7 +179,7 @@ function TunnelControls({
   const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying'
   const handleStop = () => {
     if (!canStop) return
-    if (isNamed) {
+    if (!isFrp && isNamed) {
       onStopNamedTunnel(site.id)
     } else {
       onStopSharing(site.id)
@@ -296,30 +302,44 @@ function TunnelControls({
                     className="overflow-menu-item"
                     onClick={() => {
                       setShowOverflowMenu(false)
-                      if (!isLoggedIn) {
-                        onLogin()
-                        return
-                      }
-                      setDefaultDomainInput(site.defaultDomain || '')
-                      setDefaultDomainError(null)
-                      setShowDefaultDomainModal(true)
+                      setShowProviderSelect(true)
                     }}
+                    disabled={!!(tunnel && tunnel.status !== 'stopped' && tunnel.status !== 'error')}
                   >
-                    {hasDefaultDomain ? `預設網域：${site.defaultDomain}` : '設定預設網域'}
+                    切換 Provider（目前：{isFrp ? 'frp' : 'Cloudflare'}）
                   </button>
-                  <button
-                    className="overflow-menu-item"
-                    onClick={() => {
-                      setShowOverflowMenu(false)
-                      if (!isLoggedIn) {
-                        onLogin()
-                        return
-                      }
-                      setShowDomainModal(true)
-                    }}
-                  >
-                    綁定固定網域
-                  </button>
+                  {!isFrp && (
+                    <>
+                      <button
+                        className="overflow-menu-item"
+                        onClick={() => {
+                          setShowOverflowMenu(false)
+                          if (!isLoggedIn) {
+                            onLogin()
+                            return
+                          }
+                          setDefaultDomainInput(site.defaultDomain || '')
+                          setDefaultDomainError(null)
+                          setShowDefaultDomainModal(true)
+                        }}
+                      >
+                        {hasDefaultDomain ? `預設網域：${site.defaultDomain}` : '設定預設網域'}
+                      </button>
+                      <button
+                        className="overflow-menu-item"
+                        onClick={() => {
+                          setShowOverflowMenu(false)
+                          if (!isLoggedIn) {
+                            onLogin()
+                            return
+                          }
+                          setShowDomainModal(true)
+                        }}
+                      >
+                        綁定固定網域
+                      </button>
+                    </>
+                  )}
                   {isNamed && (
                     <button
                       className="overflow-menu-item overflow-menu-item--danger"
@@ -466,6 +486,21 @@ function TunnelControls({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Provider Select Modal */}
+      {showProviderSelect && onSelectProvider && (
+        <ProviderSelectModal
+          siteName={site.name}
+          currentProvider={site.providerType}
+          cloudflaredAvailable={cloudflaredAvailable}
+          frpcAvailable={frpcEnv?.status === 'available'}
+          onConfirm={async (provider) => {
+            await onSelectProvider(site.id, provider)
+            setShowProviderSelect(false)
+          }}
+          onCancel={() => setShowProviderSelect(false)}
+        />
       )}
     </>
   )
