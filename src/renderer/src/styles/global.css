@@ -525,6 +525,41 @@ html, body, #root {
   box-shadow: 0 8px 32px rgba(45, 41, 38, 0.12);
 }
 
+/* -- Serve Mode Toggle -- */
+.serve-mode-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.serve-mode-btn {
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration), color var(--duration);
+}
+
+.serve-mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border-default);
+}
+
+.serve-mode-btn:hover {
+  background: var(--bg-muted);
+}
+
+.serve-mode-btn.active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
 .modal-title {
   font-size: 14px;
   font-weight: 700;

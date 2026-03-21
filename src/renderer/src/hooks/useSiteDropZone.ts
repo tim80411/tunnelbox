@@ -73,7 +73,7 @@ export function useSiteDropZone({ onError }: UseSiteDropZoneOptions): SiteDropZo
       const folderName = folderPath.split(/[\\/]/).filter(Boolean).pop() || folderPath
 
       try {
-        await window.electron.addSite(folderName, folderPath)
+        await window.electron.addSite({ serveMode: 'static', name: folderName, folderPath })
       } catch (err) {
         onError(err instanceof Error ? err.message : '新增網頁失敗')
       }

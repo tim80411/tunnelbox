@@ -30,7 +30,7 @@ export function usePasteToAdd({ onError }: UsePasteToAddOptions): void {
     const folderName = text.split(/[\\/]/).filter(Boolean).pop() || text
 
     try {
-      await window.electron.addSite(folderName, text)
+      await window.electron.addSite({ serveMode: 'static', name: folderName, folderPath: text })
     } catch (err) {
       onError(err instanceof Error ? err.message : '新增網頁失敗')
     }
