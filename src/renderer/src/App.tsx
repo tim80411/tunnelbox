@@ -8,6 +8,7 @@ import AuthPanel from './components/AuthPanel'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import { useSettings } from './hooks/useSettings'
+import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -35,6 +36,10 @@ function App(): React.ReactElement {
   const [showSettings, setShowSettings] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const { settings, update: updateSettings } = useSettings()
+  const {
+    state: updateState, appVersion, forceUpdate,
+    checkForUpdates, downloadUpdate, installUpdate, dismissUpdate
+  } = useAutoUpdate()
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -507,6 +512,22 @@ function App(): React.ReactElement {
         </div>
       )}
 
+      {updateState.phase === 'available' && (
+        <div className="success-bar">
+          新版本 v{updateState.version} 可供下載
+          <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={downloadUpdate}>
+            下載更新
+          </button>
+          <button className="success-close" onClick={dismissUpdate}>×</button>
+        </div>
+      )}
+
+      {updateState.phase === 'downloading' && (
+        <div className="success-bar">
+          正在下載更新... {updateState.percent}%
+        </div>
+      )}
+
       <div className="app-body">
         <div
           ref={listRef}
@@ -717,11 +738,52 @@ function App(): React.ReactElement {
         </div>
       )}
 
+      {/* Update Ready — Restart to Install */}
+      {updateState.phase === 'ready' && (
+        <div className="modal-overlay" data-dismiss onClick={dismissUpdate}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">更新已就緒</h2>
+            <p className="confirm-text">
+              版本 v{updateState.version} 已下載完成。重新啟動 TunnelBox 以完成安裝。
+            </p>
+            <div className="modal-actions">
+              <button className="btn" onClick={dismissUpdate}>稍後</button>
+              <button className="btn btn-primary" onClick={installUpdate}>立即重新啟動</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Force Update — Cannot be dismissed */}
+      {forceUpdate?.blocked && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2 className="modal-title">必須更新</h2>
+            <p className="confirm-text">
+              {forceUpdate.config?.message || '此版本已不再支援，請更新至最新版本。'}
+            </p>
+            <div className="modal-actions">
+              <a
+                className="btn btn-primary"
+                href={forceUpdate.config?.downloadUrl || 'https://github.com/tim80411/tunnelbox/releases/latest'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                下載最新版本
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SettingsPanel
         open={showSettings}
         settings={settings}
         onClose={() => setShowSettings(false)}
         onUpdate={updateSettings}
+        appVersion={appVersion}
+        updateState={updateState}
+        onCheckForUpdates={checkForUpdates}
       />
 
       <ShortcutsPanel

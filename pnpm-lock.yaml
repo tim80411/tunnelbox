@@ -17,6 +17,9 @@ importers:
       electron-store:
         specifier: ^10.0.0
         version: 10.1.0
+      electron-updater:
+        specifier: ^6.8.3
+        version: 6.8.3
       get-port:
         specifier: ^7.1.0
         version: 7.1.0
@@ -1395,6 +1398,9 @@ packages:
   electron-to-chromium@1.5.313:
     resolution: {integrity: sha512-QBMrTWEf00GXZmJyx2lbYD45jpI3TUFnNIzJ5BBc8piGUDwMPa1GV6HJWTZVvY/eiN3fSopl7NRbgGp9sZ9LTA==}
 
+  electron-updater@6.8.3:
+    resolution: {integrity: sha512-Z6sgw3jgbikWKXei1ENdqFOxBP0WlXg3TtKfz0rgw2vIZFJUyI4pD7ZN7jrkm7EoMK+tcm/qTnPUdqfZukBlBQ==}
+
   electron-vite@2.3.0:
     resolution: {integrity: sha512-lsN2FymgJlp4k6MrcsphGqZQ9fKRdJKasoaiwIrAewN1tapYI/KINLdfEL7n10LuF0pPSNf/IqjzZbB5VINctg==}
     engines: {node: ^18.0.0 || >=20.0.0}
@@ -1794,6 +1800,13 @@ packages:
   locate-path@5.0.0:
     resolution: {integrity: sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==}
     engines: {node: '>=8'}
+
+  lodash.escaperegexp@4.1.2:
+    resolution: {integrity: sha512-TM9YBvyC84ZxE3rgfefxUWiQKLilstD6k7PTGt6wfbtXF8ixIJLOL3VYyV/z+ZiPLsVxAsKAFVwWlWeb2Y8Yyw==}
+
+  lodash.isequal@4.5.0:
+    resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
+    deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
 
   lodash@4.17.23:
     resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
@@ -2366,6 +2379,9 @@ packages:
 
   tiny-async-pool@1.3.0:
     resolution: {integrity: sha512-01EAw5EDrcVrdgyCLgoSPvqznC0sVxDSVeiOz09FUpjh71G79VCqneOr+xvt7T1r76CF6ZZfPjHorN2+d+3mqA==}
+
+  tiny-typed-emitter@2.1.0:
+    resolution: {integrity: sha512-qVtvMxeXbVej0cQWKqVSSAHmKZEHAvxdF8HEUBFWts8h+xEo5m/lEiPakuyZ3BnCBjOD8i24kzNOiOLLgsSxhA==}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -3913,6 +3929,19 @@ snapshots:
 
   electron-to-chromium@1.5.313: {}
 
+  electron-updater@6.8.3:
+    dependencies:
+      builder-util-runtime: 9.5.1
+      fs-extra: 10.1.0
+      js-yaml: 4.1.1
+      lazy-val: 1.0.5
+      lodash.escaperegexp: 4.1.2
+      lodash.isequal: 4.5.0
+      semver: 7.7.4
+      tiny-typed-emitter: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
+
   electron-vite@2.3.0(vite@6.4.1(@types/node@25.5.0)(jiti@2.6.1)):
     dependencies:
       '@babel/core': 7.29.0
@@ -4399,6 +4428,10 @@ snapshots:
   locate-path@5.0.0:
     dependencies:
       p-locate: 4.1.0
+
+  lodash.escaperegexp@4.1.2: {}
+
+  lodash.isequal@4.5.0: {}
 
   lodash@4.17.23: {}
 
@@ -4981,6 +5014,8 @@ snapshots:
   tiny-async-pool@1.3.0:
     dependencies:
       semver: 5.7.2
+
+  tiny-typed-emitter@2.1.0: {}
 
   tinybench@2.9.0: {}
 
