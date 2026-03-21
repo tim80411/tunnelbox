@@ -323,15 +323,15 @@ html, body, #root {
 }
 
 .site-mode-badge--static {
-  color: var(--text-tertiary);
-  background: var(--bg-muted);
-  border-color: var(--border-subtle);
+  color: var(--info-text);
+  background: var(--info-bg);
+  border-color: #b8cfe6;
 }
 
 .site-mode-badge--proxy {
   color: var(--accent);
   background: var(--accent-dim);
-  border-color: var(--accent);
+  border-color: #d4ccf0;
 }
 
 /* ── Status Badges ─────────────────────────────────────────────── */
