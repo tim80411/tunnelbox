@@ -368,7 +368,7 @@ function App(): React.ReactElement {
     disabled: isModalOpen
   })
 
-  const handleOpenSettings = useCallback(() => setShowSettings(true), [])
+  const handleOpenSettings = useCallback(() => setShowSettings((v) => !v), [])
   const handleRemoveSiteConfirm = useCallback((site: SiteInfo) => setConfirmRemove(site), [])
   const handleShowShortcuts = useCallback(() => setShowShortcuts((v) => !v), [])
 
