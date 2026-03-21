@@ -41,8 +41,8 @@ describe('FileStore', () => {
   })
 
   describe('sites CRUD', () => {
-    const site1: StoredSite = { id: 'site-1', name: 'my-site', folderPath: '/tmp/site1' }
-    const site2: StoredSite = { id: 'site-2', name: 'other-site', folderPath: '/tmp/site2' }
+    const site1: StoredSite = { id: 'site-1', name: 'my-site', serveMode: 'static', folderPath: '/tmp/site1' }
+    const site2: StoredSite = { id: 'site-2', name: 'other-site', serveMode: 'static', folderPath: '/tmp/site2' }
 
     it('adds and retrieves a site', () => {
       const { store, cleanup } = createTempStore()
@@ -160,9 +160,9 @@ describe('FileStore', () => {
   describe('persistence', () => {
     it('persists data across instances', () => {
       const { storePath, store, cleanup } = createTempStore()
-      store.addSite({ id: 'site-1', name: 'test', folderPath: '/tmp/test' })
+      store.addSite({ id: 'site-1', name: 'test', serveMode: 'static', folderPath: '/tmp/test' })
       const store2 = new FileStore(storePath)
-      expect(store2.getSites()).toEqual([{ id: 'site-1', name: 'test', folderPath: '/tmp/test' }])
+      expect(store2.getSites()).toEqual([{ id: 'site-1', name: 'test', serveMode: 'static', folderPath: '/tmp/test' }])
       cleanup()
     })
   })

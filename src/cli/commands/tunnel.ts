@@ -77,11 +77,7 @@ export async function tunnelQuick(
     if (existing && existing.status === 'running') {
       port = existing.port
     } else {
-      const server = await serverManager.startServer({
-        id: site.id,
-        name: site.name,
-        folderPath: site.folderPath,
-      })
+      const server = await serverManager.startServer(site)
       port = server.port
       serverAutoStarted = true
     }
