@@ -8,6 +8,7 @@ export interface SiteInfo {
   lanUrl?: string // e.g., "http://192.168.1.100:3001" — present when LAN sharing is enabled
   lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
   tunnel?: TunnelInfo
+  localDomain?: string // e.g., "my-project.local"
 }
 
 export interface LanInfo {
@@ -80,6 +81,7 @@ export interface StoredSite {
   name: string
   folderPath: string
   providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  localDomain?: string   // e.g., "my-project.local"
 }
 
 export interface UrlAddResult {
@@ -133,6 +135,10 @@ export interface ElectronAPI {
   // LAN Sharing
   getLanInfo: () => Promise<LanInfo>
   setLanSharing: (siteId: string, enabled: boolean) => Promise<void>
+
+  // --- Local Domain ---
+  setLocalDomain: (siteId: string, domain: string) => Promise<void>
+  removeLocalDomain: (siteId: string) => Promise<void>
 
   // Finder right-click integration
   onUrlAddResult: (callback: (result: UrlAddResult) => void) => () => void

@@ -3,6 +3,7 @@ import type { SiteInfo, CloudflaredEnv, CloudflareAuth } from '../../shared/type
 import TunnelControls from './components/TunnelControls'
 import LanSharingControls from './components/LanSharingControls'
 import AuthPanel from './components/AuthPanel'
+import LocalDomainSetting from './components/LocalDomainSetting'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -275,6 +276,25 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleSetLocalDomain = useCallback(async (siteId: string, domain: string) => {
+    try {
+      setError(null)
+      await window.electron.setLocalDomain(siteId, domain)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '設定本地域名失敗')
+      throw err
+    }
+  }, [])
+
+  const handleRemoveLocalDomain = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.removeLocalDomain(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移除本地域名失敗')
+    }
+  }, [])
+
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleUrlAddSuccess = useCallback((msg: string) => {
@@ -460,6 +480,12 @@ function App(): React.ReactElement {
                     site={site}
                     onEnable={handleEnableLanSharing}
                     onDisable={handleDisableLanSharing}
+                  />
+                  <LocalDomainSetting
+                    site={site}
+                    allSites={sites}
+                    onSetDomain={handleSetLocalDomain}
+                    onRemoveDomain={handleRemoveLocalDomain}
                   />
                   <TunnelControls
                     site={site}
