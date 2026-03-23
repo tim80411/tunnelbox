@@ -9,6 +9,7 @@ import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
 import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
+import { getBoreConfig, saveBoreConfig, type BoreServerConfig } from './providers/bore/bore-config-store'
 
 let serverManager: ServerManager
 
@@ -474,6 +475,71 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '設定 Provider 失敗')
+    }
+  })
+
+  // --- bore Provider ---
+
+  ipcMain.handle('get-bore-status', async () => {
+    try {
+      const boreProvider = tunnelManager.get('bore')
+      return await boreProvider.detect()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '偵測 bore 失敗')
+    }
+  })
+
+  ipcMain.handle('install-bore', async () => {
+    const broadcastBoreStatus = (env: ProviderEnv): void => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('bore-status-changed', env)
+      }
+    }
+    try {
+      const boreProvider = tunnelManager.get('bore')
+      broadcastBoreStatus({ status: 'installing' })
+      await boreProvider.install()
+      const env = await boreProvider.detect()
+      broadcastBoreStatus(env)
+    } catch (err) {
+      const errorEnv: ProviderEnv = {
+        status: 'install_failed',
+        errorMessage: err instanceof Error ? err.message : '安裝 bore 失敗'
+      }
+      broadcastBoreStatus(errorEnv)
+      throw new Error(errorEnv.errorMessage)
+    }
+  })
+
+  ipcMain.handle('get-bore-config', async () => {
+    try {
+      return getBoreConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得 bore 設定失敗')
+    }
+  })
+
+  ipcMain.handle('set-bore-config', async (_event, config: BoreServerConfig) => {
+    try {
+      saveBoreConfig(config)
+      return getBoreConfig()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '儲存 bore 設定失敗')
+    }
+  })
+
+  ipcMain.handle('start-bore-tunnel', async (_event, siteId: string, opts?: Record<string, unknown>) => {
+    try {
+      const server = serverManager.getServer(siteId)
+      if (!server) throw new Error('找不到此網頁')
+      if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
+
+      const boreProvider = tunnelManager.get('bore')
+      const url = await boreProvider.startTunnel(siteId, server.port, opts)
+      broadcastSiteUpdate()
+      return url
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '啟動 bore Tunnel 失敗')
     }
   })
 
