@@ -1740,3 +1740,120 @@ html, body, #root {
   color: var(--success);
   margin-left: var(--sp-2);
 }
+
+/* ── Unified Provider Bar ────────────────────────────────────── */
+
+.provider-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--sp-6);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.provider-bar--checking {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.provider-bar--not_installed {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.provider-bar--installing {
+  background: var(--info-bg, #e3f2fd);
+  color: var(--info-text, #1565c0);
+}
+
+.provider-bar--install_failed {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.provider-bar--outdated {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.provider-bar--error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.provider-bar__text {
+  flex: 1;
+  margin-right: var(--sp-2);
+}
+
+.provider-bar__btn {
+  margin-left: var(--sp-1);
+}
+
+/* ── Provider Tabs ───────────────────────────────────────────── */
+
+.provider-tabs {
+  margin-top: var(--sp-4);
+}
+
+.provider-tab-list {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--sp-4);
+}
+
+.provider-tab-btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: border-color 0.2s;
+}
+
+.provider-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.provider-tab-btn--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent, #4a9eff);
+}
+
+/* ── Provider Status ─────────────────────────────────────────── */
+
+.provider-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  font-size: 13px;
+}
+
+.provider-status__label {
+  color: var(--text-secondary);
+}
+
+.provider-status__value {
+  font-weight: 500;
+}
+
+.provider-status__value--available {
+  color: var(--success);
+}
+
+.provider-status__value--error {
+  color: var(--error-text);
+}
+
+/* ── Settings Provider Saved Flash ──────────────────────────── */
+
+.settings-provider-saved {
+  font-size: 11px;
+  color: var(--success);
+  margin-left: var(--sp-2);
+}
