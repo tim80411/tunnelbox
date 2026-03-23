@@ -1,5 +1,5 @@
 import { getLocalBinaryPath } from './detector'
-import { installBinary, extractTarGz, getPlatformArch } from '../shared/binary-installer'
+import { installBinary, extractTarGz } from '../shared/binary-installer'
 import type { BinaryInstallerConfig } from '../shared/binary-installer'
 
 const RELEASES_BASE = 'https://github.com/fatedier/frp/releases/latest/download'
