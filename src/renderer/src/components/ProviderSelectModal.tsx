@@ -1,6 +1,6 @@
 import { useState } from 'react'
-
-type ProviderType = 'cloudflare' | 'frp' | 'bore'
+import { providerList } from '../providers/registry'
+import type { ProviderType } from '../providers/registry'
 
 interface ProviderSelectModalProps {
   siteName: string
@@ -21,13 +21,19 @@ function ProviderSelectModal({
   onConfirm,
   onCancel
 }: ProviderSelectModalProps): React.ReactElement {
-  const validProviders: ProviderType[] = ['cloudflare', 'frp', 'bore']
+  const validProviders = providerList.map((d) => d.type)
   const initial = validProviders.includes(currentProvider as ProviderType)
     ? (currentProvider as ProviderType)
     : 'cloudflare'
   const [selected, setSelected] = useState<ProviderType>(initial)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const availabilityMap: Record<ProviderType, boolean> = {
+    cloudflare: cloudflaredAvailable,
+    frp: frpcAvailable,
+    bore: boreAvailable
+  }
 
   const handleConfirm = async () => {
     setError(null)
@@ -41,11 +47,13 @@ function ProviderSelectModal({
     }
   }
 
-  const options: { value: ProviderType; label: string; hint: string; desc: string; available: boolean }[] = [
-    { value: 'cloudflare', label: 'Cloudflare Tunnel', hint: '需先安裝 cloudflared', desc: '免費、零設定、隨機或固定網域', available: cloudflaredAvailable },
-    { value: 'frp', label: 'frp（自架伺服器）', hint: '需先安裝 frpc', desc: '需自備 VPS，TCP 轉發，功能完整', available: frpcAvailable },
-    { value: 'bore', label: 'bore（自架伺服器）', hint: '需先安裝 bore', desc: '需自備 VPS，極簡輕量', available: boreAvailable },
-  ]
+  const options = providerList.map((def) => ({
+    value: def.type,
+    label: def.label,
+    hint: def.installHint,
+    desc: def.description,
+    available: availabilityMap[def.type]
+  }))
 
   const selectedDisabled = !options.find((o) => o.value === selected)?.available
 
