@@ -16,7 +16,7 @@ interface BaseSiteInfo {
   lanInterfaceName?: string // e.g., "en0" — helps identify the network interface
   lanHasMultipleInterfaces?: boolean // true when multiple non-VPN LAN interfaces detected
   tunnel?: TunnelInfo
-  providerType?: string // 'cloudflare' | 'frp' — for UI badge
+  providerType?: string // 'cloudflare' | 'frp' | 'bore' — for UI badge
   defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
@@ -100,7 +100,7 @@ export interface StoredStaticSite {
   name: string
   serveMode: 'static'
   folderPath: string
-  providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
@@ -109,7 +109,7 @@ export interface StoredProxySite {
   name: string
   serveMode: 'proxy'
   proxyTarget: string
-  providerType?: string  // 'cloudflare' | 'frp' — defaults to 'cloudflare' at read time
+  providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
 
@@ -167,6 +167,13 @@ export interface FrpServerConfig {
   authToken?: string
 }
 
+/** bore server config (renderer-facing, secret is already decrypted) */
+export interface BoreServerConfig {
+  serverAddr: string
+  serverPort: number
+  secret?: string
+}
+
 export interface ElectronAPI {
   // Site management
   addSite: (params: AddSiteParams) => Promise<SiteInfo>
@@ -219,6 +226,14 @@ export interface ElectronAPI {
   startFrpTunnel: (siteId: string, opts?: Record<string, unknown>) => Promise<string>
   setSiteProvider: (siteId: string, providerType: string) => Promise<void>
   onFrpStatusChanged: (callback: (env: CloudflaredEnv) => void) => () => void
+
+  // --- bore Provider ---
+  getBoreStatus: () => Promise<CloudflaredEnv>
+  installBore: () => Promise<void>
+  getBoreConfig: () => Promise<BoreServerConfig | null>
+  setBoreConfig: (config: BoreServerConfig) => Promise<BoreServerConfig>
+  startBoreTunnel: (siteId: string, opts?: Record<string, unknown>) => Promise<string>
+  onBoreStatusChanged: (callback: (env: CloudflaredEnv) => void) => () => void
 
   // Default Domain
   setDefaultDomain: (siteId: string, domain: string) => Promise<void>

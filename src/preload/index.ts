@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
 import { statSync } from 'fs'
 import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -152,6 +152,38 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('frp-status-changed', handler)
     return () => {
       ipcRenderer.removeListener('frp-status-changed', handler)
+    }
+  },
+
+  // --- bore Provider ---
+
+  getBoreStatus: (): Promise<CloudflaredEnv> => {
+    return ipcRenderer.invoke('get-bore-status')
+  },
+
+  installBore: (): Promise<void> => {
+    return ipcRenderer.invoke('install-bore')
+  },
+
+  getBoreConfig: (): Promise<BoreServerConfig | null> => {
+    return ipcRenderer.invoke('get-bore-config')
+  },
+
+  setBoreConfig: (config: BoreServerConfig): Promise<BoreServerConfig> => {
+    return ipcRenderer.invoke('set-bore-config', config)
+  },
+
+  startBoreTunnel: (siteId: string, opts?: Record<string, unknown>): Promise<string> => {
+    return ipcRenderer.invoke('start-bore-tunnel', siteId, opts)
+  },
+
+  onBoreStatusChanged: (callback: (env: CloudflaredEnv) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, env: CloudflaredEnv): void => {
+      callback(env)
+    }
+    ipcRenderer.on('bore-status-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('bore-status-changed', handler)
     }
   },
 

@@ -1,11 +1,14 @@
 import { useState } from 'react'
 
+type ProviderType = 'cloudflare' | 'frp' | 'bore'
+
 interface ProviderSelectModalProps {
   siteName: string
   currentProvider?: string
   cloudflaredAvailable: boolean
   frpcAvailable: boolean
-  onConfirm: (provider: 'cloudflare' | 'frp') => Promise<void>
+  boreAvailable: boolean
+  onConfirm: (provider: ProviderType) => Promise<void>
   onCancel: () => void
 }
 
@@ -14,12 +17,15 @@ function ProviderSelectModal({
   currentProvider,
   cloudflaredAvailable,
   frpcAvailable,
+  boreAvailable,
   onConfirm,
   onCancel
 }: ProviderSelectModalProps): React.ReactElement {
-  const [selected, setSelected] = useState<'cloudflare' | 'frp'>(
-    (currentProvider as 'cloudflare' | 'frp') || 'cloudflare'
-  )
+  const validProviders: ProviderType[] = ['cloudflare', 'frp', 'bore']
+  const initial = validProviders.includes(currentProvider as ProviderType)
+    ? (currentProvider as ProviderType)
+    : 'cloudflare'
+  const [selected, setSelected] = useState<ProviderType>(initial)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,6 +41,14 @@ function ProviderSelectModal({
     }
   }
 
+  const options: { value: ProviderType; label: string; hint: string; desc: string; available: boolean }[] = [
+    { value: 'cloudflare', label: 'Cloudflare Tunnel', hint: '需先安裝 cloudflared', desc: '免費、零設定、隨機或固定網域', available: cloudflaredAvailable },
+    { value: 'frp', label: 'frp（自架伺服器）', hint: '需先安裝 frpc', desc: '需自備 VPS，TCP 轉發，功能完整', available: frpcAvailable },
+    { value: 'bore', label: 'bore（自架伺服器）', hint: '需先安裝 bore', desc: '需自備 VPS，極簡輕量', available: boreAvailable },
+  ]
+
+  const selectedDisabled = !options.find((o) => o.value === selected)?.available
+
   return (
     <div className="modal-overlay" data-dismiss onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -46,45 +60,28 @@ function ProviderSelectModal({
         {error && <div className="modal-error">{error}</div>}
 
         <div className="provider-radio-group">
-          <label
-            className={`provider-radio-option${selected === 'cloudflare' ? ' provider-radio-option--selected' : ''}${!cloudflaredAvailable ? ' provider-radio-option--disabled' : ''}`}
-            onClick={() => cloudflaredAvailable && setSelected('cloudflare')}
-          >
-            <input
-              type="radio"
-              name="provider"
-              checked={selected === 'cloudflare'}
-              onChange={() => setSelected('cloudflare')}
-              disabled={!cloudflaredAvailable}
-            />
-            <div>
-              <div className="provider-radio-label">
-                Cloudflare Tunnel
-                {!cloudflaredAvailable && <span className="provider-radio-hint">（需先安裝 cloudflared）</span>}
+          {options.map((opt) => (
+            <label
+              key={opt.value}
+              className={`provider-radio-option${selected === opt.value ? ' provider-radio-option--selected' : ''}${!opt.available ? ' provider-radio-option--disabled' : ''}`}
+              onClick={() => opt.available && setSelected(opt.value)}
+            >
+              <input
+                type="radio"
+                name="provider"
+                checked={selected === opt.value}
+                onChange={() => setSelected(opt.value)}
+                disabled={!opt.available}
+              />
+              <div>
+                <div className="provider-radio-label">
+                  {opt.label}
+                  {!opt.available && <span className="provider-radio-hint">（{opt.hint}）</span>}
+                </div>
+                <div className="provider-radio-desc">{opt.desc}</div>
               </div>
-              <div className="provider-radio-desc">免費、零設定、隨機或固定網域</div>
-            </div>
-          </label>
-
-          <label
-            className={`provider-radio-option${selected === 'frp' ? ' provider-radio-option--selected' : ''}${!frpcAvailable ? ' provider-radio-option--disabled' : ''}`}
-            onClick={() => frpcAvailable && setSelected('frp')}
-          >
-            <input
-              type="radio"
-              name="provider"
-              checked={selected === 'frp'}
-              onChange={() => setSelected('frp')}
-              disabled={!frpcAvailable}
-            />
-            <div>
-              <div className="provider-radio-label">
-                frp（自架伺服器）
-                {!frpcAvailable && <span className="provider-radio-hint">（需先安裝 frpc）</span>}
-              </div>
-              <div className="provider-radio-desc">需自備 VPS，TCP 轉發</div>
-            </div>
-          </label>
+            </label>
+          ))}
         </div>
 
         <div className="modal-actions">
@@ -94,7 +91,7 @@ function ProviderSelectModal({
           <button
             className="btn btn-primary"
             onClick={handleConfirm}
-            disabled={confirming || (selected === 'cloudflare' && !cloudflaredAvailable) || (selected === 'frp' && !frpcAvailable)}
+            disabled={confirming || selectedDisabled}
           >
             {confirming ? '切換中...' : '確認'}
           </button>

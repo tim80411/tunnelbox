@@ -17,8 +17,10 @@ interface TunnelControlsProps {
   onStopNamedTunnel: (siteId: string) => Promise<void>
   onLogin: () => void
   onStartFrpTunnel?: (siteId: string) => Promise<void>
+  onStartBoreTunnel?: (siteId: string) => Promise<void>
   frpcEnv?: CloudflaredEnv
-  onSelectProvider?: (siteId: string, provider: 'cloudflare' | 'frp') => Promise<void>
+  boreEnv?: CloudflaredEnv
+  onSelectProvider?: (siteId: string, provider: 'cloudflare' | 'frp' | 'bore') => Promise<void>
 }
 
 function TunnelControls({
@@ -33,7 +35,9 @@ function TunnelControls({
   onStopNamedTunnel,
   onLogin,
   onStartFrpTunnel,
+  onStartBoreTunnel,
   frpcEnv,
+  boreEnv,
   onSelectProvider
 }: TunnelControlsProps): React.ReactElement {
   const [showDomainModal, setShowDomainModal] = useState(false)
@@ -123,7 +127,9 @@ function TunnelControls({
   const isLoggedIn = authStatus === 'logged_in'
   const isRunning = site.status === 'running'
   const isFrp = site.providerType === 'frp'
-  const isAvailable = isRunning && (isFrp || cloudflaredAvailable)
+  const isBore = site.providerType === 'bore'
+  const isSelfHosted = isFrp || isBore
+  const isAvailable = isRunning && (isSelfHosted || cloudflaredAvailable)
   const hasDefaultDomain = !!site.defaultDomain
 
   // Status light color
@@ -144,7 +150,9 @@ function TunnelControls({
   const canPlay = isAvailable && !binding && (!tunnel || tunnel.status === 'stopped' || tunnel.status === 'error')
   const handlePlay = async () => {
     if (!canPlay) return
-    if (isFrp) {
+    if (isBore) {
+      onStartBoreTunnel?.(site.id)
+    } else if (isFrp) {
       onStartFrpTunnel?.(site.id)
     } else if (hasDefaultDomain && isLoggedIn && !isNamed) {
       setBinding(true)
@@ -167,7 +175,9 @@ function TunnelControls({
   }
 
   // Play button tooltip
-  const playTooltip = isFrp
+  const playTooltip = isBore
+    ? 'bore Tunnel 公開'
+    : isFrp
     ? 'frp Tunnel 公開'
     : hasDefaultDomain && isLoggedIn && !isNamed
       ? `使用預設網域 ${site.defaultDomain} 公開`
@@ -179,7 +189,7 @@ function TunnelControls({
   const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying'
   const handleStop = () => {
     if (!canStop) return
-    if (!isFrp && isNamed) {
+    if (!isSelfHosted && isNamed) {
       onStopNamedTunnel(site.id)
     } else {
       onStopSharing(site.id)
@@ -187,7 +197,7 @@ function TunnelControls({
   }
 
   // Provider badge label
-  const providerBadge = isFrp ? 'frp' : 'CF'
+  const providerBadge = isBore ? 'bore' : isFrp ? 'frp' : 'CF'
 
   // Placeholder text
   const placeholderText = tunnel?.status === 'starting'
@@ -198,7 +208,7 @@ function TunnelControls({
         ? 'Tunnel 重連中...'
       : tunnel?.status === 'error'
         ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
-        : isFrp
+        : isSelfHosted
           ? (!isRunning ? '啟動站點後可使用' : '尚未公開')
           : !cloudflaredAvailable
             ? '需安裝 cloudflared'
@@ -207,7 +217,9 @@ function TunnelControls({
               : '尚未公開'
 
   // Info tooltip
-  const infoTooltip = isFrp
+  const infoTooltip = isBore
+    ? (tunnel?.status === 'running' ? '類型：bore Tunnel（TCP 轉發）' : 'bore Tunnel 公開分享')
+    : isFrp
     ? (tunnel?.status === 'running' ? '類型：frp Tunnel（TCP 轉發）' : 'frp Tunnel 公開分享')
     : isNamed
       ? `類型：固定網域｜Tunnel ID：${tunnel?.tunnelId?.slice(0, 8) || '—'}...`
@@ -222,7 +234,7 @@ function TunnelControls({
       <div className="site-item-url-row">
         <span className={`status-light status-light--${lightColor}`} />
         <span className="sharing-badge sharing-badge--wan">WAN</span>
-        <span className={`provider-badge provider-badge--${isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
+        <span className={`provider-badge provider-badge--${isBore ? 'bore' : isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
 
         {wanUrl ? (
           <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
@@ -293,9 +305,9 @@ function TunnelControls({
                     }}
                     disabled={!!(tunnel && tunnel.status !== 'stopped' && tunnel.status !== 'error')}
                   >
-                    切換 Provider（目前：{isFrp ? 'frp' : 'Cloudflare'}）
+                    切換 Provider（目前：{isBore ? 'bore' : isFrp ? 'frp' : 'Cloudflare'}）
                   </button>
-                  {!isFrp && (
+                  {!isSelfHosted && (
                     <>
                       <button
                         className="overflow-menu-item"
@@ -482,6 +494,7 @@ function TunnelControls({
           currentProvider={site.providerType}
           cloudflaredAvailable={cloudflaredAvailable}
           frpcAvailable={frpcEnv?.status === 'available'}
+          boreAvailable={boreEnv?.status === 'available'}
           onConfirm={async (provider) => {
             await onSelectProvider(site.id, provider)
             setShowProviderSelect(false)

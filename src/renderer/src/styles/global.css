@@ -1594,6 +1594,60 @@ html, body, #root {
   color: var(--danger);
 }
 
+/* ── bore Status Bar ──────────────────────────────────────────── */
+
+.bore-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--sp-6);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bore-bar-text {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.bore-bar-btn {
+  margin-left: var(--sp-1);
+}
+
+.bore-not_installed {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.bore-installing {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+}
+
+.bore-install_failed {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+.bore-outdated {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.bore-error {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* ── bore Provider Badge ─────────────────────────────────────── */
+
+.provider-badge--bore {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+}
+
 /* ── Provider Select Radio ───────────────────────────────────── */
 
 .provider-radio-group {

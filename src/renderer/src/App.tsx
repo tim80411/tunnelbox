@@ -9,6 +9,7 @@ import ShortcutsPanel from './components/ShortcutsPanel'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useFrpProvider } from './hooks/useFrpProvider'
+import { useBoreProvider } from './hooks/useBoreProvider'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -41,6 +42,7 @@ function App(): React.ReactElement {
     checkForUpdates, downloadUpdate, installUpdate, dismissUpdate
   } = useAutoUpdate()
   const { frpcEnv, frpConfig, installFrpc, saveConfig: saveFrpConfig } = useFrpProvider()
+  const { boreEnv, boreConfig, installBore, saveConfig: saveBoreConfig } = useBoreProvider()
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -265,7 +267,16 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  const handleSelectProvider = useCallback(async (siteId: string, provider: 'cloudflare' | 'frp') => {
+  const handleStartBoreTunnel = useCallback(async (siteId: string) => {
+    try {
+      setError(null)
+      await window.electron.startBoreTunnel(siteId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '啟動 bore Tunnel 失敗')
+    }
+  }, [])
+
+  const handleSelectProvider = useCallback(async (siteId: string, provider: 'cloudflare' | 'frp' | 'bore') => {
     try {
       setError(null)
       await window.electron.setSiteProvider(siteId, provider)
@@ -417,6 +428,7 @@ function App(): React.ReactElement {
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
   const hasFrpSites = useMemo(() => sites.some((s) => s.providerType === 'frp'), [sites])
+  const hasBoreSites = useMemo(() => sites.some((s) => s.providerType === 'bore'), [sites])
 
   const settingsSite = settingsSiteId ? sites.find((s) => s.id === settingsSiteId) ?? null : null
 
@@ -435,6 +447,10 @@ function App(): React.ReactElement {
           frpConfig={frpConfig}
           onInstallFrpc={installFrpc}
           onSaveFrpConfig={saveFrpConfig}
+          boreEnv={boreEnv}
+          boreConfig={boreConfig}
+          onInstallBore={installBore}
+          onSaveBoreConfig={saveBoreConfig}
         />
         <div className="app-main">
       <header className="app-header">
@@ -574,6 +590,46 @@ function App(): React.ReactElement {
           {frpcEnv.status === 'error' && (
             <span className="frpc-bar-text">
               frpc 環境錯誤{frpcEnv.errorMessage ? `：${frpcEnv.errorMessage}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {boreEnv.status !== 'available' && boreEnv.status !== 'checking' && hasBoreSites && (
+        <div className={`bore-bar bore-${boreEnv.status}`}>
+          {boreEnv.status === 'not_installed' && (
+            <span className="bore-bar-text">
+              bore 尚未安裝，bore Tunnel 無法使用
+              <button className="btn btn-sm btn-primary bore-bar-btn" onClick={installBore}>
+                安裝
+              </button>
+            </span>
+          )}
+          {boreEnv.status === 'installing' && (
+            <span className="bore-bar-text">
+              <span className="cloudflared-spinner" />
+              正在安裝 bore...
+            </span>
+          )}
+          {boreEnv.status === 'install_failed' && (
+            <span className="bore-bar-text">
+              bore 安裝失敗{boreEnv.errorMessage ? `：${boreEnv.errorMessage}` : ''}
+              <button className="btn btn-sm bore-bar-btn" onClick={installBore}>
+                重試
+              </button>
+            </span>
+          )}
+          {boreEnv.status === 'outdated' && (
+            <span className="bore-bar-text">
+              bore 版本過舊{boreEnv.version ? ` (${boreEnv.version})` : ''}，建議更新
+              <button className="btn btn-sm btn-primary bore-bar-btn" onClick={installBore}>
+                更新
+              </button>
+            </span>
+          )}
+          {boreEnv.status === 'error' && (
+            <span className="bore-bar-text">
+              bore 環境錯誤{boreEnv.errorMessage ? `：${boreEnv.errorMessage}` : ''}
             </span>
           )}
         </div>
@@ -740,7 +796,9 @@ function App(): React.ReactElement {
                     onStopNamedTunnel={handleStopNamedTunnel}
                     onLogin={handleLogin}
                     onStartFrpTunnel={handleStartFrpTunnel}
+                    onStartBoreTunnel={handleStartBoreTunnel}
                     frpcEnv={frpcEnv}
+                    boreEnv={boreEnv}
                     onSelectProvider={handleSelectProvider}
                   />
                 </div>
