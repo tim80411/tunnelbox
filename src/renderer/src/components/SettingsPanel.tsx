@@ -1,4 +1,4 @@
-import type { AppSettings, ServeMode, CloudflaredEnv, CloudflareAuth, FrpServerConfig, BoreServerConfig } from '../../../shared/types'
+import type { AppSettings, ServeMode, CloudflareAuth } from '../../../shared/types'
 import type { UpdateState } from '../../../shared/update-types'
 import type { ProviderType } from '../providers/registry'
 import type { ProviderEnv } from '../../../shared/provider-types'
@@ -17,7 +17,6 @@ interface SettingsPanelProps {
   updateState: UpdateState
   onCheckForUpdates: () => Promise<void>
 
-  // --- New unified provider props (Task 10 will wire these) ---
   providers?: Record<ProviderType, {
     env: ProviderEnv
     config: unknown
@@ -28,16 +27,6 @@ interface SettingsPanelProps {
   hasRunningNamedTunnels?: boolean
   onLogin?: () => Promise<void>
   onLogout?: () => Promise<void>
-
-  // --- Legacy props (kept optional for backward compat until Task 10) ---
-  frpcEnv?: CloudflaredEnv
-  frpConfig?: FrpServerConfig | null
-  onInstallFrpc?: () => Promise<void>
-  onSaveFrpConfig?: (config: FrpServerConfig) => Promise<FrpServerConfig>
-  boreEnv?: CloudflaredEnv
-  boreConfig?: BoreServerConfig | null
-  onInstallBore?: () => Promise<void>
-  onSaveBoreConfig?: (config: BoreServerConfig) => Promise<BoreServerConfig>
 }
 
 // Default no-op env for fallback
@@ -46,58 +35,29 @@ const noop = async (): Promise<void> => {}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const noopSave = async (c: any): Promise<any> => c
 
+const defaultProviders: Record<ProviderType, {
+  env: ProviderEnv
+  config: unknown
+  install: () => Promise<void>
+  saveConfig: (c: unknown) => Promise<unknown>
+}> = {
+  cloudflare: { env: defaultEnv, config: null, install: noop, saveConfig: noopSave },
+  frp: { env: defaultEnv, config: null, install: noop, saveConfig: noopSave },
+  bore: { env: defaultEnv, config: null, install: noop, saveConfig: noopSave }
+}
+
 function SettingsPanel({
   open, settings, onClose, onUpdate,
   appVersion, updateState, onCheckForUpdates,
-  // New unified props
   providers: providersProp,
   auth: authProp,
   hasRunningNamedTunnels = false,
   onLogin,
-  onLogout,
-  // Legacy props (fallback when new props not yet wired)
-  frpcEnv,
-  frpConfig,
-  onInstallFrpc,
-  onSaveFrpConfig,
-  boreEnv,
-  boreConfig,
-  onInstallBore,
-  onSaveBoreConfig
+  onLogout
 }: SettingsPanelProps): React.ReactElement {
   const isChecking = updateState.phase === 'checking'
 
-  // Build unified provider data — prefer new props, fall back to legacy
-  const resolvedProviders: Record<ProviderType, {
-    env: ProviderEnv
-    config: unknown
-    install: () => Promise<void>
-    saveConfig: (c: unknown) => Promise<unknown>
-  }> = providersProp ?? {
-    cloudflare: {
-      env: defaultEnv,
-      config: null,
-      install: noop,
-      saveConfig: noopSave
-    },
-    frp: {
-      env: frpcEnv ?? defaultEnv,
-      config: frpConfig ?? null,
-      install: onInstallFrpc ?? noop,
-      saveConfig: onSaveFrpConfig
-        ? (c: unknown) => onSaveFrpConfig(c as FrpServerConfig) as Promise<unknown>
-        : noopSave
-    },
-    bore: {
-      env: boreEnv ?? defaultEnv,
-      config: boreConfig ?? null,
-      install: onInstallBore ?? noop,
-      saveConfig: onSaveBoreConfig
-        ? (c: unknown) => onSaveBoreConfig(c as BoreServerConfig) as Promise<unknown>
-        : noopSave
-    }
-  }
-
+  const resolvedProviders = providersProp ?? defaultProviders
   const resolvedAuth: CloudflareAuth = authProp ?? { status: 'logged_out' }
 
   // Derive display text from update state
