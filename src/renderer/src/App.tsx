@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, ServeMode } from '../../shared/types'
+import type { SiteInfo, CloudflareAuth, ServeMode } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import QrButton from './components/QrButton'
 import CopyButton from './components/CopyButton'
-import AuthPanel from './components/AuthPanel'
+import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
-import { useFrpProvider } from './hooks/useFrpProvider'
-import { useBoreProvider } from './hooks/useBoreProvider'
+import { useProvider } from './hooks/useProvider'
+import { providers } from './providers/registry'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
@@ -19,7 +19,6 @@ import { useMenuCommands } from './hooks/useMenuCommands'
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [cloudflaredEnv, setCloudflaredEnv] = useState<CloudflaredEnv>({ status: 'checking' })
   const [auth, setAuth] = useState<CloudflareAuth>({ status: 'logged_out' })
 
   // Confirm remove modal state
@@ -41,8 +40,9 @@ function App(): React.ReactElement {
     state: updateState, appVersion, forceUpdate,
     checkForUpdates, downloadUpdate, installUpdate, dismissUpdate
   } = useAutoUpdate()
-  const { frpcEnv, frpConfig, installFrpc, saveConfig: saveFrpConfig } = useFrpProvider()
-  const { boreEnv, boreConfig, installBore, saveConfig: saveBoreConfig } = useBoreProvider()
+  const cfProvider = useProvider(providers.cloudflare)
+  const frpProvider = useProvider(providers.frp)
+  const boreProvider = useProvider(providers.bore)
 
   // Add-site modal state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -65,10 +65,6 @@ function App(): React.ReactElement {
   useEffect(() => {
     loadSites()
 
-    window.electron.getCloudflaredStatus?.().then(setCloudflaredEnv).catch(() => {
-      setCloudflaredEnv({ status: 'error', errorMessage: '無法取得 cloudflared 狀態' })
-    })
-
     window.electron.getAuthStatus?.().then(setAuth).catch(() => {})
     window.electron.isQuickActionInstalled?.().then(setQuickActionInstalled).catch(() => {})
 
@@ -79,8 +75,6 @@ function App(): React.ReactElement {
     const unsubFiles = window.electron.onFileChanged(() => {
       // File change events are handled by WebSocket hot reload on the browser side.
     })
-
-    const unsubCloudflared = window.electron.onCloudflaredStatusChanged?.(setCloudflaredEnv)
 
     const unsubTunnel = window.electron.onTunnelStatusChanged?.((siteId, tunnel) => {
       try {
@@ -101,7 +95,6 @@ function App(): React.ReactElement {
     return () => {
       unsubSites()
       unsubFiles()
-      unsubCloudflared?.()
       unsubTunnel?.()
       unsubAuth?.()
     }
@@ -215,18 +208,6 @@ function App(): React.ReactElement {
       await window.electron.startServer(site.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restart server')
-    }
-  }, [])
-
-  const handleInstallCloudflared = useCallback(async () => {
-    try {
-      setCloudflaredEnv({ status: 'installing' })
-      await window.electron.installCloudflared()
-    } catch (err) {
-      setCloudflaredEnv({
-        status: 'install_failed',
-        errorMessage: err instanceof Error ? err.message : '安裝失敗'
-      })
     }
   }, [])
 
@@ -441,25 +422,20 @@ function App(): React.ReactElement {
           appVersion={appVersion}
           updateState={updateState}
           onCheckForUpdates={checkForUpdates}
-          frpcEnv={frpcEnv}
-          frpConfig={frpConfig}
-          onInstallFrpc={installFrpc}
-          onSaveFrpConfig={saveFrpConfig}
-          boreEnv={boreEnv}
-          boreConfig={boreConfig}
-          onInstallBore={installBore}
-          onSaveBoreConfig={saveBoreConfig}
+          providers={{
+            cloudflare: { env: cfProvider.env, config: cfProvider.config, install: cfProvider.install, saveConfig: cfProvider.saveConfig },
+            frp: { env: frpProvider.env, config: frpProvider.config, install: frpProvider.install, saveConfig: frpProvider.saveConfig },
+            bore: { env: boreProvider.env, config: boreProvider.config, install: boreProvider.install, saveConfig: boreProvider.saveConfig },
+          }}
+          auth={auth}
+          hasRunningNamedTunnels={hasRunningNamedTunnels}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
         />
         <div className="app-main">
       <header className="app-header">
         <h1>TunnelBox</h1>
         <div className="app-header-actions">
-          <AuthPanel
-            auth={auth}
-            hasRunningNamedTunnels={hasRunningNamedTunnels}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-          />
           {quickActionInstalled === false && (
             <button
               className="btn btn-sm"
@@ -499,139 +475,11 @@ function App(): React.ReactElement {
         </div>
       )}
 
-      {cloudflaredEnv.status !== 'available' && (
-        <div className={`cloudflared-bar cloudflared-${cloudflaredEnv.status}`}>
-          {cloudflaredEnv.status === 'checking' && (
-            <span className="cloudflared-bar-text">
-              <span className="cloudflared-spinner" />
-              正在檢查 cloudflared 環境...
-            </span>
-          )}
-          {cloudflaredEnv.status === 'not_installed' && (
-            <span className="cloudflared-bar-text">
-              cloudflared 尚未安裝，無法使用 Tunnel 功能
-              <button className="btn btn-sm btn-primary cloudflared-bar-btn" onClick={handleInstallCloudflared}>
-                安裝
-              </button>
-            </span>
-          )}
-          {cloudflaredEnv.status === 'installing' && (
-            <span className="cloudflared-bar-text">
-              <span className="cloudflared-spinner" />
-              正在安裝 cloudflared...
-            </span>
-          )}
-          {cloudflaredEnv.status === 'install_failed' && (
-            <span className="cloudflared-bar-text">
-              cloudflared 安裝失敗{cloudflaredEnv.errorMessage ? `：${cloudflaredEnv.errorMessage}` : ''}
-              <a
-                className="cloudflared-bar-link"
-                href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                手動安裝說明
-              </a>
-              <button className="btn btn-sm cloudflared-bar-btn" onClick={handleInstallCloudflared}>
-                重試
-              </button>
-            </span>
-          )}
-          {cloudflaredEnv.status === 'outdated' && (
-            <span className="cloudflared-bar-text">
-              cloudflared 版本過舊{cloudflaredEnv.version ? ` (${cloudflaredEnv.version})` : ''}，建議更新
-              <button className="btn btn-sm btn-primary cloudflared-bar-btn" onClick={handleInstallCloudflared}>
-                更新
-              </button>
-            </span>
-          )}
-          {cloudflaredEnv.status === 'error' && (
-            <span className="cloudflared-bar-text">
-              cloudflared 環境錯誤{cloudflaredEnv.errorMessage ? `：${cloudflaredEnv.errorMessage}` : ''}
-            </span>
-          )}
-        </div>
-      )}
-
-      {frpcEnv.status !== 'available' && frpcEnv.status !== 'checking' && hasFrpSites && (
-        <div className={`frpc-bar frpc-${frpcEnv.status}`}>
-          {frpcEnv.status === 'not_installed' && (
-            <span className="frpc-bar-text">
-              frpc 尚未安裝，frp Tunnel 無法使用
-              <button className="btn btn-sm btn-primary frpc-bar-btn" onClick={installFrpc}>
-                安裝
-              </button>
-            </span>
-          )}
-          {frpcEnv.status === 'installing' && (
-            <span className="frpc-bar-text">
-              <span className="cloudflared-spinner" />
-              正在安裝 frpc...
-            </span>
-          )}
-          {frpcEnv.status === 'install_failed' && (
-            <span className="frpc-bar-text">
-              frpc 安裝失敗{frpcEnv.errorMessage ? `：${frpcEnv.errorMessage}` : ''}
-              <button className="btn btn-sm frpc-bar-btn" onClick={installFrpc}>
-                重試
-              </button>
-            </span>
-          )}
-          {frpcEnv.status === 'outdated' && (
-            <span className="frpc-bar-text">
-              frpc 版本過舊{frpcEnv.version ? ` (${frpcEnv.version})` : ''}，建議更新
-              <button className="btn btn-sm btn-primary frpc-bar-btn" onClick={installFrpc}>
-                更新
-              </button>
-            </span>
-          )}
-          {frpcEnv.status === 'error' && (
-            <span className="frpc-bar-text">
-              frpc 環境錯誤{frpcEnv.errorMessage ? `：${frpcEnv.errorMessage}` : ''}
-            </span>
-          )}
-        </div>
-      )}
-
-      {boreEnv.status !== 'available' && boreEnv.status !== 'checking' && hasBoreSites && (
-        <div className={`bore-bar bore-${boreEnv.status}`}>
-          {boreEnv.status === 'not_installed' && (
-            <span className="bore-bar-text">
-              bore 尚未安裝，bore Tunnel 無法使用
-              <button className="btn btn-sm btn-primary bore-bar-btn" onClick={installBore}>
-                安裝
-              </button>
-            </span>
-          )}
-          {boreEnv.status === 'installing' && (
-            <span className="bore-bar-text">
-              <span className="cloudflared-spinner" />
-              正在安裝 bore...
-            </span>
-          )}
-          {boreEnv.status === 'install_failed' && (
-            <span className="bore-bar-text">
-              bore 安裝失敗{boreEnv.errorMessage ? `：${boreEnv.errorMessage}` : ''}
-              <button className="btn btn-sm bore-bar-btn" onClick={installBore}>
-                重試
-              </button>
-            </span>
-          )}
-          {boreEnv.status === 'outdated' && (
-            <span className="bore-bar-text">
-              bore 版本過舊{boreEnv.version ? ` (${boreEnv.version})` : ''}，建議更新
-              <button className="btn btn-sm btn-primary bore-bar-btn" onClick={installBore}>
-                更新
-              </button>
-            </span>
-          )}
-          {boreEnv.status === 'error' && (
-            <span className="bore-bar-text">
-              bore 環境錯誤{boreEnv.errorMessage ? `：${boreEnv.errorMessage}` : ''}
-            </span>
-          )}
-        </div>
-      )}
+      <ProviderInstallBar providers={[
+        { type: 'cloudflare', label: providers.cloudflare.label, env: cfProvider.env, onInstall: cfProvider.install, hasRelevantSites: true, priority: providers.cloudflare.priority },
+        { type: 'frp', label: providers.frp.label, env: frpProvider.env, onInstall: frpProvider.install, hasRelevantSites: hasFrpSites, priority: providers.frp.priority },
+        { type: 'bore', label: providers.bore.label, env: boreProvider.env, onInstall: boreProvider.install, hasRelevantSites: hasBoreSites, priority: providers.bore.priority },
+      ]} />
 
       {updateState.phase === 'available' && (
         <div className="success-bar">
@@ -784,7 +632,7 @@ function App(): React.ReactElement {
                   {/* WAN — integrated tunnel controls */}
                   <TunnelControls
                     site={site}
-                    cloudflaredAvailable={cloudflaredEnv.status === 'available'}
+                    cloudflaredAvailable={cfProvider.env.status === 'available'}
                     authStatus={auth.status}
                     onShare={handleShareSite}
                     onStopSharing={handleStopSharing}
@@ -795,8 +643,8 @@ function App(): React.ReactElement {
                     onLogin={handleLogin}
                     onStartFrpTunnel={handleStartFrpTunnel}
                     onStartBoreTunnel={handleStartBoreTunnel}
-                    frpcEnv={frpcEnv}
-                    boreEnv={boreEnv}
+                    frpcEnv={frpProvider.env}
+                    boreEnv={boreProvider.env}
                     onSelectProvider={handleSelectProvider}
                   />
                 </div>
