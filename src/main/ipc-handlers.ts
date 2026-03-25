@@ -4,6 +4,7 @@ import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import { DOMAIN_REGEX } from '../shared/types'
 import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
+import { normalizeProxyTarget, isValidProxyTarget, extractPort } from '../shared/proxy-utils'
 import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
@@ -80,18 +81,14 @@ export function registerIpcHandlers(
     }
 
     if (server.serveMode === 'proxy') {
-      return { ...base, serveMode: 'proxy' as const, proxyTarget: server.proxyTarget }
+      return {
+        ...base,
+        serveMode: 'proxy' as const,
+        proxyTarget: server.proxyTarget,
+        ...(server.passthrough && { passthrough: true, passthroughPort: server.passthroughPort })
+      }
     }
     return { ...base, serveMode: 'static' as const, folderPath: server.folderPath }
-  }
-
-  function isValidProxyUrl(url: string): boolean {
-    try {
-      const parsed = new URL(url)
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-    } catch {
-      return false
-    }
   }
 
   function broadcastSiteUpdate(): void {
@@ -126,13 +123,24 @@ export function registerIpcHandlers(
 
       if (params.serveMode === 'proxy') {
         if (!params.proxyTarget || !params.proxyTarget.trim()) {
-          throw new Error('請輸入 Proxy 目標 URL')
+          throw new Error('請輸入 Proxy 目標 URL 或 Port')
         }
-        const proxyTarget = params.proxyTarget.trim()
-        if (!isValidProxyUrl(proxyTarget)) {
+        let proxyTarget: string
+        try {
+          proxyTarget = normalizeProxyTarget(params.proxyTarget)
+        } catch (err) {
+          throw new Error(err instanceof Error ? err.message : '請輸入有效的 URL 或 Port（如 3000 或 http://localhost:3000）')
+        }
+        if (!isValidProxyTarget(proxyTarget)) {
           throw new Error('請輸入有效的 URL（如 http://localhost:3000）')
         }
-        storedSite = { id, name: trimmedName, serveMode: 'proxy', proxyTarget }
+
+        if (params.passthrough) {
+          const passthroughPort = extractPort(proxyTarget)
+          storedSite = { id, name: trimmedName, serveMode: 'proxy', proxyTarget, passthrough: true, passthroughPort }
+        } else {
+          storedSite = { id, name: trimmedName, serveMode: 'proxy', proxyTarget }
+        }
       } else {
         if (!params.folderPath || !params.folderPath.trim()) {
           throw new Error('請選擇資料夾路徑')
@@ -212,7 +220,9 @@ export function registerIpcHandlers(
       if (!existing) throw new Error(`Site not found: ${id}`)
       if (existing.status === 'running') return
 
-      await serverManager.startServer(existing as import('../shared/types').StoredSite)
+      const storedSite = siteStore.getSites().find((s) => s.id === id)
+      if (!storedSite) throw new Error(`Stored site not found: ${id}`)
+      await serverManager.startServer(storedSite)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to start server')

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import type { SiteInfo, CloudflareAuth, ServeMode } from '../../shared/types'
+import type { SiteInfo, CloudflareAuth, ServeMode, ProxySiteInfo } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
 import QrButton from './components/QrButton'
 import CopyButton from './components/CopyButton'
@@ -50,6 +50,7 @@ function App(): React.ReactElement {
   const [newSitePath, setNewSitePath] = useState('')
   const [newServeMode, setNewServeMode] = useState<ServeMode>('static')
   const [newProxyTarget, setNewProxyTarget] = useState('')
+  const [newPassthrough, setNewPassthrough] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -105,9 +106,10 @@ function App(): React.ReactElement {
     setNewSitePath('')
     setNewServeMode(settings.defaultServeMode)
     setNewProxyTarget('')
+    setNewPassthrough(false)
     setAddError(null)
     setShowAddModal(true)
-  }, [])
+  }, [settings.defaultServeMode])
 
   const closeAddModal = useCallback(() => {
     setShowAddModal(false)
@@ -140,7 +142,7 @@ function App(): React.ReactElement {
 
     if (newServeMode === 'proxy') {
       if (!newProxyTarget.trim()) {
-        setAddError('請輸入 Proxy 目標 URL')
+        setAddError('請輸入 Proxy 目標 URL 或 Port')
         return
       }
     } else {
@@ -153,7 +155,12 @@ function App(): React.ReactElement {
     setAdding(true)
     try {
       if (newServeMode === 'proxy') {
-        await window.electron.addSite({ serveMode: 'proxy', name: newSiteName.trim(), proxyTarget: newProxyTarget.trim() })
+        await window.electron.addSite({
+          serveMode: 'proxy',
+          name: newSiteName.trim(),
+          proxyTarget: newProxyTarget.trim(),
+          ...(newPassthrough && { passthrough: true })
+        })
       } else {
         await window.electron.addSite({ serveMode: 'static', name: newSiteName.trim(), folderPath: newSitePath })
       }
@@ -163,7 +170,7 @@ function App(): React.ReactElement {
     } finally {
       setAdding(false)
     }
-  }, [newSiteName, newSitePath, newServeMode, newProxyTarget])
+  }, [newSiteName, newSitePath, newServeMode, newProxyTarget, newPassthrough])
 
   const handleRemoveSite = useCallback(async (id: string) => {
     try {
@@ -516,8 +523,10 @@ function App(): React.ReactElement {
               </button>
             </div>
           ) : (
-            sites.map((site) => (
-              <div
+            sites.map((site) => {
+              const isPassthrough = site.serveMode === 'proxy' && !!(site as ProxySiteInfo).passthrough
+              const modeBadge = isPassthrough ? 'direct' : site.serveMode
+              return (<div
                 key={site.id}
                 data-site-id={site.id}
                 className={`site-item${selectedSiteId === site.id ? ' site-item-selected' : ''}`}
@@ -526,8 +535,8 @@ function App(): React.ReactElement {
                 <div className="site-item-info">
                   <div className="site-item-name-row">
                     <div className="site-item-name-group">
-                      <span className={`site-mode-badge site-mode-badge--${site.serveMode}`}>
-                        {site.serveMode}
+                      <span className={`site-mode-badge site-mode-badge--${modeBadge}`}>
+                        {modeBadge}
                       </span>
                       {renamingId === site.id ? (
                         <form
@@ -566,12 +575,16 @@ function App(): React.ReactElement {
                   </div>
                   <div className="site-item-path-row">
                     <span className="site-item-path">
-                      {site.serveMode === 'proxy' ? `Proxy → ${site.proxyTarget}` : site.folderPath}
+                      {site.serveMode === 'proxy'
+                        ? isPassthrough
+                          ? `Direct → Port ${(site as ProxySiteInfo).passthroughPort}`
+                          : `Proxy → ${site.proxyTarget}`
+                        : site.folderPath}
                     </span>
                     <button
                       className="btn-inline-copy"
                       onClick={() => navigator.clipboard.writeText(site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath)}
-                      data-tooltip={site.serveMode === 'proxy' ? '複製目標 URL' : '複製路徑'}
+                      data-tooltip={site.serveMode === 'proxy' ? (isPassthrough ? '複製 Port' : '複製目標 URL') : '複製路徑'}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="2" width="6" height="4" rx="1" />
@@ -591,7 +604,7 @@ function App(): React.ReactElement {
                       <span className="site-item-url site-item-url--placeholder">啟動站點後可使用</span>
                     )}
                     <div className="url-row-actions">
-                      <span className="btn-icon btn-icon--info" data-tooltip={`Port：${site.port}｜模式：${site.serveMode === 'proxy' ? 'Proxy' : '靜態檔案'}`}>
+                      <span className="btn-icon btn-icon--info" data-tooltip={`Port：${site.port}｜模式：${site.serveMode === 'proxy' ? (isPassthrough ? 'Direct' : 'Proxy') : '靜態檔案'}`}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                       </span>
                       <button className="btn-icon" disabled data-tooltip="啟動"><svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
@@ -679,7 +692,7 @@ function App(): React.ReactElement {
                   </button>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       </div>
@@ -814,16 +827,30 @@ function App(): React.ReactElement {
                 </div>
               </div>
             ) : (
-              <div className="form-group">
-                <label className="form-label">Proxy Target URL</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="http://localhost:3000"
-                  value={newProxyTarget}
-                  onChange={(e) => setNewProxyTarget(e.target.value)}
-                />
-              </div>
+              <>
+                <div className="form-group">
+                  <label className="form-label">
+                    {newPassthrough ? 'Port' : 'Proxy Target'}
+                  </label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    placeholder={newPassthrough ? '3000' : 'http://localhost:3000 or 3000'}
+                    value={newProxyTarget}
+                    onChange={(e) => setNewProxyTarget(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85em', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={newPassthrough}
+                      onChange={(e) => setNewPassthrough(e.target.checked)}
+                    />
+                    Direct mode — no proxy server, tunnel points directly to your port
+                  </label>
+                </div>
+              </>
             )}
 
             <div className="modal-actions">

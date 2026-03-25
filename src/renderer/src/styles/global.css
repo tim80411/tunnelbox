@@ -333,6 +333,12 @@ html, body, #root {
   border-color: #d4ccf0;
 }
 
+.site-mode-badge--direct {
+  color: #2d8659;
+  background: #e6f5ed;
+  border-color: #a8d8bf;
+}
+
 /* ── Status Badges ─────────────────────────────────────────────── */
 .site-item-status {
   font-family: var(--font-mono);

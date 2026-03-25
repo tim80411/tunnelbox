@@ -8,6 +8,8 @@ import getPort from 'get-port'
 import crypto from 'node:crypto'
 import { createLogger } from './logger'
 import { createProxyServer } from './proxy-server'
+import { PortHealthChecker } from './port-health-checker'
+import { extractPort } from '../shared/proxy-utils'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -32,6 +34,9 @@ export interface StaticSiteServer extends BaseSiteServer {
 export interface ProxySiteServer extends BaseSiteServer {
   serveMode: 'proxy'
   proxyTarget: string
+  passthrough?: boolean
+  passthroughPort?: number
+  healthChecker?: PortHealthChecker
 }
 
 export type SiteServer = StaticSiteServer | ProxySiteServer
@@ -132,11 +137,14 @@ export class ServerManager {
   async startServer(site: StoredSite): Promise<SiteServer> {
     // If the server already exists and is running, stop it first (restart scenario)
     const existing = this.servers.get(site.id)
-    if (existing && existing.status === 'running') {
+    if (existing && existing.status !== 'stopped') {
       await this.stopServer(site.id)
     }
 
     if (site.serveMode === 'proxy') {
+      if (site.passthrough) {
+        return this.startPassthroughServer(site)
+      }
       return this.startProxyServer(site)
     }
     return this.startStaticServer(site)
@@ -336,6 +344,56 @@ export class ServerManager {
     return siteServer
   }
 
+  // ---------- Private: Passthrough Server ----------
+
+  private startPassthroughServer(site: {
+    id: string; name: string; serveMode: 'proxy'; proxyTarget: string;
+    passthrough?: boolean; passthroughPort?: number
+  }): ProxySiteServer {
+    const targetPort = site.passthroughPort ?? extractPort(site.proxyTarget)
+
+    const siteServer: ProxySiteServer = {
+      id: site.id,
+      name: site.name,
+      serveMode: 'proxy',
+      proxyTarget: site.proxyTarget,
+      passthrough: true,
+      passthroughPort: targetPort,
+      port: targetPort, // tunnel points directly at user's port
+      status: 'running' // optimistic; first probe may flip to error
+    }
+
+    this.servers.set(site.id, siteServer)
+
+    // Start TCP health checking
+    const checker = new PortHealthChecker(targetPort)
+    siteServer.healthChecker = checker
+
+    checker.start(
+      () => {
+        // Port became reachable
+        const server = this.servers.get(site.id)
+        if (server && server.status !== 'running') {
+          server.status = 'running'
+          log.info(`Passthrough target for "${site.name}" recovered, status → running`)
+          this.notifyStatusChange(site.id, 'running')
+        }
+      },
+      () => {
+        // Port became unreachable
+        const server = this.servers.get(site.id)
+        if (server && server.status !== 'error') {
+          server.status = 'error'
+          log.warn(`Passthrough target for "${site.name}" unreachable, status → error`)
+          this.notifyStatusChange(site.id, 'error')
+        }
+      }
+    )
+
+    log.info(`Passthrough registered for "${site.name}" tracking port ${targetPort}`)
+    return siteServer
+  }
+
   /**
    * Stop a server by id.
    */
@@ -357,6 +415,12 @@ export class ServerManager {
     if (server.serveMode === 'static' && server.watcher) {
       await server.watcher.close()
       server.watcher = undefined
+    }
+
+    // Stop port health checker (passthrough sites)
+    if (server.serveMode === 'proxy' && server.healthChecker) {
+      server.healthChecker.stop()
+      server.healthChecker = undefined
     }
 
     // Clear proxy error tracking
@@ -431,6 +495,7 @@ export class ServerManager {
         name: site.name,
         serveMode: 'proxy',
         proxyTarget: site.proxyTarget,
+        ...(site.passthrough && { passthrough: true, passthroughPort: site.passthroughPort }),
         port: 0,
         status: 'stopped'
       })
