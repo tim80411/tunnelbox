@@ -28,6 +28,8 @@ export interface StaticSiteInfo extends BaseSiteInfo {
 export interface ProxySiteInfo extends BaseSiteInfo {
   serveMode: 'proxy'
   proxyTarget: string
+  passthrough?: boolean
+  passthroughPort?: number
 }
 
 export type SiteInfo = StaticSiteInfo | ProxySiteInfo
@@ -110,6 +112,8 @@ export interface StoredProxySite {
   name: string
   serveMode: 'proxy'
   proxyTarget: string
+  passthrough?: boolean
+  passthroughPort?: number
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
@@ -154,7 +158,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export type AddSiteParams =
   | { serveMode: 'static'; name: string; folderPath: string }
-  | { serveMode: 'proxy'; name: string; proxyTarget: string }
+  | { serveMode: 'proxy'; name: string; proxyTarget: string; passthrough?: boolean }
 
 export interface UrlAddResult {
   success: boolean
