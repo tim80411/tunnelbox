@@ -4,6 +4,110 @@ import { createLogger } from './logger'
 
 const log = createLogger('ProxyServer')
 
+/** Hop-by-hop headers that MUST NOT be forwarded by a proxy (RFC 2616 §13.5.1). */
+const HOP_BY_HOP_HEADERS = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailers',
+  'transfer-encoding',
+  'upgrade',
+])
+
+/** Headers that may leak credentials when routed through a tunnel. */
+const SENSITIVE_REQUEST_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+])
+
+/**
+ * Sanitize request headers before forwarding to the target.
+ *
+ * - Strips hop-by-hop headers (except `upgrade` when it is a WebSocket upgrade)
+ * - Strips sensitive credential headers
+ * - Adds standard proxy headers (`x-forwarded-for`, `-proto`, `-host`)
+ */
+function sanitizeRequestHeaders(
+  raw: http.IncomingHttpHeaders,
+  clientReq: http.IncomingMessage,
+  targetHost: string,
+  isWebSocketUpgrade = false,
+): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {}
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined) continue
+    const lower = key.toLowerCase()
+
+    // Keep the `upgrade` header only for actual WebSocket upgrades
+    if (lower === 'upgrade' && isWebSocketUpgrade) {
+      out[key] = value
+      continue
+    }
+
+    if (HOP_BY_HOP_HEADERS.has(lower)) continue
+    if (SENSITIVE_REQUEST_HEADERS.has(lower)) continue
+
+    out[key] = value
+  }
+
+  // Override host to the target
+  out['host'] = targetHost
+
+  // Standard proxy headers
+  const clientIp = clientReq.socket?.remoteAddress || '127.0.0.1'
+  out['x-forwarded-for'] = clientIp
+  out['x-forwarded-proto'] = 'http'
+  out['x-forwarded-host'] = raw['host'] || targetHost
+
+  return out
+}
+
+/**
+ * Sanitize response headers before sending back to the client.
+ *
+ * - Strips hop-by-hop headers
+ * - Removes `set-cookie` to prevent the target from setting cookies on the
+ *   tunnel domain (cookie-tossing prevention)
+ */
+function sanitizeResponseHeaders(
+  raw: http.IncomingHttpHeaders,
+): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {}
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined) continue
+    const lower = key.toLowerCase()
+
+    if (HOP_BY_HOP_HEADERS.has(lower)) continue
+    if (lower === 'set-cookie') continue
+
+    out[key] = value
+  }
+
+  return out
+}
+
+/**
+ * Sanitize a header value by stripping CR/LF characters to prevent CRLF
+ * injection when manually constructing HTTP request lines.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '')
+}
+
+/**
+ * Return true when the incoming request looks like a valid WebSocket upgrade.
+ */
+function isValidWebSocketUpgrade(req: http.IncomingMessage): boolean {
+  const upgrade = (req.headers['upgrade'] || '').toLowerCase()
+  const connection = (req.headers['connection'] || '').toLowerCase()
+  return upgrade === 'websocket' && connection.includes('upgrade')
+}
+
 /**
  * Create an HTTP server that reverse-proxies all requests (including WebSocket
  * upgrade) to the given target URL.
@@ -28,7 +132,7 @@ export function createProxyServer(target: string): http.Server {
       res.end(
         `<html><body style="font-family:sans-serif;padding:40px;text-align:center;">` +
         `<h2>502 Bad Gateway</h2>` +
-        `<p>Cannot reach target server <code>${target}</code></p>` +
+        `<p>Cannot reach the upstream server.</p>` +
         `<p style="color:#888;">Make sure the dev server is running.</p>` +
         `</body></html>`
       )
@@ -45,15 +149,17 @@ export function createProxyServer(target: string): http.Server {
       port: targetPort,
       path: targetPath,
       method: clientReq.method,
-      headers: {
-        ...clientReq.headers,
-        host: targetUrl.host
-      }
+      headers: sanitizeRequestHeaders(
+        clientReq.headers,
+        clientReq,
+        targetUrl.host,
+      ),
     }
 
     const proxyReq = http.request(options, (proxyRes) => {
       httpServer.emit('proxy:success')
-      clientRes.writeHead(proxyRes.statusCode || 502, proxyRes.headers)
+      const headers = sanitizeResponseHeaders(proxyRes.headers)
+      clientRes.writeHead(proxyRes.statusCode || 502, headers)
       proxyRes.pipe(clientRes)
     })
 
@@ -68,17 +174,30 @@ export function createProxyServer(target: string): http.Server {
 
   // WebSocket upgrade handling
   httpServer.on('upgrade', (clientReq, clientSocket, head) => {
+    // TIM-80: Validate the request is actually a WebSocket upgrade
+    if (!isValidWebSocketUpgrade(clientReq)) {
+      log.error('Rejected non-WebSocket upgrade request')
+      try { (clientSocket as net.Socket).destroy() } catch { /* already destroyed */ }
+      return
+    }
+
     const targetPath = targetBasePath + (clientReq.url || '/')
 
     const proxySocket = net.connect(targetPort, targetHost, () => {
       // Build the HTTP upgrade request to forward
-      const reqHeaders = { ...clientReq.headers, host: targetUrl.host }
-      let reqLine = `${clientReq.method} ${targetPath} HTTP/1.1\r\n`
+      const reqHeaders = sanitizeRequestHeaders(
+        clientReq.headers,
+        clientReq,
+        targetUrl.host,
+        true, // isWebSocketUpgrade — preserve the `upgrade` header
+      )
+      // TIM-80: Sanitize values to prevent CRLF injection
+      let reqLine = `GET ${sanitizeHeaderValue(targetPath)} HTTP/1.1\r\n`
       for (const [key, value] of Object.entries(reqHeaders)) {
         if (value !== undefined) {
           const vals = Array.isArray(value) ? value : [value]
           for (const v of vals) {
-            reqLine += `${key}: ${v}\r\n`
+            reqLine += `${sanitizeHeaderValue(key)}: ${sanitizeHeaderValue(v)}\r\n`
           }
         }
       }
