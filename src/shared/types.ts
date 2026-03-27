@@ -121,6 +121,20 @@ export interface StoredProxySite {
 
 export type StoredSite = StoredStaticSite | StoredProxySite
 
+// --- Share History ---
+
+export interface ShareRecord {
+  id: string
+  siteId: string
+  siteName: string
+  sitePath: string // static folder path or proxy target URL
+  tunnelUrl: string
+  providerType: string
+  startedAt: string // ISO 8601
+  endedAt: string | null // null = in progress
+  abnormalEnd: boolean // unexpected termination
+}
+
 // --- Migration ---
 
 export function migrateSite(raw: unknown): StoredSite {
@@ -279,6 +293,11 @@ export interface ElectronAPI {
   onMenuRestartServer: (callback: () => void) => () => void
   onMenuRemoveSite: (callback: () => void) => () => void
   onMenuShowShortcuts: (callback: () => void) => () => void
+
+  // Share History
+  getShareHistory: () => Promise<ShareRecord[]>
+  exportShareHistory: () => Promise<boolean>
+  onShareHistoryChanged: (callback: (records: ShareRecord[]) => void) => () => void
 
   // Auto Update
   getAppVersion: () => Promise<string>

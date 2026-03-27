@@ -1724,3 +1724,123 @@ html, body, #root {
   color: var(--success);
   margin-left: var(--sp-2);
 }
+
+/* ── Share History Panel ────────────────────────────────────── */
+
+.share-history-modal {
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.share-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-3);
+}
+
+.share-history-header-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.share-history-empty {
+  text-align: center;
+  padding: var(--sp-6) var(--sp-4);
+  color: var(--text-tertiary);
+}
+
+.share-history-empty .empty-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-1);
+}
+
+.share-history-empty .empty-desc {
+  font-size: 13px;
+}
+
+.share-history-list {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.share-history-item {
+  background: var(--bg-muted);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.share-history-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-2);
+}
+
+.share-history-site-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.share-history-badges {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.share-history-provider-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.share-history-status-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.share-history-status-badge--active {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.share-history-status-badge--warning {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.share-history-item-detail {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: 12px;
+  padding: 2px 0;
+  line-height: 1.4;
+}
+
+.share-history-label {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  min-width: 52px;
+}
+
+.share-history-value {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.share-history-url {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
