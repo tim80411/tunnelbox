@@ -152,6 +152,12 @@
     "ws": "^8.18.0",
     "zustand": "^5.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "picomatch": ">=4.0.4",
+      "esbuild": ">=0.25.0"
+    }
+  },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/tsconfig": "^2.0.0",
