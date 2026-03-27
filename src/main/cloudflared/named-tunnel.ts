@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { execFile } from 'node:child_process'
+import { promises as dns } from 'node:dns'
 import { ProcessManager } from './process-manager'
 import { findBinary } from './detector'
 import { getAuthStatus } from './auth-manager'
@@ -22,6 +23,32 @@ const reconnectAttempts: Map<string, number> = new Map()
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const BACKOFF_BASE_MS = 2000
+
+/** DNS CNAME verification after tunnel deletion */
+const CNAME_VERIFY_DELAY_MS = 2000
+const CNAME_VERIFY_MAX_RETRIES = 2
+
+/**
+ * Verify that the CNAME record for a domain has been removed.
+ * Returns true if CNAME is gone (safe), false if it still exists (risk).
+ */
+async function verifyCnameRemoved(domain: string): Promise<boolean> {
+  try {
+    const records = await dns.resolveCname(domain)
+    return records.length === 0
+  } catch (err) {
+    // ENOTFOUND / ENODATA means no CNAME exists — this is the expected state
+    if (err instanceof Error && 'code' in err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOTFOUND' || code === 'ENODATA') {
+        return true
+      }
+    }
+    // Other DNS errors (ETIMEOUT, ESERVFAIL) — treat as uncertain, log and assume unsafe
+    log.warn(`DNS lookup error while verifying CNAME removal for ${domain}: ${err instanceof Error ? err.message : String(err)}`)
+    return false
+  }
+}
 
 /** Error patterns for DNS operations */
 const DNS_ERRORS: Array<{ pattern: RegExp; message: string }> = [
@@ -211,7 +238,7 @@ export async function bindFixedDomain(
     stopQuickTunnel(siteId)
   }
 
-  const tunnelName = `tunnelbox-${siteId.slice(0, 8)}`
+  const tunnelName = `tunnelbox-${siteId.slice(0, 12)}`
 
   // Step 1: Create tunnel
   const createOutput = await runCloudflared(binaryPath, ['tunnel', 'create', tunnelName])
@@ -288,6 +315,43 @@ export async function unbindFixedDomain(siteId: string): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     if (!msg.includes('not found') && !msg.includes('does not exist') && !msg.includes('already been deleted')) {
       throw new Error(`刪除 Tunnel 失敗：${msg}`)
+    }
+  }
+
+  // Verify DNS CNAME has been removed to prevent subdomain takeover
+  const domainBinding = siteStore.getDomainBinding(siteId)
+  if (domainBinding) {
+    const domain = domainBinding.domain
+    let cnameRemoved = false
+
+    for (let attempt = 0; attempt <= CNAME_VERIFY_MAX_RETRIES; attempt++) {
+      // Wait for DNS propagation before checking
+      await new Promise((resolve) => setTimeout(resolve, CNAME_VERIFY_DELAY_MS))
+      cnameRemoved = await verifyCnameRemoved(domain)
+      if (cnameRemoved) {
+        log.info(`CNAME record for ${domain} confirmed removed`)
+        break
+      }
+      log.warn(`CNAME record for ${domain} still exists (attempt ${attempt + 1}/${CNAME_VERIFY_MAX_RETRIES + 1})`)
+    }
+
+    if (!cnameRemoved) {
+      log.warn(
+        `[SECURITY] CNAME record for ${domain} was NOT removed after tunnel deletion. ` +
+        `This is a potential subdomain takeover risk. ` +
+        `Please manually verify and remove the DNS record in Cloudflare dashboard.`
+      )
+      // Broadcast warning to user
+      const warningTunnel: TunnelInfo = {
+        type: 'named',
+        status: 'stopped',
+        publicUrl: `https://${domain}`,
+        tunnelId: stored.tunnelId,
+        warningMessage:
+          `DNS CNAME 記錄 ${domain} 在 Tunnel 刪除後仍未移除，存在子網域接管風險。` +
+          `請至 Cloudflare 儀表板手動確認並刪除該 DNS 記錄。`
+      }
+      broadcastTunnelStatus(siteId, warningTunnel)
     }
   }
 
