@@ -16,6 +16,7 @@ import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
 import { setAppMenu } from './app-menu'
 import { registerUpdaterHandlers } from './updater'
 import { initVisitorNotifications } from './visitor-notification'
+import { initNotificationCenter } from './notification-center'
 import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import * as siteStore from './store'
@@ -108,8 +109,9 @@ app.whenReady().then(async () => {
     registerQuickActionHandlers()
     registerRemoteConsoleIpc()
 
-    // Initialize visitor notifications & remote console
+    // Initialize visitor notifications, notification center & remote console
     initVisitorNotifications()
+    initNotificationCenter()
 
 
     // Start local HTTP API for CLI communication

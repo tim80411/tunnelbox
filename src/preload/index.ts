@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -364,6 +364,44 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('visitor-event', handler)
     return () => {
       ipcRenderer.removeListener('visitor-event', handler)
+    }
+  },
+
+  // --- Notification Center ---
+
+  getNotifications: (): Promise<NotificationItem[]> => {
+    return ipcRenderer.invoke('notification-center:get-all')
+  },
+
+  markNotificationRead: (id: string): Promise<void> => {
+    return ipcRenderer.invoke('notification-center:mark-read', id)
+  },
+
+  markAllNotificationsRead: (): Promise<void> => {
+    return ipcRenderer.invoke('notification-center:mark-all-read')
+  },
+
+  getUnreadNotificationCount: (): Promise<number> => {
+    return ipcRenderer.invoke('notification-center:get-unread-count')
+  },
+
+  onNewNotification: (callback: (item: NotificationItem) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, item: NotificationItem): void => {
+      callback(item)
+    }
+    ipcRenderer.on('notification-center:new', handler)
+    return () => {
+      ipcRenderer.removeListener('notification-center:new', handler)
+    }
+  },
+
+  onNotificationsUpdated: (callback: (unreadCount: number) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, unreadCount: number): void => {
+      callback(unreadCount)
+    }
+    ipcRenderer.on('notification-center:updated', handler)
+    return () => {
+      ipcRenderer.removeListener('notification-center:updated', handler)
     }
   },
 
