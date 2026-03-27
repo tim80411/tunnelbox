@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
 import { statSync } from 'fs'
 import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -351,6 +351,26 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('tunnel-status-changed', handler)
     return () => {
       ipcRenderer.removeListener('tunnel-status-changed', handler)
+    }
+  },
+
+  // --- Share History ---
+
+  getShareHistory: (): Promise<ShareRecord[]> => {
+    return ipcRenderer.invoke('share-history:get-records')
+  },
+
+  exportShareHistory: (): Promise<boolean> => {
+    return ipcRenderer.invoke('share-history:export')
+  },
+
+  onShareHistoryChanged: (callback: (records: ShareRecord[]) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, records: ShareRecord[]): void => {
+      callback(records)
+    }
+    ipcRenderer.on('share-history-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('share-history-changed', handler)
     }
   },
 

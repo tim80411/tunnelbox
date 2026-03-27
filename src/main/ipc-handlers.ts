@@ -1,6 +1,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
+import * as shareHistoryStore from './share-history-store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import { DOMAIN_REGEX } from '../shared/types'
 import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
@@ -101,6 +102,33 @@ export function registerIpcHandlers(
     }
   }
 
+  function broadcastShareHistoryChanged(): void {
+    const records = shareHistoryStore.getRecords()
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      win.webContents.send('share-history-changed', records)
+    }
+  }
+
+  function getSitePath(server: SiteServer): string {
+    if (server.serveMode === 'proxy') return server.proxyTarget
+    return server.folderPath
+  }
+
+  function recordTunnelStart(server: SiteServer, tunnelUrl: string, providerType: string): void {
+    shareHistoryStore.startRecord(
+      { id: server.id, name: server.name, sitePath: getSitePath(server) },
+      tunnelUrl,
+      providerType
+    )
+    broadcastShareHistoryChanged()
+  }
+
+  function recordTunnelEnd(siteId: string): void {
+    shareHistoryStore.endRecord(siteId)
+    broadcastShareHistoryChanged()
+  }
+
   // --- Site Management ---
 
   ipcMain.handle('add-site', async (_event, params: AddSiteParams) => {
@@ -167,6 +195,7 @@ export function registerIpcHandlers(
       // Best-effort tunnel stop — don't block removal
       try {
         await tunnelManager.getForSite(id).stopTunnel(id)
+        recordTunnelEnd(id)
       } catch {
         /* ignore */
       }
@@ -234,6 +263,7 @@ export function registerIpcHandlers(
       // Best-effort tunnel stop — don't block server stop
       try {
         await tunnelManager.getForSite(id).stopTunnel(id)
+        recordTunnelEnd(id)
       } catch {
         /* ignore */
       }
@@ -296,6 +326,7 @@ export function registerIpcHandlers(
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const url = await cfProvider.startTunnel(siteId, server.port, { mode: 'quick' })
+      recordTunnelStart(server, url, 'cloudflare')
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -306,6 +337,7 @@ export function registerIpcHandlers(
   ipcMain.handle('stop-tunnel', async (_event, siteId: string) => {
     try {
       await tunnelManager.getForSite(siteId).stopTunnel(siteId)
+      recordTunnelEnd(siteId)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Tunnel 失敗')
@@ -376,6 +408,7 @@ export function registerIpcHandlers(
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const url = await cfProvider.bindDomain!(siteId, server.port, domain)
+      recordTunnelStart(server, url, 'cloudflare')
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -399,6 +432,11 @@ export function registerIpcHandlers(
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       await cfProvider.startTunnel(siteId, server.port, { mode: 'named' })
+      // Get the tunnel URL from provider info after start
+      const providerInfo = tunnelManager.getTunnelInfoAcrossProviders(siteId)
+      if (providerInfo?.publicUrl) {
+        recordTunnelStart(server, providerInfo.publicUrl, 'cloudflare')
+      }
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '啟動 Named Tunnel 失敗')
@@ -408,6 +446,7 @@ export function registerIpcHandlers(
   ipcMain.handle('stop-named-tunnel', async (_event, siteId: string) => {
     try {
       await cfProvider.stopTunnel(siteId)
+      recordTunnelEnd(siteId)
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '停止 Named Tunnel 失敗')
@@ -472,6 +511,7 @@ export function registerIpcHandlers(
 
       const frpProvider = tunnelManager.get('frp')
       const url = await frpProvider.startTunnel(siteId, server.port, opts)
+      recordTunnelStart(server, url, 'frp')
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -546,6 +586,7 @@ export function registerIpcHandlers(
 
       const boreProvider = tunnelManager.get('bore')
       const url = await boreProvider.startTunnel(siteId, server.port, opts)
+      recordTunnelStart(server, url, 'bore')
       broadcastSiteUpdate()
       return url
     } catch (err) {
@@ -577,6 +618,40 @@ export function registerIpcHandlers(
       broadcastSiteUpdate()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '清除預設網域失敗')
+    }
+  })
+
+  // --- Share History ---
+
+  ipcMain.handle('share-history:get-records', async () => {
+    try {
+      return shareHistoryStore.getRecords()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得分享紀錄失敗')
+    }
+  })
+
+  ipcMain.handle('share-history:export', async () => {
+    try {
+      const records = shareHistoryStore.getRecords()
+      if (records.length === 0) {
+        throw new Error('沒有紀錄可匯出')
+      }
+
+      const result = await dialog.showSaveDialog({
+        title: '匯出分享紀錄',
+        defaultPath: `tunnelbox-share-history-${new Date().toISOString().slice(0, 10)}.csv`,
+        filters: [{ name: 'CSV', extensions: ['csv'] }]
+      })
+
+      if (result.canceled || !result.filePath) {
+        return false
+      }
+
+      shareHistoryStore.exportToCsv(result.filePath)
+      return true
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '匯出分享紀錄失敗')
     }
   })
 

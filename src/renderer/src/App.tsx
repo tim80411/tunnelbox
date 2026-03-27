@@ -6,6 +6,7 @@ import CopyButton from './components/CopyButton'
 import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
+import ShareHistoryPanel from './components/ShareHistoryPanel'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
@@ -35,6 +36,7 @@ function App(): React.ReactElement {
   // Panel state
   const [showSettings, setShowSettings] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showShareHistory, setShowShareHistory] = useState(false)
   const { settings, update: updateSettings } = useSettings()
   const {
     state: updateState, appVersion, forceUpdate,
@@ -377,7 +379,7 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || showShortcuts || !!confirmRemove
+  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
@@ -453,6 +455,15 @@ function App(): React.ReactElement {
               {installingQuickAction ? 'Installing...' : 'Setup Right-Click'}
             </button>
           )}
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowShareHistory((v) => !v)}
+            title="Share History"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 1C4.1 1 1 4.1 1 8C1 11.9 4.1 15 8 15C11.9 15 15 11.9 15 8C15 4.1 11.9 1 8 1ZM8 13.5C4.9 13.5 2.5 11.1 2.5 8C2.5 4.9 4.9 2.5 8 2.5C11.1 2.5 13.5 4.9 13.5 8C13.5 11.1 11.1 13.5 8 13.5ZM8.5 4.5H7V9L11 11.3L11.8 10L8.5 8.2V4.5Z" fill="currentColor"/>
+            </svg>
+          </button>
           <button
             className="btn btn-icon"
             onClick={() => setShowSettings((v) => !v)}
@@ -762,6 +773,11 @@ function App(): React.ReactElement {
           </div>
         </div>
       )}
+
+      <ShareHistoryPanel
+        open={showShareHistory}
+        onClose={() => setShowShareHistory(false)}
+      />
 
       <ShortcutsPanel
         open={showShortcuts}

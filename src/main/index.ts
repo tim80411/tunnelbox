@@ -17,6 +17,7 @@ import { setAppMenu } from './app-menu'
 import { registerUpdaterHandlers } from './updater'
 import { createLogger } from './logger'
 import * as siteStore from './store'
+import { markAbnormalEnds } from './share-history-store'
 
 const log = createLogger('Main')
 
@@ -97,6 +98,9 @@ app.whenReady().then(async () => {
   try {
     // Initialize WebSocket server for hot reload
     await serverManager.initWebSocket()
+
+    // Mark any share records from previous session as abnormally ended
+    markAbnormalEnds()
 
     // Register IPC handlers
     registerIpcHandlers(serverManager, tunnelManager)
