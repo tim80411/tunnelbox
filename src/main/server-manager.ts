@@ -103,7 +103,7 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
   return `
 <script>
 (function() {
-  var protocol = 'ws:';
+  var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   var host = location.hostname || 'localhost';
   var wsUrl = protocol + '//' + host + ':' + ${wsPort} + '/?siteId=' + encodeURIComponent('${siteId}');
   var maxRetries = 10;
