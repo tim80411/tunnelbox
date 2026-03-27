@@ -4,6 +4,9 @@ import type { BinaryInstallerConfig } from '../shared/binary-installer'
 
 const RELEASES_BASE = 'https://github.com/fatedier/frp/releases/latest/download'
 
+/** URL for the SHA256 checksums file published with each frp release */
+const CHECKSUMS_URL = `${RELEASES_BASE}/frp_sha256_checksums.txt`
+
 function getFrpInstallerConfig(): BinaryInstallerConfig {
   const binaryPath = getLocalBinaryPath()
   return {
@@ -27,7 +30,8 @@ function getFrpInstallerConfig(): BinaryInstallerConfig {
       }
       return extractTarGz(archivePath, destDir, binaryName)
     },
-    versionArgs: ['--version']
+    versionArgs: ['--version'],
+    checksumUrl: CHECKSUMS_URL,
   }
 }
 
