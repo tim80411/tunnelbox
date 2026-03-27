@@ -1,5 +1,16 @@
 export const PORT_MIN = 1
 export const PORT_MAX = 65535
+export const PRIVILEGED_PORT_THRESHOLD = 1024
+
+/**
+ * Check whether a port number falls in the privileged range (1-1024).
+ * Privileged ports are typically reserved for system services (e.g. SSH on 22,
+ * HTTP on 80, HTTPS on 443) and exposing them through a tunnel may
+ * accidentally reveal sensitive services.
+ */
+export function isPrivilegedPort(port: number): boolean {
+  return port >= PORT_MIN && port <= PRIVILEGED_PORT_THRESHOLD
+}
 
 /**
  * Normalize a proxy target input string.
@@ -47,4 +58,28 @@ export function extractPort(url: string): number {
   const parsed = new URL(url)
   if (parsed.port) return Number(parsed.port)
   return parsed.protocol === 'https:' ? 443 : 80
+}
+
+/**
+ * Return an array of warning messages for a normalized proxy target URL.
+ * Callers can display these warnings in the UI without blocking the operation.
+ *
+ * Currently checks:
+ * - Privileged port (1-1024): may accidentally expose system services.
+ */
+export function getProxyTargetWarnings(target: string): string[] {
+  const warnings: string[] = []
+
+  try {
+    const port = extractPort(target)
+    if (isPrivilegedPort(port)) {
+      warnings.push(
+        `Port ${port} 是特權埠 (1-${PRIVILEGED_PORT_THRESHOLD})，可能會意外暴露系統服務（如 SSH、資料庫）。請確認這是您要代理的服務。`
+      )
+    }
+  } catch {
+    // target is not a valid URL — skip port-level warnings
+  }
+
+  return warnings
 }
