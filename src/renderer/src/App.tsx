@@ -8,6 +8,7 @@ import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import ShareHistoryPanel from './components/ShareHistoryPanel'
 import RemoteConsolePanel from './components/RemoteConsolePanel'
+import NotificationBell from './components/NotificationBell'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
@@ -457,6 +458,7 @@ function App(): React.ReactElement {
               {installingQuickAction ? 'Installing...' : 'Setup Right-Click'}
             </button>
           )}
+          <NotificationBell />
           <button
             className="btn btn-icon"
             onClick={() => setShowShareHistory((v) => !v)}
