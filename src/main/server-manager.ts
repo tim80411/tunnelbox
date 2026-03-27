@@ -15,6 +15,11 @@ import type { StoredSite } from '../shared/types'
 const log = createLogger('ServerManager')
 const PORT_RANGE = Array.from({ length: 6001 }, (_, i) => 3000 + i)
 
+/** Maximum WebSocket connections per siteId. */
+const MAX_WS_PER_SITE = 100
+/** Maximum total WebSocket connections across all sites. */
+const MAX_WS_GLOBAL = 500
+
 // ---------- Types ----------
 
 interface BaseSiteServer {
@@ -125,6 +130,14 @@ export class ServerManager {
           ws.close(1008, 'Forbidden: invalid origin')
           return
         }
+      }
+
+      // Enforce global WebSocket connection limit
+      const totalConnections = this.getTotalWsConnectionCount()
+      if (totalConnections >= MAX_WS_GLOBAL) {
+        log.warn(`Global WebSocket limit reached (${MAX_WS_GLOBAL}), rejecting connection`)
+        ws.close(1013, 'Try Again Later – global connection limit reached')
+        return
       }
 
       const url = new URL(req.url || '/', `http://localhost:${this.globalWsPort}`)
@@ -580,6 +593,15 @@ export class ServerManager {
    */
   generateId(): string {
     return crypto.randomUUID()
+  }
+
+  /** Count total WebSocket connections across all sites. */
+  private getTotalWsConnectionCount(): number {
+    let total = 0
+    for (const clients of this.wsClients.values()) {
+      total += clients.size
+    }
+    return total
   }
 
   // ---------- Private: Shared Helpers ----------

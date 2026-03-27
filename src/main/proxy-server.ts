@@ -1,6 +1,7 @@
 import http from 'node:http'
 import net from 'node:net'
 import { createLogger } from './logger'
+import { acquireConnection, releaseConnection } from './rate-limiter'
 
 const log = createLogger('ProxyServer')
 
@@ -108,6 +109,9 @@ function isValidWebSocketUpgrade(req: http.IncomingMessage): boolean {
   return upgrade === 'websocket' && connection.includes('upgrade')
 }
 
+/** Maximum concurrent connections per proxy target. */
+const MAX_CONNECTIONS_PER_TARGET = 100
+
 /**
  * Create an HTTP server that reverse-proxies all requests (including WebSocket
  * upgrade) to the given target URL.
@@ -141,7 +145,35 @@ export function createProxyServer(target: string): http.Server {
     }
   }
 
+  const connectionKey = `proxy:${target}`
+
+  function error503(res: http.ServerResponse): void {
+    if (!res.headersSent) {
+      res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(
+        `<html><body style="font-family:sans-serif;padding:40px;text-align:center;">` +
+        `<h2>503 Service Unavailable</h2>` +
+        `<p>Too many concurrent connections to <code>${target}</code></p>` +
+        `</body></html>`
+      )
+    } else {
+      res.end()
+    }
+  }
+
   const httpServer = http.createServer((clientReq, clientRes) => {
+    // Enforce concurrent connection limit per proxy target
+    if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
+      log.warn(`Connection limit reached for proxy target ${target}`)
+      error503(clientRes)
+      return
+    }
+
+    // Release the connection slot when the response finishes or errors
+    const release = (): void => { releaseConnection(connectionKey) }
+    clientRes.on('close', release)
+    clientRes.on('error', release)
+
     const targetPath = targetBasePath + (clientReq.url || '/')
 
     const options: http.RequestOptions = {
@@ -180,6 +212,18 @@ export function createProxyServer(target: string): http.Server {
       try { (clientSocket as net.Socket).destroy() } catch { /* already destroyed */ }
       return
     }
+
+    // Enforce concurrent connection limit for WS upgrades too
+    if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
+      log.warn(`Connection limit reached (WS upgrade) for proxy target ${target}`)
+      const sock = clientSocket as net.Socket
+      sock.write('HTTP/1.1 503 Service Unavailable\r\n\r\n')
+      sock.destroy()
+      return
+    }
+
+    const releaseWs = (): void => { releaseConnection(connectionKey) }
+    ;(clientSocket as net.Socket).on('close', releaseWs)
 
     const targetPath = targetBasePath + (clientReq.url || '/')
 
