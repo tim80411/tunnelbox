@@ -6,9 +6,60 @@ import { startQuickTunnel, stopQuickTunnel, hasTunnel, getTunnelInfo } from './c
 import { loginCloudflare, logoutCloudflare, getAuthStatus } from './cloudflared'
 import { bindFixedDomain, unbindFixedDomain } from './cloudflared'
 import { installCloudflared, detectCloudflared } from './cloudflared'
+import { checkRateLimit, startCleanup, stopCleanup } from './rate-limiter'
 import type { ServerManager } from './server-manager'
 
 const log = createLogger('ApiServer')
+
+// ---------- Rate-limit constants ----------
+const GENERAL_RATE_LIMIT = 60 // requests per window
+const TUNNEL_RATE_LIMIT = 10 // requests per window for tunnel start/stop
+const RATE_WINDOW_MS = 60 * 1000 // 1 minute
+
+/** Tunnel operation paths that get a stricter rate limit. */
+const TUNNEL_OP_PATHS = new Set([
+  '/tunnel/quick',
+  '/tunnel/stop',
+  '/domain/bind',
+  '/domain/unbind'
+])
+
+/** Extract client IP from an incoming request. */
+function getClientIp(req: http.IncomingMessage): string {
+  // Behind a reverse-proxy the real IP may be in X-Forwarded-For
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim()
+  }
+  return req.socket.remoteAddress || 'unknown'
+}
+
+/**
+ * Rate-limit middleware.  Returns `true` if the request is allowed to proceed,
+ * or sends a 429 response and returns `false`.
+ */
+function applyRateLimit(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const ip = getClientIp(req)
+  const urlPath = req.url?.split('?')[0] || '/'
+
+  // Stricter limit for tunnel start/stop operations
+  if (TUNNEL_OP_PATHS.has(urlPath)) {
+    if (!checkRateLimit(`${ip}:tunnel`, TUNNEL_RATE_LIMIT, RATE_WINDOW_MS)) {
+      json(res, 429, { error: 'Too Many Requests – tunnel operation rate limit exceeded' })
+      log.warn(`Rate limit exceeded (tunnel) for IP ${ip}`)
+      return false
+    }
+  }
+
+  // General per-IP limit
+  if (!checkRateLimit(ip, GENERAL_RATE_LIMIT, RATE_WINDOW_MS)) {
+    json(res, 429, { error: 'Too Many Requests' })
+    log.warn(`Rate limit exceeded (general) for IP ${ip}`)
+    return false
+  }
+
+  return true
+}
 
 let server: http.Server | null = null
 let serverManager: ServerManager
@@ -189,6 +240,9 @@ async function handleEnvCheck(_req: http.IncomingMessage, res: http.ServerRespon
 
 /** Request router. */
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  // Enforce rate limits before routing
+  if (!applyRateLimit(req, res)) return
+
   const url = req.url?.split('?')[0] || '/'
   const method = req.method || 'GET'
 
@@ -226,6 +280,9 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
 export async function initApiServer(manager: ServerManager): Promise<void> {
   serverManager = manager
 
+  // Start periodic cleanup of stale rate-limit entries (every 5 min)
+  startCleanup()
+
   const port = await getPort({ port: Array.from({ length: 100 }, (_, i) => 47321 + i) })
 
   server = http.createServer(handleRequest)
@@ -247,6 +304,8 @@ export async function initApiServer(manager: ServerManager): Promise<void> {
  * Stop the local HTTP API server and remove the discovery file.
  */
 export async function stopApiServer(): Promise<void> {
+  stopCleanup()
+
   if (!server) {
     deleteApiInfo()
     return
