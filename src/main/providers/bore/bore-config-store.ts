@@ -29,13 +29,15 @@ export function getBoreConfig(): BoreServerConfig | null {
 
     let secret: string | undefined
     if (raw.encryptedSecret) {
-      try {
-        if (safeStorage.isEncryptionAvailable()) {
+      if (!safeStorage.isEncryptionAvailable()) {
+        log.warn('safeStorage encryption not available — cannot decrypt stored secret')
+      } else {
+        try {
           const buffer = Buffer.from(raw.encryptedSecret, 'base64')
           secret = safeStorage.decryptString(buffer)
+        } catch (err) {
+          log.warn('Failed to decrypt bore secret:', err)
         }
-      } catch (err) {
-        log.warn('Failed to decrypt bore secret:', err)
       }
     }
 
@@ -54,13 +56,13 @@ export function saveBoreConfig(config: BoreServerConfig): void {
   try {
     let encryptedSecret: string | undefined
     if (config.secret) {
-      if (safeStorage.isEncryptionAvailable()) {
-        const buffer = safeStorage.encryptString(config.secret)
-        encryptedSecret = buffer.toString('base64')
-      } else {
-        log.warn('safeStorage encryption not available, storing secret in plaintext')
-        encryptedSecret = Buffer.from(config.secret).toString('base64')
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error(
+          'OS 加密功能無法使用，無法安全儲存 secret。請確認系統鑰匙圈 (Keychain) 已解鎖。',
+        )
       }
+      const buffer = safeStorage.encryptString(config.secret)
+      encryptedSecret = buffer.toString('base64')
     }
 
     store.set('boreConfig', {
@@ -70,6 +72,7 @@ export function saveBoreConfig(config: BoreServerConfig): void {
     })
   } catch (err) {
     log.error('Failed to save bore config:', err)
+    throw err
   }
 }
 

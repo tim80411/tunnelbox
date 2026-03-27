@@ -5,6 +5,7 @@ import { getAppDataDir } from './paths'
 export interface ApiInfo {
   port: number
   pid: number
+  token?: string
 }
 
 export function getApiInfoPath(): string {

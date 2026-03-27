@@ -14,7 +14,9 @@ export function getSettings(): AppSettings {
   try {
     return {
       autoStartServers: store.get('autoStartServers'),
-      defaultServeMode: store.get('defaultServeMode')
+      defaultServeMode: store.get('defaultServeMode'),
+      visitorNotifications: store.get('visitorNotifications') ?? DEFAULT_SETTINGS.visitorNotifications,
+      remoteConsoleEnabled: store.get('remoteConsoleEnabled') ?? DEFAULT_SETTINGS.remoteConsoleEnabled
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
@@ -29,6 +31,12 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     }
     if (patch.defaultServeMode !== undefined) {
       store.set('defaultServeMode', patch.defaultServeMode)
+    }
+    if (patch.visitorNotifications !== undefined) {
+      store.set('visitorNotifications', patch.visitorNotifications)
+    }
+    if (patch.remoteConsoleEnabled !== undefined) {
+      store.set('remoteConsoleEnabled', patch.remoteConsoleEnabled)
     }
     return getSettings()
   } catch (err) {

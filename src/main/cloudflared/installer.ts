@@ -4,11 +4,15 @@ import { createWriteStream } from 'node:fs'
 import { net } from 'electron'
 import { getLocalBinaryPath } from './detector'
 import { createLogger } from '../logger'
+import { downloadAndVerifyChecksum } from '../providers/shared/checksum'
 
 const log = createLogger('Installer')
 
 /** GitHub releases base URL for cloudflared */
 const RELEASES_BASE = 'https://github.com/cloudflare/cloudflared/releases/latest/download'
+
+/** URL for the SHA256 checksums file published with each cloudflared release */
+const CHECKSUMS_URL = `${RELEASES_BASE}/cloudflared-sha256sums.txt`
 
 /** Get the platform-specific download URL */
 function getDownloadUrl(): string {
@@ -44,6 +48,10 @@ function downloadFile(url: string, destPath: string): Promise<void> {
         const redirectUrl = Array.isArray(response.headers.location)
           ? response.headers.location[0]
           : response.headers.location
+        if (!redirectUrl.startsWith('https://')) {
+          reject(new Error(`安全性錯誤：拒絕重新導向至非 HTTPS 網址：${redirectUrl}`))
+          return
+        }
         try {
           await downloadFile(redirectUrl, destPath)
           resolve()
@@ -101,11 +109,16 @@ export async function installCloudflared(): Promise<string> {
   const downloadUrl = getDownloadUrl()
   const isTgz = downloadUrl.endsWith('.tgz')
 
+  // Determine the filename used in the checksum file
+  const downloadFilename = path.basename(downloadUrl)
+
   if (isTgz) {
     // macOS: download tgz, extract
     const tgzPath = path.join(binDir, 'cloudflared.tgz')
     try {
       await downloadFile(downloadUrl, tgzPath)
+      // Verify SHA256 checksum before extraction
+      await downloadAndVerifyChecksum(tgzPath, CHECKSUMS_URL, downloadFilename)
       await extractTgz(tgzPath, binDir)
       // Cleanup tgz
       fs.unlinkSync(tgzPath)
@@ -117,6 +130,8 @@ export async function installCloudflared(): Promise<string> {
   } else {
     // Windows/Linux: download binary directly
     await downloadFile(downloadUrl, binaryPath)
+    // Verify SHA256 checksum
+    await downloadAndVerifyChecksum(binaryPath, CHECKSUMS_URL, downloadFilename)
   }
 
   // Make executable on unix

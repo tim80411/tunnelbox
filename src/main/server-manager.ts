@@ -10,10 +10,16 @@ import { createLogger } from './logger'
 import { createProxyServer } from './proxy-server'
 import { PortHealthChecker } from './port-health-checker'
 import { extractPort } from '../shared/proxy-utils'
+import { visitorTracker } from './visitor-tracker'
+import { getSettings } from './settings-store'
+import { handleConsoleMessage } from './remote-console'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
 const PORT_RANGE = Array.from({ length: 6001 }, (_, i) => 3000 + i)
+
+/** Maximum total WebSocket connections across all sites. */
+const MAX_WS_GLOBAL = 500
 
 // ---------- Types ----------
 
@@ -23,6 +29,7 @@ interface BaseSiteServer {
   port: number
   status: 'running' | 'stopped' | 'error'
   httpServer?: http.Server
+  wsServer?: WebSocketServer
 }
 
 export interface StaticSiteServer extends BaseSiteServer {
@@ -45,25 +52,76 @@ export type FileChangeCallback = (siteId: string) => void
 
 // ---------- Hot Reload Script ----------
 
-function getReloadClientScript(wsPort: number, siteId: string): string {
+function getReloadClientScript(siteId: string): string {
+  const settings = getSettings()
+  const consoleForwarding = settings.remoteConsoleEnabled
+
+  let consoleScript = ''
+  if (consoleForwarding) {
+    consoleScript = `
+  // --- Console Forwarding ---
+  var _tbSessionId = Math.random().toString(36).slice(2);
+  var _tbOrigLog = console.log;
+  var _tbOrigWarn = console.warn;
+  var _tbOrigError = console.error;
+  var _tbQueue = [];
+  var _tbSending = false;
+
+  function _tbSend(level, args) {
+    var payload = JSON.stringify({
+      type: 'console',
+      level: level,
+      args: Array.prototype.slice.call(args).map(function(a) {
+        try {
+          if (a instanceof Error) return { __error: true, message: a.message, stack: a.stack };
+          return JSON.parse(JSON.stringify(a));
+        } catch(e) { return String(a); }
+      }),
+      timestamp: Date.now(),
+      sessionId: _tbSessionId
+    });
+    _tbQueue.push(payload);
+    _tbFlush();
+  }
+
+  function _tbFlush() {
+    if (_tbSending || _tbQueue.length === 0) return;
+    _tbSending = true;
+    setTimeout(function() {
+      var batch = _tbQueue.splice(0, 20);
+      for (var i = 0; i < batch.length; i++) {
+        try { if (_tbWs && _tbWs.readyState === 1) _tbWs.send(batch[i]); } catch(e) {}
+      }
+      _tbSending = false;
+      if (_tbQueue.length > 0) _tbFlush();
+    }, 50);
+  }
+
+  console.log = function() { _tbOrigLog.apply(console, arguments); _tbSend('log', arguments); };
+  console.warn = function() { _tbOrigWarn.apply(console, arguments); _tbSend('warn', arguments); };
+  console.error = function() { _tbOrigError.apply(console, arguments); _tbSend('error', arguments); };`
+  }
+
   return `
 <script>
 (function() {
-  var protocol = 'ws:';
-  var host = location.hostname || 'localhost';
-  var wsUrl = protocol + '//' + host + ':' + ${wsPort} + '/?siteId=' + encodeURIComponent('${siteId}');
+  var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = protocol + '//' + location.host + '/__tb_ws?siteId=' + encodeURIComponent('${siteId}');
   var maxRetries = 10;
   var retryCount = 0;
   var retryDelay = 1000;
-
+  var _tbWs = null;
+${consoleScript}
   function connect() {
     var ws = new WebSocket(wsUrl);
+    _tbWs = ws;
     ws.onmessage = function(event) {
       if (event.data === 'reload') {
         location.reload();
       }
     };
     ws.onclose = function() {
+      _tbWs = null;
       if (retryCount < maxRetries) {
         retryCount++;
         setTimeout(connect, retryDelay);
@@ -84,6 +142,8 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
 export type StatusChangeCallback = (siteId: string, status: 'running' | 'error') => void
 
 const PROXY_ERROR_THRESHOLD_MS = 30_000
+const MAX_WS_CONNECTIONS_PER_SITE = 100
+const MAX_HTML_INJECTION_SIZE = 50 * 1024 * 1024 // 50 MB — skip reload script injection for larger responses
 
 export class ServerManager {
   private servers: Map<string, SiteServer> = new Map()
@@ -91,29 +151,58 @@ export class ServerManager {
   private statusChangeCallbacks: Set<StatusChangeCallback> = new Set()
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
   private proxyErrorStart: Map<string, number> = new Map() // siteId -> first error timestamp
-
-  // Global WebSocket server for all sites
-  private globalWsServer: WebSocketServer | null = null
-  private globalWsPort: number = 0
   private wsClients: Map<string, Set<WebSocket>> = new Map() // siteId -> connected clients
 
   /**
-   * Initialize the global WebSocket server used for hot reload.
-   * Must be called before starting any site servers.
+   * Attach a WebSocket server to an HTTP server for hot reload and console forwarding.
+   * WS connections use the same port as the HTTP server via upgrade handling.
    */
-  async initWebSocket(): Promise<void> {
-    this.globalWsPort = await getPort({ port: Array.from({ length: 100 }, (_, i) => 9100 + i) })
+  private attachWebSocket(httpServer: http.Server, siteId: string): WebSocketServer {
+    const wss = new WebSocketServer({ noServer: true })
 
-    this.globalWsServer = new WebSocketServer({ host: '0.0.0.0', port: this.globalWsPort })
+    httpServer.on('upgrade', (req, socket, head) => {
+      // Only handle our custom path
+      const url = new URL(req.url || '/', `http://localhost`)
+      if (url.pathname !== '/__tb_ws') {
+        socket.destroy()
+        return
+      }
 
-    this.globalWsServer.on('connection', (ws, req) => {
-      const url = new URL(req.url || '/', `http://localhost:${this.globalWsPort}`)
-      const siteId = url.searchParams.get('siteId') || ''
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req)
+      })
+    })
 
+    wss.on('connection', (ws) => {
+      // Enforce global WebSocket connection limit
+      const totalConnections = this.getTotalWsConnectionCount()
+      if (totalConnections >= MAX_WS_GLOBAL) {
+        log.warn(`Global WebSocket limit reached (${MAX_WS_GLOBAL}), rejecting connection`)
+        ws.close(1013, 'Try Again Later – global connection limit reached')
+        return
+      }
+
+      // Enforce per-site connection limit
       if (!this.wsClients.has(siteId)) {
         this.wsClients.set(siteId, new Set())
       }
-      this.wsClients.get(siteId)!.add(ws)
+      const clients = this.wsClients.get(siteId)!
+      if (clients.size >= MAX_WS_CONNECTIONS_PER_SITE) {
+        log.warn(`WebSocket connection rejected: site "${siteId}" reached limit of ${MAX_WS_CONNECTIONS_PER_SITE} connections`)
+        ws.close(1013, 'Too many connections')
+        return
+      }
+      clients.add(ws)
+
+      // Handle console forwarding messages
+      ws.on('message', (rawData) => {
+        try {
+          const data = typeof rawData === 'string' ? rawData : rawData.toString()
+          handleConsoleMessage(data, siteId)
+        } catch (err) {
+          log.error('Error processing WS message:', err)
+        }
+      })
 
       ws.on('close', () => {
         this.wsClients.get(siteId)?.delete(ws)
@@ -124,11 +213,11 @@ export class ServerManager {
       })
     })
 
-    this.globalWsServer.on('error', (err) => {
-      log.error('WebSocket server error:', err)
+    wss.on('error', (err) => {
+      log.error(`WebSocket server error for site ${siteId}:`, err)
     })
 
-    log.info(`Global WebSocket server started on port ${this.globalWsPort}`)
+    return wss
   }
 
   /**
@@ -152,7 +241,7 @@ export class ServerManager {
 
   // ---------- Private: Static Server ----------
 
-  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string }): Promise<StaticSiteServer> {
+  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean }): Promise<StaticSiteServer> {
     // Validate folder exists and is readable
     try {
       const stat = fs.statSync(site.folderPath)
@@ -168,18 +257,22 @@ export class ServerManager {
     }
 
     const port = await this.allocatePort()
-    const wsPort = this.globalWsPort
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
     const httpServer = http.createServer((req, res) => {
       // Prevent browser caching — different sites may reuse the same port
       res.setHeader('Cache-Control', 'no-store')
 
+      // Track visitor if request comes through tunnel
+      visitorTracker.trackRequest(req, site.id, site.name)
+
       // Intercept HTML responses to inject reload script
       const originalWriteHead = res.writeHead.bind(res)
       const originalEnd = res.end.bind(res)
       let isHtml = false
       let chunks: Buffer[] = []
+      let bufferSize = 0
+      let bufferOverflow = false
 
       res.writeHead = function (
         statusCode: number,
@@ -213,11 +306,21 @@ export class ServerManager {
         chunk: unknown,
         ...args: unknown[]
       ): boolean {
-        if (isHtml) {
-          if (Buffer.isBuffer(chunk)) {
-            chunks.push(chunk)
-          } else if (typeof chunk === 'string') {
-            chunks.push(Buffer.from(chunk))
+        if (isHtml && !bufferOverflow) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : typeof chunk === 'string' ? Buffer.from(chunk) : null
+          if (buf) {
+            bufferSize += buf.length
+            if (bufferSize > MAX_HTML_INJECTION_SIZE) {
+              // Buffer limit exceeded — flush accumulated chunks and switch to passthrough
+              log.warn(`HTML response for "${site.name}" exceeds ${MAX_HTML_INJECTION_SIZE} bytes, skipping reload script injection`)
+              bufferOverflow = true
+              for (const buffered of chunks) {
+                (originalWrite as (...a: unknown[]) => boolean)(buffered)
+              }
+              chunks = []
+              return (originalWrite as (...a: unknown[]) => boolean)(buf)
+            }
+            chunks.push(buf)
           }
           return true
         }
@@ -225,16 +328,23 @@ export class ServerManager {
       } as typeof res.write
 
       res.end = function (...args: unknown[]): http.ServerResponse {
-        if (isHtml) {
+        if (isHtml && !bufferOverflow) {
           if (args[0]) {
-            if (Buffer.isBuffer(args[0])) {
-              chunks.push(args[0])
-            } else if (typeof args[0] === 'string') {
-              chunks.push(Buffer.from(args[0]))
+            const buf = Buffer.isBuffer(args[0]) ? args[0] : typeof args[0] === 'string' ? Buffer.from(args[0]) : null
+            if (buf) {
+              bufferSize += buf.length
+              if (bufferSize > MAX_HTML_INJECTION_SIZE) {
+                log.warn(`HTML response for "${site.name}" exceeds ${MAX_HTML_INJECTION_SIZE} bytes, skipping reload script injection`)
+                for (const buffered of chunks) {
+                  (originalWrite as (...a: unknown[]) => boolean)(buffered)
+                }
+                return (originalEnd as (...a: unknown[]) => http.ServerResponse)(buf)
+              }
+              chunks.push(buf)
             }
           }
           let body = Buffer.concat(chunks).toString('utf-8')
-          const script = getReloadClientScript(wsPort, site.id)
+          const script = getReloadClientScript(site.id)
 
           // Inject before </body> or at end
           if (body.includes('</body>')) {
@@ -267,9 +377,12 @@ export class ServerManager {
 
       handler(req, res, {
         public: site.folderPath,
-        directoryListing: true
+        directoryListing: site.directoryListing === true
       })
     })
+
+    // Attach WebSocket server on the same port via upgrade handling
+    const wsServer = this.attachWebSocket(httpServer, site.id)
 
     // Start listening on all interfaces (0.0.0.0) so LAN devices can access
     await this.listenOnPort(httpServer, port)
@@ -285,6 +398,7 @@ export class ServerManager {
       port,
       status: 'running',
       httpServer,
+      wsServer,
       watcher
     }
 
@@ -300,6 +414,11 @@ export class ServerManager {
     const port = await this.allocatePort()
 
     const httpServer = createProxyServer(site.proxyTarget)
+
+    // Track visitor if request comes through tunnel
+    httpServer.on('request', (req: http.IncomingMessage) => {
+      visitorTracker.trackRequest(req, site.id, site.name)
+    })
 
     // Track proxy target health for status updates
     httpServer.on('proxy:error', () => {
@@ -401,6 +520,12 @@ export class ServerManager {
     const server = this.servers.get(id)
     if (!server) return
 
+    // Close WebSocket server
+    if (server.wsServer) {
+      server.wsServer.close()
+      server.wsServer = undefined
+    }
+
     // Close HTTP server
     if (server.httpServer) {
       await new Promise<void>((resolve) => {
@@ -453,13 +578,6 @@ export class ServerManager {
   async stopAll(): Promise<void> {
     const stopPromises = Array.from(this.servers.keys()).map((id) => this.stopServer(id))
     await Promise.allSettled(stopPromises)
-
-    // Close global WebSocket server
-    if (this.globalWsServer) {
-      this.globalWsServer.close()
-      this.globalWsServer = null
-    }
-
     log.info('All servers stopped')
   }
 
@@ -534,6 +652,15 @@ export class ServerManager {
    */
   generateId(): string {
     return crypto.randomUUID()
+  }
+
+  /** Count total WebSocket connections across all sites. */
+  private getTotalWsConnectionCount(): number {
+    let total = 0
+    for (const clients of this.wsClients.values()) {
+      total += clients.size
+    }
+    return total
   }
 
   // ---------- Private: Shared Helpers ----------

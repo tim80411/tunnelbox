@@ -115,6 +115,36 @@ function SettingsPanel({
 
           <div className="settings-item">
             <div className="settings-item-info">
+              <span className="settings-item-label">Visitor notifications</span>
+              <span className="settings-item-desc">訪客透過 tunnel 到訪時顯示桌面通知</span>
+            </div>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.visitorNotifications}
+                onChange={(e) => onUpdate({ visitorNotifications: e.target.checked })}
+              />
+              <span className="settings-toggle-track" />
+            </label>
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <span className="settings-item-label">Remote console</span>
+              <span className="settings-item-desc">在注入 script 中攔截訪客端 console 輸出並回傳至本地 app</span>
+            </div>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.remoteConsoleEnabled}
+                onChange={(e) => onUpdate({ remoteConsoleEnabled: e.target.checked })}
+              />
+              <span className="settings-toggle-track" />
+            </label>
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-info">
               <span className="settings-item-label">Version</span>
               <span className="settings-item-desc">v{appVersion || '...'}</span>
             </div>

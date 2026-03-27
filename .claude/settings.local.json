@@ -14,7 +14,15 @@
       "mcp__plugin_linear_linear__save_milestone",
       "mcp__plugin_linear_linear__list_teams",
       "mcp__plugin_linear_linear__list_issues",
-      "mcp__plugin_linear_linear__list_milestones"
+      "mcp__plugin_linear_linear__list_milestones",
+      "Bash(git:diff)",
+      "Bash(git:log)",
+      "Bash(git -C /Users/tim80411/self/site-holder log v1.0.1..v1.3.2 --oneline --no-merges)",
+      "mcp__plugin_linear_linear__get_issue",
+      "Bash(git add:*)",
+      "Bash(pnpm outdated:*)",
+      "Bash(pnpm why:*)",
+      "Bash(pnpm test:*)"
     ]
   }
 }

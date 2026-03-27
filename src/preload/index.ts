@@ -1,7 +1,5 @@
-import { contextBridge, ipcRenderer, webUtils, clipboard } from 'electron'
-import { statSync } from 'fs'
-import { parseMacOSFilePaths, parseWindowsDropFiles } from './clipboard-file-paths'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig } from '../shared/types'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -46,30 +44,13 @@ const electronAPI: ElectronAPI = {
     return webUtils.getPathForFile(file)
   },
 
-  // Clipboard
-  readClipboardText: (): string => {
-    return clipboard.readText()
+  // Clipboard (delegated to main process for sandbox compatibility)
+  readClipboardText: (): Promise<string> => {
+    return ipcRenderer.invoke('read-clipboard-text')
   },
 
-  readClipboardFilePaths: (): string[] => {
-    let paths: string[] = []
-
-    if (process.platform === 'darwin') {
-      const plist = clipboard.read('NSFilenamesPboardType')
-      paths = parseMacOSFilePaths(plist)
-    } else if (process.platform === 'win32') {
-      const buffer = clipboard.readBuffer('CF_HDROP')
-      paths = parseWindowsDropFiles(buffer)
-    }
-
-    // Filter to existing directories only (spec scenarios 6/7: ignore files)
-    return paths.filter((p) => {
-      try {
-        return statSync(p).isDirectory()
-      } catch {
-        return true // path doesn't exist — let addSite handle error (spec scenario 5)
-      }
-    })
+  readClipboardFilePaths: (): Promise<string[]> => {
+    return ipcRenderer.invoke('read-clipboard-file-paths')
   },
 
   onPasteShortcut: (callback: () => void): (() => void) => {
@@ -351,6 +332,58 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('tunnel-status-changed', handler)
     return () => {
       ipcRenderer.removeListener('tunnel-status-changed', handler)
+    }
+  },
+
+  // --- Share History ---
+
+  getShareHistory: (): Promise<ShareRecord[]> => {
+    return ipcRenderer.invoke('share-history:get-records')
+  },
+
+  exportShareHistory: (): Promise<boolean> => {
+    return ipcRenderer.invoke('share-history:export')
+  },
+
+  onShareHistoryChanged: (callback: (records: ShareRecord[]) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, records: ShareRecord[]): void => {
+      callback(records)
+    }
+    ipcRenderer.on('share-history-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('share-history-changed', handler)
+    }
+  },
+
+  // --- Visitor Tracking ---
+
+  onVisitorEvent: (callback: (event: VisitorEvent) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, ev: VisitorEvent): void => {
+      callback(ev)
+    }
+    ipcRenderer.on('visitor-event', handler)
+    return () => {
+      ipcRenderer.removeListener('visitor-event', handler)
+    }
+  },
+
+  // --- Remote Console ---
+
+  getRemoteConsoleLogs: (siteId: string): Promise<RemoteConsoleEntry[]> => {
+    return ipcRenderer.invoke('get-remote-console-logs', siteId)
+  },
+
+  clearRemoteConsoleLogs: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('clear-remote-console-logs', siteId)
+  },
+
+  onRemoteConsoleEntry: (callback: (entry: RemoteConsoleEntry) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, entry: RemoteConsoleEntry): void => {
+      callback(entry)
+    }
+    ipcRenderer.on('remote-console-entry', handler)
+    return () => {
+      ipcRenderer.removeListener('remote-console-entry', handler)
     }
   },
 

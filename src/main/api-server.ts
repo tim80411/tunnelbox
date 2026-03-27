@@ -1,4 +1,5 @@
 import http from 'node:http'
+import crypto from 'node:crypto'
 import getPort from 'get-port'
 import { createLogger } from './logger'
 import { writeApiInfo, deleteApiInfo } from '../core/api-discovery'
@@ -6,18 +7,81 @@ import { startQuickTunnel, stopQuickTunnel, hasTunnel, getTunnelInfo } from './c
 import { loginCloudflare, logoutCloudflare, getAuthStatus } from './cloudflared'
 import { bindFixedDomain, unbindFixedDomain } from './cloudflared'
 import { installCloudflared, detectCloudflared } from './cloudflared'
+import { checkRateLimit, startCleanup, stopCleanup } from './rate-limiter'
 import type { ServerManager } from './server-manager'
 
 const log = createLogger('ApiServer')
 
+// ---------- Rate-limit constants ----------
+const GENERAL_RATE_LIMIT = 60 // requests per window
+const TUNNEL_RATE_LIMIT = 10 // requests per window for tunnel start/stop
+const RATE_WINDOW_MS = 60 * 1000 // 1 minute
+
+/** Tunnel operation paths that get a stricter rate limit. */
+const TUNNEL_OP_PATHS = new Set([
+  '/tunnel/quick',
+  '/tunnel/stop',
+  '/domain/bind',
+  '/domain/unbind'
+])
+
+/** Extract client IP from an incoming request. */
+function getClientIp(req: http.IncomingMessage): string {
+  // Behind a reverse-proxy the real IP may be in X-Forwarded-For
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim()
+  }
+  return req.socket.remoteAddress || 'unknown'
+}
+
+/**
+ * Rate-limit middleware.  Returns `true` if the request is allowed to proceed,
+ * or sends a 429 response and returns `false`.
+ */
+function applyRateLimit(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const ip = getClientIp(req)
+  const urlPath = req.url?.split('?')[0] || '/'
+
+  // Stricter limit for tunnel start/stop operations
+  if (TUNNEL_OP_PATHS.has(urlPath)) {
+    if (!checkRateLimit(`${ip}:tunnel`, TUNNEL_RATE_LIMIT, RATE_WINDOW_MS)) {
+      json(res, 429, { error: 'Too Many Requests – tunnel operation rate limit exceeded' })
+      log.warn(`Rate limit exceeded (tunnel) for IP ${ip}`)
+      return false
+    }
+  }
+
+  // General per-IP limit
+  if (!checkRateLimit(ip, GENERAL_RATE_LIMIT, RATE_WINDOW_MS)) {
+    json(res, 429, { error: 'Too Many Requests' })
+    log.warn(`Rate limit exceeded (general) for IP ${ip}`)
+    return false
+  }
+
+  return true
+}
+
 let server: http.Server | null = null
 let serverManager: ServerManager
+let authToken: string = ''
 
-/** Parse JSON body from an incoming request. */
+const MAX_BODY_SIZE = 1 * 1024 * 1024 // 1 MB
+
+/** Parse JSON body from an incoming request. Rejects with 'Payload too large' when body exceeds MAX_BODY_SIZE. */
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    let totalSize = 0
+    req.on('data', (chunk: Buffer) => {
+      totalSize += chunk.length
+      if (totalSize > MAX_BODY_SIZE) {
+        req.destroy()
+        reject(new Error('Payload too large'))
+        return
+      }
+      chunks.push(chunk)
+    })
     req.on('end', () => {
       if (chunks.length === 0) return resolve({})
       try {
@@ -49,7 +113,10 @@ function asyncHandler(
     fn(req, res).catch((err) => {
       const message = err instanceof Error ? err.message : String(err)
       log.error(`Unhandled error in ${req.url}:`, err)
-      if (!res.headersSent) json(res, 500, { error: message })
+      if (!res.headersSent) {
+        const status = message === 'Payload too large' ? 413 : 500
+        json(res, status, { error: message })
+      }
     })
   }
 }
@@ -187,8 +254,60 @@ async function handleEnvCheck(_req: http.IncomingMessage, res: http.ServerRespon
   json(res, 200, env)
 }
 
+/**
+ * Validate the Authorization header carries the correct bearer token.
+ * Returns true if the request is authenticated; sends 401 and returns false otherwise.
+ */
+function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const header = req.headers.authorization
+  if (!header || header !== `Bearer ${authToken}`) {
+    json(res, 401, { error: 'Unauthorized' })
+    return false
+  }
+  return true
+}
+
+/**
+ * Reject requests that carry a browser-like Origin header (DNS-rebinding / CSRF protection).
+ * Returns true if the request is safe to proceed; sends 403 and returns false otherwise.
+ */
+function checkOrigin(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const origin = req.headers.origin
+  if (origin) {
+    json(res, 403, { error: 'Cross-origin requests are not allowed' })
+    return false
+  }
+  return true
+}
+
+/** Set restrictive CORS headers on every response. */
+function setCorsHeaders(res: http.ServerResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', 'null')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST')
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+  res.setHeader('Access-Control-Max-Age', '0')
+}
+
 /** Request router. */
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  setCorsHeaders(res)
+
+  // Reject requests with a browser-like Origin header
+  if (!checkOrigin(req, res)) return
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return
+  }
+
+  // Validate bearer token on every request
+  if (!checkAuth(req, res)) return
+
+  // Enforce rate limits before routing
+  if (!applyRateLimit(req, res)) return
+
   const url = req.url?.split('?')[0] || '/'
   const method = req.method || 'GET'
 
@@ -225,6 +344,10 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
  */
 export async function initApiServer(manager: ServerManager): Promise<void> {
   serverManager = manager
+  authToken = crypto.randomBytes(32).toString('hex')
+
+  // Start periodic cleanup of stale rate-limit entries (every 5 min)
+  startCleanup()
 
   const port = await getPort({ port: Array.from({ length: 100 }, (_, i) => 47321 + i) })
 
@@ -236,7 +359,7 @@ export async function initApiServer(manager: ServerManager): Promise<void> {
       reject(err)
     })
     server!.listen(port, '127.0.0.1', () => {
-      writeApiInfo({ port, pid: process.pid })
+      writeApiInfo({ port, pid: process.pid, token: authToken })
       log.info(`API server listening on http://127.0.0.1:${port}`)
       resolve()
     })
@@ -247,6 +370,8 @@ export async function initApiServer(manager: ServerManager): Promise<void> {
  * Stop the local HTTP API server and remove the discovery file.
  */
 export async function stopApiServer(): Promise<void> {
+  stopCleanup()
+
   if (!server) {
     deleteApiInfo()
     return
