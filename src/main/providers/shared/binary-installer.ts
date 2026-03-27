@@ -3,6 +3,7 @@ import path from 'node:path'
 import { createWriteStream } from 'node:fs'
 import { net } from 'electron'
 import { createLogger } from '../../logger'
+import { downloadAndVerifyChecksum } from './checksum'
 
 const log = createLogger('BinaryInstaller')
 
@@ -12,6 +13,8 @@ export interface BinaryInstallerConfig {
   getDownloadUrl: (platform: { os: string; arch: string }) => string
   extract: (archivePath: string, destDir: string, binaryName: string) => Promise<string>
   versionArgs: string[]
+  /** Optional URL to a SHA256SUMS-style checksum file for verifying the download */
+  checksumUrl?: string | ((platform: { os: string; arch: string }) => string)
 }
 
 export function getPlatformArch(): { os: string; arch: string } {
@@ -40,6 +43,10 @@ export function downloadFile(url: string, destPath: string): Promise<void> {
         const redirectUrl = Array.isArray(response.headers.location)
           ? response.headers.location[0]
           : response.headers.location
+        if (!redirectUrl.startsWith('https://')) {
+          reject(new Error(`安全性錯誤：拒絕重新導向至非 HTTPS 網址：${redirectUrl}`))
+          return
+        }
         try {
           await downloadFile(redirectUrl, destPath)
           resolve()
@@ -116,6 +123,16 @@ export async function installBinary(config: BinaryInstallerConfig): Promise<stri
 
   try {
     await downloadFile(downloadUrl, archivePath)
+
+    // Verify checksum if configured
+    if (config.checksumUrl) {
+      const checksumUrl = typeof config.checksumUrl === 'function'
+        ? config.checksumUrl(platform)
+        : config.checksumUrl
+      const archiveFilename = path.basename(downloadUrl)
+      await downloadAndVerifyChecksum(archivePath, checksumUrl, archiveFilename)
+    }
+
     await config.extract(archivePath, binDir, binaryName)
     fs.unlinkSync(archivePath)
   } catch (err) {

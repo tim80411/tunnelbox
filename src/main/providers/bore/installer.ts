@@ -57,6 +57,7 @@ function getBoreInstallerConfig(tag: string): BinaryInstallerConfig {
       const ext = platform.os === 'windows' ? 'zip' : 'tar.gz'
       return `https://github.com/ekzhang/bore/releases/download/${tag}/bore-${tag}-${target}.${ext}`
     },
+    checksumUrl: `https://github.com/ekzhang/bore/releases/download/${tag}/bore-checksums.txt`,
     extract: async (archivePath, destDir, binaryName) => {
       if (archivePath.endsWith('.zip')) {
         const { execFile } = await import('node:child_process')
