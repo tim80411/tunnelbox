@@ -15,8 +15,6 @@ import type { StoredSite } from '../shared/types'
 const log = createLogger('ServerManager')
 const PORT_RANGE = Array.from({ length: 6001 }, (_, i) => 3000 + i)
 
-/** Maximum WebSocket connections per siteId. */
-const MAX_WS_PER_SITE = 100
 /** Maximum total WebSocket connections across all sites. */
 const MAX_WS_GLOBAL = 500
 

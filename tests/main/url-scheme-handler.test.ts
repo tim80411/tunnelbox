@@ -18,6 +18,11 @@ vi.mock('electron', () => ({
   },
 }))
 
+// Mock site-actions to prevent store.ts from loading ElectronStore at module level
+vi.mock('@/main/site-actions', () => ({
+  addSiteFromPath: vi.fn(),
+}))
+
 import { validateServePath } from '@/main/url-scheme-handler'
 
 const home = os.homedir()
@@ -95,7 +100,7 @@ describe('validateServePath', () => {
 
     it('resolves relative paths against cwd', () => {
       // When cwd is inside home, a relative safe path should be allowed
-      process.chdir(path.join(home, 'projects'))
+      process.chdir(home)
       const result = validateServePath('my-site')
       expect(result).toBeNull()
     })
