@@ -14,15 +14,23 @@ interface ApiResponse {
   [key: string]: unknown
 }
 
+interface ApiConnection {
+  port: number
+  token: string
+}
+
 /**
- * Get the Electron API server port, throwing if the app is not running.
+ * Get the Electron API server port and auth token, throwing if the app is not running.
  */
-function requireApiPort(): number {
+function requireApiConnection(): ApiConnection {
   const info = readApiInfo()
   if (!info) {
     throw CLIError.system('TunnelBox app is not running. Please open TunnelBox first.')
   }
-  return info.port
+  if (!info.token) {
+    throw CLIError.system('TunnelBox app version mismatch. Please update and restart TunnelBox.')
+  }
+  return { port: info.port, token: info.token }
 }
 
 /**
@@ -45,19 +53,25 @@ export function isElectronRunning(): boolean {
 /**
  * Make an HTTP request to the local Electron API server.
  */
-function apiRequest(port: number, method: string, path: string, body?: Record<string, unknown>): Promise<ApiResponse> {
+function apiRequest(conn: ApiConnection, method: string, path: string, body?: Record<string, unknown>): Promise<ApiResponse> {
   return new Promise((resolve, reject) => {
     const postData = body ? JSON.stringify(body) : undefined
+
+    const baseHeaders: Record<string, string | number> = {
+      Authorization: `Bearer ${conn.token}`,
+    }
+    if (postData) {
+      baseHeaders['Content-Type'] = 'application/json'
+      baseHeaders['Content-Length'] = Buffer.byteLength(postData)
+    }
 
     const req = http.request(
       {
         hostname: '127.0.0.1',
-        port,
+        port: conn.port,
         path,
         method,
-        headers: postData
-          ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
-          : undefined,
+        headers: baseHeaders,
         timeout: REQUEST_TIMEOUT_MS,
       },
       (res) => {
@@ -109,20 +123,20 @@ function apiRequest(port: number, method: string, path: string, body?: Record<st
  * Create a TunnelDeps implementation that delegates to the running Electron app.
  */
 export function createElectronApiClient(): TunnelDeps {
-  const apiPort = requireApiPort()
+  const conn = requireApiConnection()
 
   return {
     findBinary,
     delegatesServerManagement: true,
 
     async startQuickTunnel(siteId: string, _port: number): Promise<string> {
-      const res = await apiRequest(apiPort, 'POST', '/tunnel/quick', { siteId })
+      const res = await apiRequest(conn, 'POST', '/tunnel/quick', { siteId })
       return res.publicUrl as string
     },
 
     stopQuickTunnel(siteId: string): void {
       // Fire-and-forget: the Electron app handles cleanup
-      apiRequest(apiPort, 'POST', '/tunnel/stop', { siteId }).catch(() => {
+      apiRequest(conn, 'POST', '/tunnel/stop', { siteId }).catch(() => {
         // Errors are acceptable here (app may have quit)
       })
     },
@@ -144,21 +158,21 @@ export function createElectronApiClient(): TunnelDeps {
  * Create an AuthDeps implementation that delegates to the running Electron app.
  */
 export function createElectronAuthClient(): AuthDeps {
-  const apiPort = requireApiPort()
+  const conn = requireApiConnection()
 
   return {
     async login(): Promise<CloudflareAuth> {
-      const res = await apiRequest(apiPort, 'POST', '/auth/login')
+      const res = await apiRequest(conn, 'POST', '/auth/login')
       return res as unknown as CloudflareAuth
     },
 
     async getStatus(): Promise<CloudflareAuth> {
-      const res = await apiRequest(apiPort, 'GET', '/auth/status')
+      const res = await apiRequest(conn, 'GET', '/auth/status')
       return res as unknown as CloudflareAuth
     },
 
     async logout(): Promise<void> {
-      await apiRequest(apiPort, 'POST', '/auth/logout')
+      await apiRequest(conn, 'POST', '/auth/logout')
     },
   }
 }
@@ -167,20 +181,20 @@ export function createElectronAuthClient(): AuthDeps {
  * Create a DomainDeps implementation that delegates to the running Electron app.
  */
 export function createElectronDomainClient(): DomainDeps {
-  const apiPort = requireApiPort()
+  const conn = requireApiConnection()
 
   return {
     async bind(siteId: string, domain: string): Promise<string> {
-      const res = await apiRequest(apiPort, 'POST', '/domain/bind', { siteId, domain })
+      const res = await apiRequest(conn, 'POST', '/domain/bind', { siteId, domain })
       return res.publicUrl as string
     },
 
     async unbind(siteId: string): Promise<void> {
-      await apiRequest(apiPort, 'POST', '/domain/unbind', { siteId })
+      await apiRequest(conn, 'POST', '/domain/unbind', { siteId })
     },
 
     async getAuthStatus(): Promise<CloudflareAuth> {
-      const res = await apiRequest(apiPort, 'GET', '/auth/status')
+      const res = await apiRequest(conn, 'GET', '/auth/status')
       return res as unknown as CloudflareAuth
     },
   }
@@ -190,11 +204,11 @@ export function createElectronDomainClient(): DomainDeps {
  * Create an EnvInstallDeps implementation that delegates to the running Electron app.
  */
 export function createElectronEnvClient(): EnvInstallDeps {
-  const apiPort = requireApiPort()
+  const conn = requireApiConnection()
 
   return {
     async install(): Promise<{ installed: boolean; version?: string }> {
-      const res = await apiRequest(apiPort, 'POST', '/env/install')
+      const res = await apiRequest(conn, 'POST', '/env/install')
       return res as { installed: boolean; version?: string }
     },
   }

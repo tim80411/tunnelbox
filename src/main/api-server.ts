@@ -1,4 +1,5 @@
 import http from 'node:http'
+import crypto from 'node:crypto'
 import getPort from 'get-port'
 import { createLogger } from './logger'
 import { writeApiInfo, deleteApiInfo } from '../core/api-discovery'
@@ -12,12 +13,24 @@ const log = createLogger('ApiServer')
 
 let server: http.Server | null = null
 let serverManager: ServerManager
+let authToken: string = ''
 
-/** Parse JSON body from an incoming request. */
+const MAX_BODY_SIZE = 1 * 1024 * 1024 // 1 MB
+
+/** Parse JSON body from an incoming request. Rejects with 'Payload too large' when body exceeds MAX_BODY_SIZE. */
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    let totalSize = 0
+    req.on('data', (chunk: Buffer) => {
+      totalSize += chunk.length
+      if (totalSize > MAX_BODY_SIZE) {
+        req.destroy()
+        reject(new Error('Payload too large'))
+        return
+      }
+      chunks.push(chunk)
+    })
     req.on('end', () => {
       if (chunks.length === 0) return resolve({})
       try {
@@ -49,7 +62,10 @@ function asyncHandler(
     fn(req, res).catch((err) => {
       const message = err instanceof Error ? err.message : String(err)
       log.error(`Unhandled error in ${req.url}:`, err)
-      if (!res.headersSent) json(res, 500, { error: message })
+      if (!res.headersSent) {
+        const status = message === 'Payload too large' ? 413 : 500
+        json(res, status, { error: message })
+      }
     })
   }
 }
@@ -187,8 +203,57 @@ async function handleEnvCheck(_req: http.IncomingMessage, res: http.ServerRespon
   json(res, 200, env)
 }
 
+/**
+ * Validate the Authorization header carries the correct bearer token.
+ * Returns true if the request is authenticated; sends 401 and returns false otherwise.
+ */
+function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const header = req.headers.authorization
+  if (!header || header !== `Bearer ${authToken}`) {
+    json(res, 401, { error: 'Unauthorized' })
+    return false
+  }
+  return true
+}
+
+/**
+ * Reject requests that carry a browser-like Origin header (DNS-rebinding / CSRF protection).
+ * Returns true if the request is safe to proceed; sends 403 and returns false otherwise.
+ */
+function checkOrigin(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const origin = req.headers.origin
+  if (origin) {
+    json(res, 403, { error: 'Cross-origin requests are not allowed' })
+    return false
+  }
+  return true
+}
+
+/** Set restrictive CORS headers on every response. */
+function setCorsHeaders(res: http.ServerResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', 'null')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST')
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+  res.setHeader('Access-Control-Max-Age', '0')
+}
+
 /** Request router. */
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  setCorsHeaders(res)
+
+  // Reject requests with a browser-like Origin header
+  if (!checkOrigin(req, res)) return
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return
+  }
+
+  // Validate bearer token on every request
+  if (!checkAuth(req, res)) return
+
   const url = req.url?.split('?')[0] || '/'
   const method = req.method || 'GET'
 
@@ -225,6 +290,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
  */
 export async function initApiServer(manager: ServerManager): Promise<void> {
   serverManager = manager
+  authToken = crypto.randomBytes(32).toString('hex')
 
   const port = await getPort({ port: Array.from({ length: 100 }, (_, i) => 47321 + i) })
 
@@ -236,7 +302,7 @@ export async function initApiServer(manager: ServerManager): Promise<void> {
       reject(err)
     })
     server!.listen(port, '127.0.0.1', () => {
-      writeApiInfo({ port, pid: process.pid })
+      writeApiInfo({ port, pid: process.pid, token: authToken })
       log.info(`API server listening on http://127.0.0.1:${port}`)
       resolve()
     })
