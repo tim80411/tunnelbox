@@ -74,6 +74,9 @@
       ],
       "category": "public.app-category.developer-tools",
       "artifactName": "${productName}-${version}-mac-universal.${ext}",
+      "hardenedRuntime": true,
+      "notarize": true,
+      "gatekeeperAssess": false,
       "protocols": [
         {
           "name": "TunnelBox",
