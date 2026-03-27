@@ -84,6 +84,8 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
 export type StatusChangeCallback = (siteId: string, status: 'running' | 'error') => void
 
 const PROXY_ERROR_THRESHOLD_MS = 30_000
+const MAX_WS_CONNECTIONS_PER_SITE = 100
+const MAX_HTML_INJECTION_SIZE = 50 * 1024 * 1024 // 50 MB — skip reload script injection for larger responses
 
 export class ServerManager {
   private servers: Map<string, SiteServer> = new Map()
@@ -104,16 +106,41 @@ export class ServerManager {
   async initWebSocket(): Promise<void> {
     this.globalWsPort = await getPort({ port: Array.from({ length: 100 }, (_, i) => 9100 + i) })
 
-    this.globalWsServer = new WebSocketServer({ host: '0.0.0.0', port: this.globalWsPort })
+    this.globalWsServer = new WebSocketServer({ host: '127.0.0.1', port: this.globalWsPort })
 
     this.globalWsServer.on('connection', (ws, req) => {
+      // Validate Origin header — accept only localhost origins
+      const origin = req.headers.origin
+      if (origin) {
+        try {
+          const originUrl = new URL(origin)
+          const hostname = originUrl.hostname
+          if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1') {
+            log.warn(`WebSocket connection rejected: non-localhost Origin "${origin}"`)
+            ws.close(1008, 'Forbidden: non-localhost origin')
+            return
+          }
+        } catch {
+          log.warn(`WebSocket connection rejected: invalid Origin "${origin}"`)
+          ws.close(1008, 'Forbidden: invalid origin')
+          return
+        }
+      }
+
       const url = new URL(req.url || '/', `http://localhost:${this.globalWsPort}`)
       const siteId = url.searchParams.get('siteId') || ''
 
+      // Enforce per-site connection limit
       if (!this.wsClients.has(siteId)) {
         this.wsClients.set(siteId, new Set())
       }
-      this.wsClients.get(siteId)!.add(ws)
+      const clients = this.wsClients.get(siteId)!
+      if (clients.size >= MAX_WS_CONNECTIONS_PER_SITE) {
+        log.warn(`WebSocket connection rejected: site "${siteId}" reached limit of ${MAX_WS_CONNECTIONS_PER_SITE} connections`)
+        ws.close(1013, 'Too many connections')
+        return
+      }
+      clients.add(ws)
 
       ws.on('close', () => {
         this.wsClients.get(siteId)?.delete(ws)
@@ -152,7 +179,7 @@ export class ServerManager {
 
   // ---------- Private: Static Server ----------
 
-  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string }): Promise<StaticSiteServer> {
+  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean }): Promise<StaticSiteServer> {
     // Validate folder exists and is readable
     try {
       const stat = fs.statSync(site.folderPath)
@@ -180,6 +207,8 @@ export class ServerManager {
       const originalEnd = res.end.bind(res)
       let isHtml = false
       let chunks: Buffer[] = []
+      let bufferSize = 0
+      let bufferOverflow = false
 
       res.writeHead = function (
         statusCode: number,
@@ -213,11 +242,21 @@ export class ServerManager {
         chunk: unknown,
         ...args: unknown[]
       ): boolean {
-        if (isHtml) {
-          if (Buffer.isBuffer(chunk)) {
-            chunks.push(chunk)
-          } else if (typeof chunk === 'string') {
-            chunks.push(Buffer.from(chunk))
+        if (isHtml && !bufferOverflow) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : typeof chunk === 'string' ? Buffer.from(chunk) : null
+          if (buf) {
+            bufferSize += buf.length
+            if (bufferSize > MAX_HTML_INJECTION_SIZE) {
+              // Buffer limit exceeded — flush accumulated chunks and switch to passthrough
+              log.warn(`HTML response for "${site.name}" exceeds ${MAX_HTML_INJECTION_SIZE} bytes, skipping reload script injection`)
+              bufferOverflow = true
+              for (const buffered of chunks) {
+                (originalWrite as (...a: unknown[]) => boolean)(buffered)
+              }
+              chunks = []
+              return (originalWrite as (...a: unknown[]) => boolean)(buf)
+            }
+            chunks.push(buf)
           }
           return true
         }
@@ -225,12 +264,19 @@ export class ServerManager {
       } as typeof res.write
 
       res.end = function (...args: unknown[]): http.ServerResponse {
-        if (isHtml) {
+        if (isHtml && !bufferOverflow) {
           if (args[0]) {
-            if (Buffer.isBuffer(args[0])) {
-              chunks.push(args[0])
-            } else if (typeof args[0] === 'string') {
-              chunks.push(Buffer.from(args[0]))
+            const buf = Buffer.isBuffer(args[0]) ? args[0] : typeof args[0] === 'string' ? Buffer.from(args[0]) : null
+            if (buf) {
+              bufferSize += buf.length
+              if (bufferSize > MAX_HTML_INJECTION_SIZE) {
+                log.warn(`HTML response for "${site.name}" exceeds ${MAX_HTML_INJECTION_SIZE} bytes, skipping reload script injection`)
+                for (const buffered of chunks) {
+                  (originalWrite as (...a: unknown[]) => boolean)(buffered)
+                }
+                return (originalEnd as (...a: unknown[]) => http.ServerResponse)(buf)
+              }
+              chunks.push(buf)
             }
           }
           let body = Buffer.concat(chunks).toString('utf-8')
@@ -267,7 +313,7 @@ export class ServerManager {
 
       handler(req, res, {
         public: site.folderPath,
-        directoryListing: true
+        directoryListing: site.directoryListing === true
       })
     })
 

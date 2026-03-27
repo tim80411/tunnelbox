@@ -103,6 +103,7 @@ export interface StoredStaticSite {
   name: string
   serveMode: 'static'
   folderPath: string
+  directoryListing?: boolean // opt-in: expose folder listing (default false)
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
 }
