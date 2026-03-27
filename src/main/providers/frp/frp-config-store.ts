@@ -29,13 +29,15 @@ export function getFrpConfig(): FrpServerConfig | null {
 
     let authToken: string | undefined
     if (raw.encryptedAuthToken) {
-      try {
-        if (safeStorage.isEncryptionAvailable()) {
+      if (!safeStorage.isEncryptionAvailable()) {
+        log.warn('safeStorage encryption not available — cannot decrypt stored auth token')
+      } else {
+        try {
           const buffer = Buffer.from(raw.encryptedAuthToken, 'base64')
           authToken = safeStorage.decryptString(buffer)
+        } catch (err) {
+          log.warn('Failed to decrypt frp auth token:', err)
         }
-      } catch (err) {
-        log.warn('Failed to decrypt frp auth token:', err)
       }
     }
 
@@ -54,13 +56,13 @@ export function saveFrpConfig(config: FrpServerConfig): void {
   try {
     let encryptedAuthToken: string | undefined
     if (config.authToken) {
-      if (safeStorage.isEncryptionAvailable()) {
-        const buffer = safeStorage.encryptString(config.authToken)
-        encryptedAuthToken = buffer.toString('base64')
-      } else {
-        log.warn('safeStorage encryption not available, storing token in plaintext')
-        encryptedAuthToken = Buffer.from(config.authToken).toString('base64')
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error(
+          'OS 加密功能無法使用，無法安全儲存 auth token。請確認系統鑰匙圈 (Keychain) 已解鎖。',
+        )
       }
+      const buffer = safeStorage.encryptString(config.authToken)
+      encryptedAuthToken = buffer.toString('base64')
     }
 
     store.set('frpConfig', {
@@ -70,6 +72,7 @@ export function saveFrpConfig(config: FrpServerConfig): void {
     })
   } catch (err) {
     log.error('Failed to save frp config:', err)
+    throw err
   }
 }
 
