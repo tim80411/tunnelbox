@@ -40,7 +40,7 @@ function createWindow(): void {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true
     }
   })
 
