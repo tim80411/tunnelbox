@@ -6,6 +6,7 @@ import CopyButton from './components/CopyButton'
 import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
+import RemoteConsolePanel from './components/RemoteConsolePanel'
 import { useSettings } from './hooks/useSettings'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
@@ -35,6 +36,7 @@ function App(): React.ReactElement {
   // Panel state
   const [showSettings, setShowSettings] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [consoleForSiteId, setConsoleForSiteId] = useState<string | null>(null)
   const { settings, update: updateSettings } = useSettings()
   const {
     state: updateState, appVersion, forceUpdate,
@@ -684,6 +686,16 @@ function App(): React.ReactElement {
                       Start
                     </button>
                   )}
+                  {settings.remoteConsoleEnabled && site.serveMode === 'static' && (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setConsoleForSiteId(site.id)}
+                      disabled={site.status !== 'running'}
+                      title="Open Remote Console"
+                    >
+                      Console
+                    </button>
+                  )}
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => setConfirmRemove(site)}
@@ -766,6 +778,13 @@ function App(): React.ReactElement {
       <ShortcutsPanel
         open={showShortcuts}
         onClose={() => setShowShortcuts(false)}
+      />
+
+      <RemoteConsolePanel
+        siteId={consoleForSiteId || ''}
+        open={!!consoleForSiteId}
+        onClose={() => setConsoleForSiteId(null)}
+        enabled={settings.remoteConsoleEnabled}
       />
 
       {/* Add Site Modal */}

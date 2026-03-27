@@ -15,6 +15,8 @@ import { createTray, destroyTray } from './tray-manager'
 import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
 import { setAppMenu } from './app-menu'
 import { registerUpdaterHandlers } from './updater'
+import { initVisitorNotifications } from './visitor-notification'
+import { initRemoteConsole, registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 
@@ -103,6 +105,11 @@ app.whenReady().then(async () => {
     registerSettingsIpcHandlers()
     registerUpdaterHandlers()
     registerQuickActionHandlers()
+    registerRemoteConsoleIpc()
+
+    // Initialize visitor notifications & remote console
+    initVisitorNotifications()
+    initRemoteConsole(serverManager)
 
     // Start local HTTP API for CLI communication
     await initApiServer(serverManager)
