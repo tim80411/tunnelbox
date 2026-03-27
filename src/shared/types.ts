@@ -167,6 +167,17 @@ export interface VisitorEvent {
   siteName: string
 }
 
+// --- Notification Center ---
+
+export interface NotificationItem {
+  id: string
+  siteId: string
+  siteName: string
+  visitorIp: string
+  timestamp: number
+  read: boolean
+}
+
 // --- Remote Console ---
 
 export type ConsoleLevel = 'log' | 'warn' | 'error'
@@ -328,6 +339,14 @@ export interface ElectronAPI {
 
   // Visitor Tracking
   onVisitorEvent: (callback: (event: VisitorEvent) => void) => () => void
+
+  // Notification Center
+  getNotifications: () => Promise<NotificationItem[]>
+  markNotificationRead: (id: string) => Promise<void>
+  markAllNotificationsRead: () => Promise<void>
+  getUnreadNotificationCount: () => Promise<number>
+  onNewNotification: (callback: (item: NotificationItem) => void) => () => void
+  onNotificationsUpdated: (callback: (unreadCount: number) => void) => () => void
 
   // Remote Console
   getRemoteConsoleLogs: (siteId: string) => Promise<RemoteConsoleEntry[]>
