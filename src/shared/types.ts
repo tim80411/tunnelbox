@@ -157,16 +157,43 @@ export function migrateSite(raw: unknown): StoredSite {
 
 export const DOMAIN_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/
 
+// --- Visitor Event ---
+
+export interface VisitorEvent {
+  siteId: string
+  visitorIp: string
+  timestamp: number
+  requestPath: string
+  siteName: string
+}
+
+// --- Remote Console ---
+
+export type ConsoleLevel = 'log' | 'warn' | 'error'
+
+export interface RemoteConsoleEntry {
+  type: 'console'
+  level: ConsoleLevel
+  args: unknown[]
+  timestamp: number
+  sessionId: string
+  siteId: string
+}
+
 // --- App Settings ---
 
 export interface AppSettings {
   autoStartServers: boolean
   defaultServeMode: ServeMode
+  visitorNotifications: boolean
+  remoteConsoleEnabled: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autoStartServers: false,
-  defaultServeMode: 'static'
+  defaultServeMode: 'static',
+  visitorNotifications: true,
+  remoteConsoleEnabled: false
 }
 
 // --- Add Site Params (IPC) ---
@@ -298,6 +325,14 @@ export interface ElectronAPI {
   getShareHistory: () => Promise<ShareRecord[]>
   exportShareHistory: () => Promise<boolean>
   onShareHistoryChanged: (callback: (records: ShareRecord[]) => void) => () => void
+
+  // Visitor Tracking
+  onVisitorEvent: (callback: (event: VisitorEvent) => void) => () => void
+
+  // Remote Console
+  getRemoteConsoleLogs: (siteId: string) => Promise<RemoteConsoleEntry[]>
+  clearRemoteConsoleLogs: (siteId: string) => Promise<void>
+  onRemoteConsoleEntry: (callback: (entry: RemoteConsoleEntry) => void) => () => void
 
   // Auto Update
   getAppVersion: () => Promise<string>

@@ -10,6 +10,8 @@ import { createLogger } from './logger'
 import { createProxyServer } from './proxy-server'
 import { PortHealthChecker } from './port-health-checker'
 import { extractPort } from '../shared/proxy-utils'
+import { visitorTracker } from './visitor-tracker'
+import { getSettings } from './settings-store'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -49,6 +51,55 @@ export type FileChangeCallback = (siteId: string) => void
 // ---------- Hot Reload Script ----------
 
 function getReloadClientScript(wsPort: number, siteId: string): string {
+  const settings = getSettings()
+  const consoleForwarding = settings.remoteConsoleEnabled
+
+  let consoleScript = ''
+  if (consoleForwarding) {
+    consoleScript = `
+  // --- Console Forwarding ---
+  var _tbSessionId = Math.random().toString(36).slice(2);
+  var _tbOrigLog = console.log;
+  var _tbOrigWarn = console.warn;
+  var _tbOrigError = console.error;
+  var _tbQueue = [];
+  var _tbSending = false;
+
+  function _tbSend(level, args) {
+    var payload = JSON.stringify({
+      type: 'console',
+      level: level,
+      args: Array.prototype.slice.call(args).map(function(a) {
+        try {
+          if (a instanceof Error) return { __error: true, message: a.message, stack: a.stack };
+          return JSON.parse(JSON.stringify(a));
+        } catch(e) { return String(a); }
+      }),
+      timestamp: Date.now(),
+      sessionId: _tbSessionId
+    });
+    _tbQueue.push(payload);
+    _tbFlush();
+  }
+
+  function _tbFlush() {
+    if (_tbSending || _tbQueue.length === 0) return;
+    _tbSending = true;
+    setTimeout(function() {
+      var batch = _tbQueue.splice(0, 20);
+      for (var i = 0; i < batch.length; i++) {
+        try { if (_tbWs && _tbWs.readyState === 1) _tbWs.send(batch[i]); } catch(e) {}
+      }
+      _tbSending = false;
+      if (_tbQueue.length > 0) _tbFlush();
+    }, 50);
+  }
+
+  console.log = function() { _tbOrigLog.apply(console, arguments); _tbSend('log', arguments); };
+  console.warn = function() { _tbOrigWarn.apply(console, arguments); _tbSend('warn', arguments); };
+  console.error = function() { _tbOrigError.apply(console, arguments); _tbSend('error', arguments); };`
+  }
+
   return `
 <script>
 (function() {
@@ -58,15 +109,18 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
   var maxRetries = 10;
   var retryCount = 0;
   var retryDelay = 1000;
-
+  var _tbWs = null;
+${consoleScript}
   function connect() {
     var ws = new WebSocket(wsUrl);
+    _tbWs = ws;
     ws.onmessage = function(event) {
       if (event.data === 'reload') {
         location.reload();
       }
     };
     ws.onclose = function() {
+      _tbWs = null;
       if (retryCount < maxRetries) {
         retryCount++;
         setTimeout(connect, retryDelay);
@@ -213,6 +267,9 @@ export class ServerManager {
       // Prevent browser caching — different sites may reuse the same port
       res.setHeader('Cache-Control', 'no-store')
 
+      // Track visitor if request comes through tunnel
+      visitorTracker.trackRequest(req, site.id, site.name)
+
       // Intercept HTML responses to inject reload script
       const originalWriteHead = res.writeHead.bind(res)
       const originalEnd = res.end.bind(res)
@@ -357,6 +414,11 @@ export class ServerManager {
     const port = await this.allocatePort()
 
     const httpServer = createProxyServer(site.proxyTarget)
+
+    // Track visitor if request comes through tunnel
+    httpServer.on('request', (req: http.IncomingMessage) => {
+      visitorTracker.trackRequest(req, site.id, site.name)
+    })
 
     // Track proxy target health for status updates
     httpServer.on('proxy:error', () => {

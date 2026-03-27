@@ -6,7 +6,8 @@ import * as siteStore from './store'
 import * as shareHistoryStore from './share-history-store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
 import { DOMAIN_REGEX } from '../shared/types'
-import type { SiteInfo, CloudflaredEnv, AddSiteParams } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, AddSiteParams, VisitorEvent } from '../shared/types'
+import { visitorTracker } from './visitor-tracker'
 import { normalizeProxyTarget, isValidProxyTarget, extractPort } from '../shared/proxy-utils'
 import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
@@ -697,5 +698,14 @@ export function registerIpcHandlers(
 
   serverManager.onStatusChange(() => {
     broadcastSiteUpdate()
+  })
+
+  // --- Visitor Event Forwarding ---
+
+  visitorTracker.on('visitor', (event: VisitorEvent) => {
+    const windows = BrowserWindow.getAllWindows()
+    for (const win of windows) {
+      win.webContents.send('visitor-event', event)
+    }
   })
 }

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -352,6 +352,38 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('share-history-changed', handler)
     return () => {
       ipcRenderer.removeListener('share-history-changed', handler)
+    }
+  },
+
+  // --- Visitor Tracking ---
+
+  onVisitorEvent: (callback: (event: VisitorEvent) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, ev: VisitorEvent): void => {
+      callback(ev)
+    }
+    ipcRenderer.on('visitor-event', handler)
+    return () => {
+      ipcRenderer.removeListener('visitor-event', handler)
+    }
+  },
+
+  // --- Remote Console ---
+
+  getRemoteConsoleLogs: (siteId: string): Promise<RemoteConsoleEntry[]> => {
+    return ipcRenderer.invoke('get-remote-console-logs', siteId)
+  },
+
+  clearRemoteConsoleLogs: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('clear-remote-console-logs', siteId)
+  },
+
+  onRemoteConsoleEntry: (callback: (entry: RemoteConsoleEntry) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, entry: RemoteConsoleEntry): void => {
+      callback(entry)
+    }
+    ipcRenderer.on('remote-console-entry', handler)
+    return () => {
+      ipcRenderer.removeListener('remote-console-entry', handler)
     }
   },
 
