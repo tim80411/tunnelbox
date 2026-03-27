@@ -16,7 +16,7 @@ import { registerSettingsIpcHandlers } from './settings-ipc-handlers'
 import { setAppMenu } from './app-menu'
 import { registerUpdaterHandlers } from './updater'
 import { initVisitorNotifications } from './visitor-notification'
-import { initRemoteConsole, registerRemoteConsoleIpc } from './remote-console'
+import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
@@ -98,9 +98,6 @@ app.whenReady().then(async () => {
   })
 
   try {
-    // Initialize WebSocket server for hot reload
-    await serverManager.initWebSocket()
-
     // Mark any share records from previous session as abnormally ended
     markAbnormalEnds()
 
@@ -113,7 +110,7 @@ app.whenReady().then(async () => {
 
     // Initialize visitor notifications & remote console
     initVisitorNotifications()
-    initRemoteConsole(serverManager)
+
 
     // Start local HTTP API for CLI communication
     await initApiServer(serverManager)

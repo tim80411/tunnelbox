@@ -1,11 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import type { WebSocket } from 'ws'
-import { createLogger } from './logger'
 import { getSettings } from './settings-store'
-import type { ServerManager } from './server-manager'
 import type { RemoteConsoleEntry } from '../shared/types'
-
-const log = createLogger('RemoteConsole')
 
 const RING_BUFFER_LIMIT = 500
 const THROTTLE_INTERVAL_MS = 100 // min ms between broadcasts
@@ -109,38 +104,6 @@ export function registerRemoteConsoleIpc(): void {
   ipcMain.handle('clear-remote-console-logs', (_event, siteId: string) => {
     buffers.delete(siteId)
   })
-}
-
-/**
- * Attach console message handling to the ServerManager's WebSocket server.
- * This hooks into existing WS connections used for hot reload.
- */
-export function initRemoteConsole(serverManager: ServerManager): void {
-  // The ServerManager exposes wsClients after initWebSocket().
-  // We monkey-patch the global WS server's 'connection' event to also handle
-  // console messages. Since the server-manager already sets up 'connection',
-  // we use a second listener that adds a 'message' handler.
-  const wsServer = (serverManager as unknown as { globalWsServer: import('ws').WebSocketServer | null }).globalWsServer
-  if (!wsServer) {
-    log.warn('WebSocket server not initialized, remote console disabled')
-    return
-  }
-
-  wsServer.on('connection', (ws: WebSocket, req) => {
-    const url = new URL(req.url || '/', `http://localhost`)
-    const siteId = url.searchParams.get('siteId') || ''
-
-    ws.on('message', (rawData) => {
-      try {
-        const data = typeof rawData === 'string' ? rawData : rawData.toString()
-        handleConsoleMessage(data, siteId)
-      } catch (err) {
-        log.error('Error processing WS message:', err)
-      }
-    })
-  })
-
-  log.info('Remote console initialized')
 }
 
 /** Expose for testing. */

@@ -12,6 +12,7 @@ import { PortHealthChecker } from './port-health-checker'
 import { extractPort } from '../shared/proxy-utils'
 import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
+import { handleConsoleMessage } from './remote-console'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -28,6 +29,7 @@ interface BaseSiteServer {
   port: number
   status: 'running' | 'stopped' | 'error'
   httpServer?: http.Server
+  wsServer?: WebSocketServer
 }
 
 export interface StaticSiteServer extends BaseSiteServer {
@@ -50,7 +52,7 @@ export type FileChangeCallback = (siteId: string) => void
 
 // ---------- Hot Reload Script ----------
 
-function getReloadClientScript(wsPort: number, siteId: string): string {
+function getReloadClientScript(siteId: string): string {
   const settings = getSettings()
   const consoleForwarding = settings.remoteConsoleEnabled
 
@@ -104,8 +106,7 @@ function getReloadClientScript(wsPort: number, siteId: string): string {
 <script>
 (function() {
   var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var host = location.hostname || 'localhost';
-  var wsUrl = protocol + '//' + host + ':' + ${wsPort} + '/?siteId=' + encodeURIComponent('${siteId}');
+  var wsUrl = protocol + '//' + location.host + '/__tb_ws?siteId=' + encodeURIComponent('${siteId}');
   var maxRetries = 10;
   var retryCount = 0;
   var retryDelay = 1000;
@@ -150,40 +151,29 @@ export class ServerManager {
   private statusChangeCallbacks: Set<StatusChangeCallback> = new Set()
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
   private proxyErrorStart: Map<string, number> = new Map() // siteId -> first error timestamp
-
-  // Global WebSocket server for all sites
-  private globalWsServer: WebSocketServer | null = null
-  private globalWsPort: number = 0
   private wsClients: Map<string, Set<WebSocket>> = new Map() // siteId -> connected clients
 
   /**
-   * Initialize the global WebSocket server used for hot reload.
-   * Must be called before starting any site servers.
+   * Attach a WebSocket server to an HTTP server for hot reload and console forwarding.
+   * WS connections use the same port as the HTTP server via upgrade handling.
    */
-  async initWebSocket(): Promise<void> {
-    this.globalWsPort = await getPort({ port: Array.from({ length: 100 }, (_, i) => 9100 + i) })
+  private attachWebSocket(httpServer: http.Server, siteId: string): WebSocketServer {
+    const wss = new WebSocketServer({ noServer: true })
 
-    this.globalWsServer = new WebSocketServer({ host: '127.0.0.1', port: this.globalWsPort })
-
-    this.globalWsServer.on('connection', (ws, req) => {
-      // Validate Origin header — accept only localhost origins
-      const origin = req.headers.origin
-      if (origin) {
-        try {
-          const originUrl = new URL(origin)
-          const hostname = originUrl.hostname
-          if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1') {
-            log.warn(`WebSocket connection rejected: non-localhost Origin "${origin}"`)
-            ws.close(1008, 'Forbidden: non-localhost origin')
-            return
-          }
-        } catch {
-          log.warn(`WebSocket connection rejected: invalid Origin "${origin}"`)
-          ws.close(1008, 'Forbidden: invalid origin')
-          return
-        }
+    httpServer.on('upgrade', (req, socket, head) => {
+      // Only handle our custom path
+      const url = new URL(req.url || '/', `http://localhost`)
+      if (url.pathname !== '/__tb_ws') {
+        socket.destroy()
+        return
       }
 
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req)
+      })
+    })
+
+    wss.on('connection', (ws) => {
       // Enforce global WebSocket connection limit
       const totalConnections = this.getTotalWsConnectionCount()
       if (totalConnections >= MAX_WS_GLOBAL) {
@@ -191,9 +181,6 @@ export class ServerManager {
         ws.close(1013, 'Try Again Later – global connection limit reached')
         return
       }
-
-      const url = new URL(req.url || '/', `http://localhost:${this.globalWsPort}`)
-      const siteId = url.searchParams.get('siteId') || ''
 
       // Enforce per-site connection limit
       if (!this.wsClients.has(siteId)) {
@@ -207,6 +194,16 @@ export class ServerManager {
       }
       clients.add(ws)
 
+      // Handle console forwarding messages
+      ws.on('message', (rawData) => {
+        try {
+          const data = typeof rawData === 'string' ? rawData : rawData.toString()
+          handleConsoleMessage(data, siteId)
+        } catch (err) {
+          log.error('Error processing WS message:', err)
+        }
+      })
+
       ws.on('close', () => {
         this.wsClients.get(siteId)?.delete(ws)
       })
@@ -216,11 +213,11 @@ export class ServerManager {
       })
     })
 
-    this.globalWsServer.on('error', (err) => {
-      log.error('WebSocket server error:', err)
+    wss.on('error', (err) => {
+      log.error(`WebSocket server error for site ${siteId}:`, err)
     })
 
-    log.info(`Global WebSocket server started on port ${this.globalWsPort}`)
+    return wss
   }
 
   /**
@@ -260,7 +257,6 @@ export class ServerManager {
     }
 
     const port = await this.allocatePort()
-    const wsPort = this.globalWsPort
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
     const httpServer = http.createServer((req, res) => {
@@ -348,7 +344,7 @@ export class ServerManager {
             }
           }
           let body = Buffer.concat(chunks).toString('utf-8')
-          const script = getReloadClientScript(wsPort, site.id)
+          const script = getReloadClientScript(site.id)
 
           // Inject before </body> or at end
           if (body.includes('</body>')) {
@@ -385,6 +381,9 @@ export class ServerManager {
       })
     })
 
+    // Attach WebSocket server on the same port via upgrade handling
+    const wsServer = this.attachWebSocket(httpServer, site.id)
+
     // Start listening on all interfaces (0.0.0.0) so LAN devices can access
     await this.listenOnPort(httpServer, port)
 
@@ -399,6 +398,7 @@ export class ServerManager {
       port,
       status: 'running',
       httpServer,
+      wsServer,
       watcher
     }
 
@@ -520,6 +520,12 @@ export class ServerManager {
     const server = this.servers.get(id)
     if (!server) return
 
+    // Close WebSocket server
+    if (server.wsServer) {
+      server.wsServer.close()
+      server.wsServer = undefined
+    }
+
     // Close HTTP server
     if (server.httpServer) {
       await new Promise<void>((resolve) => {
@@ -572,13 +578,6 @@ export class ServerManager {
   async stopAll(): Promise<void> {
     const stopPromises = Array.from(this.servers.keys()).map((id) => this.stopServer(id))
     await Promise.allSettled(stopPromises)
-
-    // Close global WebSocket server
-    if (this.globalWsServer) {
-      this.globalWsServer.close()
-      this.globalWsServer = null
-    }
-
     log.info('All servers stopped')
   }
 
