@@ -1,6 +1,6 @@
 export interface PasteElectronAPI {
-  readClipboardFilePaths: () => string[]
-  readClipboardText: () => string
+  readClipboardFilePaths: () => Promise<string[]>
+  readClipboardText: () => Promise<string>
   addSite: (params: { serveMode: 'static'; name: string; folderPath: string }) => Promise<unknown>
 }
 
@@ -16,7 +16,7 @@ export async function executePaste(
   onError: (message: string) => void,
 ): Promise<void> {
   // 1. Try file paths first (from OS file manager copy)
-  const filePaths = electron.readClipboardFilePaths()
+  const filePaths = await electron.readClipboardFilePaths()
   if (filePaths.length > 0) {
     for (const filePath of filePaths) {
       const folderName = filePath.split(/[\\/]/).filter(Boolean).pop() || filePath
@@ -30,7 +30,7 @@ export async function executePaste(
   }
 
   // 2. Fallback to clipboard text
-  let text = electron.readClipboardText().trim()
+  let text = (await electron.readClipboardText()).trim()
   if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"'))) {
     text = text.slice(1, -1)
   }

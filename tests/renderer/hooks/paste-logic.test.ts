@@ -2,13 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { executePaste } from '@/renderer/src/hooks/paste-logic'
 
 function createMockElectron(overrides: Partial<{
-  readClipboardFilePaths: () => string[]
-  readClipboardText: () => string
+  readClipboardFilePaths: () => Promise<string[]>
+  readClipboardText: () => Promise<string>
   addSite: (params: any) => Promise<any>
 }> = {}) {
   return {
-    readClipboardFilePaths: overrides.readClipboardFilePaths ?? (() => []),
-    readClipboardText: overrides.readClipboardText ?? (() => ''),
+    readClipboardFilePaths: overrides.readClipboardFilePaths ?? (() => Promise.resolve([])),
+    readClipboardText: overrides.readClipboardText ?? (() => Promise.resolve('')),
     addSite: overrides.addSite ?? vi.fn().mockResolvedValue({}),
   }
 }
@@ -17,7 +17,7 @@ describe('executePaste', () => {
   it('adds site from file paths when available (spec scenario 1)', async () => {
     const addSite = vi.fn().mockResolvedValue({})
     const electron = createMockElectron({
-      readClipboardFilePaths: () => ['/Users/foo/my-site'],
+      readClipboardFilePaths: () => Promise.resolve(['/Users/foo/my-site']),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -31,7 +31,7 @@ describe('executePaste', () => {
   it('adds multiple sites from multiple file paths (spec scenario 2)', async () => {
     const addSite = vi.fn().mockResolvedValue({})
     const electron = createMockElectron({
-      readClipboardFilePaths: () => ['/Users/foo/site-a', '/Users/foo/site-b'],
+      readClipboardFilePaths: () => Promise.resolve(['/Users/foo/site-a', '/Users/foo/site-b']),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -47,8 +47,8 @@ describe('executePaste', () => {
   it('falls back to clipboard text when no file paths (spec scenario 3)', async () => {
     const addSite = vi.fn().mockResolvedValue({})
     const electron = createMockElectron({
-      readClipboardFilePaths: () => [],
-      readClipboardText: () => '/Users/foo/text-path',
+      readClipboardFilePaths: () => Promise.resolve([]),
+      readClipboardText: () => Promise.resolve('/Users/foo/text-path'),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -60,8 +60,8 @@ describe('executePaste', () => {
   it('does nothing when clipboard has no file paths and no valid text (spec scenario 4)', async () => {
     const addSite = vi.fn()
     const electron = createMockElectron({
-      readClipboardFilePaths: () => [],
-      readClipboardText: () => 'Hello World',
+      readClipboardFilePaths: () => Promise.resolve([]),
+      readClipboardText: () => Promise.resolve('Hello World'),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -72,7 +72,7 @@ describe('executePaste', () => {
     const addSite = vi.fn().mockRejectedValue(new Error('資料夾不存在'))
     const onError = vi.fn()
     const electron = createMockElectron({
-      readClipboardFilePaths: () => ['/nonexistent/path'],
+      readClipboardFilePaths: () => Promise.resolve(['/nonexistent/path']),
       addSite,
     })
     await executePaste(electron, onError)
@@ -82,8 +82,8 @@ describe('executePaste', () => {
   it('does nothing when file paths is empty after filtering (spec scenarios 6/7)', async () => {
     const addSite = vi.fn()
     const electron = createMockElectron({
-      readClipboardFilePaths: () => [],
-      readClipboardText: () => '',
+      readClipboardFilePaths: () => Promise.resolve([]),
+      readClipboardText: () => Promise.resolve(''),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -93,7 +93,7 @@ describe('executePaste', () => {
   it('handles Windows-style paths', async () => {
     const addSite = vi.fn().mockResolvedValue({})
     const electron = createMockElectron({
-      readClipboardFilePaths: () => ['C:\\Users\\foo\\my-site'],
+      readClipboardFilePaths: () => Promise.resolve(['C:\\Users\\foo\\my-site']),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -105,8 +105,8 @@ describe('executePaste', () => {
   it('strips surrounding quotes from text path', async () => {
     const addSite = vi.fn().mockResolvedValue({})
     const electron = createMockElectron({
-      readClipboardFilePaths: () => [],
-      readClipboardText: () => '"/Users/foo/quoted-path"',
+      readClipboardFilePaths: () => Promise.resolve([]),
+      readClipboardText: () => Promise.resolve('"/Users/foo/quoted-path"'),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -118,8 +118,8 @@ describe('executePaste', () => {
   it('ignores multiline text', async () => {
     const addSite = vi.fn()
     const electron = createMockElectron({
-      readClipboardFilePaths: () => [],
-      readClipboardText: () => '/Users/foo/path\n/Users/bar/path',
+      readClipboardFilePaths: () => Promise.resolve([]),
+      readClipboardText: () => Promise.resolve('/Users/foo/path\n/Users/bar/path'),
       addSite,
     })
     await executePaste(electron, vi.fn())
@@ -132,7 +132,7 @@ describe('executePaste', () => {
       .mockResolvedValueOnce({})
     const onError = vi.fn()
     const electron = createMockElectron({
-      readClipboardFilePaths: () => ['/bad/path', '/good/path'],
+      readClipboardFilePaths: () => Promise.resolve(['/bad/path', '/good/path']),
       addSite,
     })
     await executePaste(electron, onError)

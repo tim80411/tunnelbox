@@ -1,4 +1,6 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron'
+import { statSync } from 'fs'
+import { parseMacOSFilePaths, parseWindowsDropFiles } from '../preload/clipboard-file-paths'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
@@ -271,6 +273,33 @@ export function registerIpcHandlers(
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to select folder')
     }
+  })
+
+  // --- Clipboard (moved from preload for sandbox compatibility) ---
+
+  ipcMain.handle('read-clipboard-text', async () => {
+    return clipboard.readText()
+  })
+
+  ipcMain.handle('read-clipboard-file-paths', async () => {
+    let paths: string[] = []
+
+    if (process.platform === 'darwin') {
+      const plist = clipboard.read('NSFilenamesPboardType')
+      paths = parseMacOSFilePaths(plist)
+    } else if (process.platform === 'win32') {
+      const buffer = clipboard.readBuffer('CF_HDROP')
+      paths = parseWindowsDropFiles(buffer)
+    }
+
+    // Filter to existing directories only (spec scenarios 6/7: ignore files)
+    return paths.filter((p) => {
+      try {
+        return statSync(p).isDirectory()
+      } catch {
+        return true // path doesn't exist — let addSite handle error (spec scenario 5)
+      }
+    })
   })
 
   // --- LAN Sharing ---

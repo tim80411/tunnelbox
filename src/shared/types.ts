@@ -206,8 +206,8 @@ export interface ElectronAPI {
   getPathForFile: (file: File) => string
 
   // Clipboard
-  readClipboardText: () => string
-  readClipboardFilePaths: () => string[]
+  readClipboardText: () => Promise<string>
+  readClipboardFilePaths: () => Promise<string[]>
   onPasteShortcut: (callback: () => void) => () => void
 
   // --- Cloudflared Environment ---
