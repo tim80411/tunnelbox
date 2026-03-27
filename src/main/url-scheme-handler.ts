@@ -1,4 +1,6 @@
-import { app, BrowserWindow } from 'electron'
+import path from 'node:path'
+import os from 'node:os'
+import { app, BrowserWindow, dialog } from 'electron'
 import { addSiteFromPath } from './site-actions'
 import { createLogger } from './logger'
 import type { UrlAddResult } from '../shared/types'
@@ -88,6 +90,34 @@ function findTunnelboxUrl(argv: string[]): string | null {
   return argv.find((arg) => arg.startsWith('tunnelbox://')) ?? null
 }
 
+/** Directory names considered sensitive and never allowed to be served. */
+const SENSITIVE_DIRS = ['.ssh', '.gnupg', '.aws', '.azure', '.config', '.kube', '.docker', '.npmrc', '.env', '.git']
+
+/**
+ * Validate that the resolved path is safe to serve.
+ * Returns an error message if the path is rejected, or `null` if it is allowed.
+ */
+export function validateServePath(rawPath: string): string | null {
+  const resolved = path.resolve(rawPath)
+  const home = os.homedir()
+
+  // Must be inside the user's home directory
+  if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+    return `Path is outside your home directory: ${resolved}`
+  }
+
+  // Check every segment of the path relative to home for sensitive directory names
+  const relative = path.relative(home, resolved)
+  const segments = relative.split(path.sep)
+  for (const segment of segments) {
+    if (SENSITIVE_DIRS.includes(segment)) {
+      return `Path contains sensitive directory "${segment}": ${resolved}`
+    }
+  }
+
+  return null
+}
+
 async function processUrl(url: string): Promise<void> {
   try {
     const parsed = new URL(url)
@@ -104,8 +134,38 @@ async function processUrl(url: string): Promise<void> {
       return
     }
 
-    log.info(`Adding site from URL: ${folderPath}`)
-    const siteInfo = await addSiteFromPath(folderPath)
+    // Validate path safety
+    const validationError = validateServePath(folderPath)
+    if (validationError) {
+      log.error(`Path validation failed: ${validationError}`)
+      broadcastUrlAddResult({ success: false, errorMessage: validationError })
+      return
+    }
+
+    // Ask the user to confirm before serving this path
+    const resolvedPath = path.resolve(folderPath)
+    const parentWindow = BrowserWindow.getAllWindows()[0]
+    const dialogOptions = {
+      type: 'question' as const,
+      buttons: ['Cancel', 'Add Site'],
+      defaultId: 1,
+      cancelId: 0,
+      title: 'TunnelBox — Confirm Site',
+      message: 'Add this folder as a site?',
+      detail: `A website link is asking to serve:\n${resolvedPath}\n\nOnly continue if you trust the source.`
+    }
+    const { response } = parentWindow
+      ? await dialog.showMessageBox(parentWindow, dialogOptions)
+      : await dialog.showMessageBox(dialogOptions)
+
+    if (response === 0) {
+      log.info('User cancelled URL add')
+      broadcastUrlAddResult({ success: false, errorMessage: 'Cancelled by user' })
+      return
+    }
+
+    log.info(`Adding site from URL: ${resolvedPath}`)
+    const siteInfo = await addSiteFromPath(resolvedPath)
     broadcastUrlAddResult({ success: true, siteName: siteInfo.name })
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to add site'
