@@ -45,10 +45,10 @@ function RequestDetailPanel({
             <span className="request-detail-method">{entry.method}</span>
             <span className="request-detail-path" title={entry.path}>{entry.path}</span>
             <span className="request-detail-status">{entry.statusCode}</span>
-            <span className="request-detail-dur">{entry.duration}ms</span>
+            <span className="request-detail-duration">{entry.duration}ms</span>
           </div>
           <button className="panel-close" onClick={onClose}>
-            x
+            ×
           </button>
         </div>
 

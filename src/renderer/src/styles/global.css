@@ -2132,7 +2132,7 @@ html, body, #root {
 
 .dashboard-hint {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .dashboard-actions {
@@ -2146,7 +2146,7 @@ html, body, #root {
 
 .dashboard-group-label {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   margin-bottom: var(--sp-1);
 }
 
@@ -2178,7 +2178,7 @@ html, body, #root {
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.75rem;
-  background: var(--surface-raised);
+  background: var(--bg-muted);
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
 }
@@ -2187,7 +2187,7 @@ html, body, #root {
   all: unset;
   cursor: pointer;
   font-size: 0.7rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   line-height: 1;
 }
 
@@ -2206,10 +2206,10 @@ html, body, #root {
   padding: 3px 8px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
-  background: var(--surface-base);
+  background: var(--bg-root);
   color: var(--text-primary);
   font-size: 0.8rem;
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
 }
 
 .tag-input:focus {
@@ -2222,7 +2222,7 @@ html, body, #root {
 .request-log-panel {
   margin-top: var(--sp-3);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   background: #1e1e1e;
   color: #e0e0e0;
   font-family: var(--font-mono);
@@ -2373,7 +2373,7 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.request-detail-dur {
+.request-detail-duration {
   color: #888;
   flex-shrink: 0;
 }

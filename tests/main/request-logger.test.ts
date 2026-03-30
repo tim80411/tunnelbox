@@ -37,7 +37,7 @@ vi.mock('../../src/main/settings-store', () => ({
 }))
 
 // Import after mocks
-const { initRequestLogger, stopRequestLogger, addEntry, clearEntries, _getEntries, _reset } = await import(
+const { initRequestLogger, stopRequestLogger, addEntry, clearEntries, _getEntries, _reset, refreshMaxEntries } = await import(
   '../../src/main/request-logger'
 )
 
@@ -141,11 +141,13 @@ describe('RequestLogger', () => {
 
   it('respects custom max entries from settings', () => {
     mockGetSettings.mockReturnValue({ requestLogMaxEntries: 5 })
+    refreshMaxEntries()
     for (let i = 0; i < 10; i++) {
       addEntry(makeEntry({ path: `/api/${i}` }))
     }
     expect(_getEntries('site-1').length).toBe(5)
     // Restore default
     mockGetSettings.mockReturnValue({ requestLogMaxEntries: 200 })
+    refreshMaxEntries()
   })
 })

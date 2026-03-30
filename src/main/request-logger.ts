@@ -6,6 +6,13 @@ import type { RequestLogEntry } from '../shared/types'
 const log = createLogger('RequestLogger')
 
 const DEFAULT_MAX_ENTRIES = 200
+
+/** Cached max entries — avoids reading electron-store on every proxy request. */
+let cachedMaxEntries: number = DEFAULT_MAX_ENTRIES
+
+export function refreshMaxEntries(): void {
+  cachedMaxEntries = getSettings().requestLogMaxEntries ?? DEFAULT_MAX_ENTRIES
+}
 const THROTTLE_INTERVAL_MS = 100 // min ms between broadcasts
 
 const buffers: Map<string, RequestLogEntry[]> = new Map()
@@ -85,9 +92,8 @@ export function addEntry(data: Omit<RequestLogEntry, 'id'>): void {
   buffer.push(entry)
 
   // Trim oldest if over limit
-  const maxEntries = getSettings().requestLogMaxEntries ?? DEFAULT_MAX_ENTRIES
-  if (buffer.length > maxEntries) {
-    buffer.splice(0, buffer.length - maxEntries)
+  if (buffer.length > cachedMaxEntries) {
+    buffer.splice(0, buffer.length - cachedMaxEntries)
   }
 
   log.info(`Request logged: ${data.method} ${data.path} ${data.statusCode} (${data.duration}ms) [${data.siteId}]`)
@@ -106,6 +112,8 @@ export function clearEntries(siteId: string): void {
 export function initRequestLogger(): void {
   if (initialized) return
   initialized = true
+
+  refreshMaxEntries()
 
   ipcMain.handle('request-log:get', (_event, siteId: string) => {
     const buffer = buffers.get(siteId) ?? []
@@ -141,6 +149,7 @@ export function _reset(): void {
   stopRequestLogger()
   buffers.clear()
   nextId = 1
+  cachedMaxEntries = DEFAULT_MAX_ENTRIES
   pendingQueues.clear()
   lastBroadcast.clear()
   for (const timer of throttleTimers.values()) {

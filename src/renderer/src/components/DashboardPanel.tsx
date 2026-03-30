@@ -50,9 +50,10 @@ function DashboardPanel({ sites }: DashboardPanelProps): React.ReactElement {
     window.electron.getDashboardSiteId().then(setDashboardSiteId).catch(() => {})
   }, [])
 
-  const tunnelSiteCount = sites.filter(
-    (s) => s.tunnel?.status === 'running' && s.tunnel.publicUrl
-  ).length
+  const tunnelSiteCount = useMemo(
+    () => sites.filter((s) => s.tunnel?.status === 'running' && s.tunnel.publicUrl).length,
+    [sites]
+  )
 
   return (
     <div className="dashboard-panel">

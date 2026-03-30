@@ -726,19 +726,13 @@ export function registerIpcHandlers(
     const storedSites = siteStore.getSites()
 
     const entries = allServers
-      .filter((s) => {
-        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)
-        return tunnel && tunnel.status === 'running' && tunnel.publicUrl
-      })
       .map((s) => {
-        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)!
+        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)
+        if (!tunnel || tunnel.status !== 'running' || !tunnel.publicUrl) return null
         const stored = storedSites.find((ss) => ss.id === s.id)
-        return {
-          name: s.name,
-          url: tunnel.publicUrl!,
-          tags: stored?.tags || [],
-        }
+        return { name: s.name, url: tunnel.publicUrl, tags: stored?.tags || [] }
       })
+      .filter((e): e is NonNullable<typeof e> => e !== null)
 
     if (entries.length === 0) return null
 

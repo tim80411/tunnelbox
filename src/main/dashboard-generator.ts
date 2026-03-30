@@ -92,7 +92,3 @@ export function cleanupDashboard(): void {
     dashboardDir = null
   }
 }
-
-export function getDashboardDir(): string | null {
-  return dashboardDir
-}
