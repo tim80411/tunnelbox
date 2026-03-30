@@ -145,6 +145,22 @@ function SettingsPanel({
 
           <div className="settings-item">
             <div className="settings-item-info">
+              <span className="settings-item-label">Request log limit</span>
+              <span className="settings-item-desc">每個 Proxy 站點保留的最大請求記錄數</span>
+            </div>
+            <input
+              className="settings-select"
+              type="number"
+              min={50}
+              max={1000}
+              value={settings.requestLogMaxEntries}
+              onChange={(e) => onUpdate({ requestLogMaxEntries: Math.max(50, Math.min(1000, Number(e.target.value))) })}
+              style={{ width: 80, textAlign: 'center' }}
+            />
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-info">
               <span className="settings-item-label">Version</span>
               <span className="settings-item-desc">v{appVersion || '...'}</span>
             </div>

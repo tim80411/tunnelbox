@@ -162,6 +162,8 @@ export function createProxyServer(target: string): http.Server {
   }
 
   const httpServer = http.createServer((clientReq, clientRes) => {
+    const startTime = Date.now()
+
     // Enforce concurrent connection limit per proxy target
     if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
       log.warn(`Connection limit reached for proxy target ${target}`)
@@ -173,6 +175,18 @@ export function createProxyServer(target: string): http.Server {
     const release = (): void => { releaseConnection(connectionKey) }
     clientRes.on('close', release)
     clientRes.on('error', release)
+
+    // Buffer request body for logging (max 64KB)
+    const bodyChunks: Buffer[] = []
+    let bodySize = 0
+    const BODY_CAPTURE_LIMIT = 64 * 1024
+
+    clientReq.on('data', (chunk: Buffer) => {
+      bodySize += chunk.length
+      if (bodySize <= BODY_CAPTURE_LIMIT) {
+        bodyChunks.push(chunk)
+      }
+    })
 
     const targetPath = targetBasePath + (clientReq.url || '/')
 
@@ -193,6 +207,23 @@ export function createProxyServer(target: string): http.Server {
       const headers = sanitizeResponseHeaders(proxyRes.headers)
       clientRes.writeHead(proxyRes.statusCode || 502, headers)
       proxyRes.pipe(clientRes)
+
+      // Emit request-complete for logging
+      const requestBody = bodySize > 0
+        ? Buffer.concat(bodyChunks).toString('utf-8')
+        : null
+
+      httpServer.emit('proxy:request-complete', {
+        method: clientReq.method || 'GET',
+        path: clientReq.url || '/',
+        statusCode: proxyRes.statusCode || 0,
+        duration: Date.now() - startTime,
+        requestHeaders: clientReq.headers,
+        responseHeaders: proxyRes.headers,
+        requestBody,
+        requestBodySize: bodySize,
+        requestBodyTruncated: bodySize > BODY_CAPTURE_LIMIT,
+      })
     })
 
     proxyReq.on('error', (err) => {

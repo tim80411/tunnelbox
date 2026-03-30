@@ -13,6 +13,7 @@ import { extractPort } from '../shared/proxy-utils'
 import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
+import { addEntry, clearEntries } from './request-logger'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -420,6 +421,20 @@ export class ServerManager {
       visitorTracker.trackRequest(req, site.id, site.name)
     })
 
+    // Log completed proxy requests
+    httpServer.on('proxy:request-complete', (data: {
+      method: string; path: string; statusCode: number; duration: number;
+      requestHeaders: Record<string, string | string[] | undefined>;
+      responseHeaders: Record<string, string | string[] | undefined>;
+      requestBody: string | null; requestBodySize: number; requestBodyTruncated: boolean;
+    }) => {
+      addEntry({
+        siteId: site.id,
+        timestamp: Date.now(),
+        ...data,
+      })
+    })
+
     // Track proxy target health for status updates
     httpServer.on('proxy:error', () => {
       if (!this.proxyErrorStart.has(site.id)) {
@@ -550,6 +565,12 @@ export class ServerManager {
 
     // Clear proxy error tracking
     this.proxyErrorStart.delete(id)
+
+    // Clear request log for proxy sites
+    const stoppedServer = this.servers.get(id)
+    if (stoppedServer && stoppedServer.serveMode === 'proxy') {
+      clearEntries(id)
+    }
 
     // Clear debounce timer
     const timer = this.debounceTimers.get(id)

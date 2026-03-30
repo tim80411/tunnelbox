@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 
 const electronAPI: ElectronAPI = {
@@ -422,6 +422,46 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('remote-console-entry', handler)
     return () => {
       ipcRenderer.removeListener('remote-console-entry', handler)
+    }
+  },
+
+  // --- Site Tags ---
+
+  updateSiteTags: (siteId: string, tags: string[]): Promise<void> => {
+    return ipcRenderer.invoke('update-site-tags', siteId, tags)
+  },
+
+  // --- Dashboard ---
+
+  generateDashboard: (): Promise<{ siteId: string } | null> => {
+    return ipcRenderer.invoke('generate-dashboard')
+  },
+
+  getDashboardSiteId: (): Promise<string | null> => {
+    return ipcRenderer.invoke('get-dashboard-site-id')
+  },
+
+  removeDashboard: (): Promise<void> => {
+    return ipcRenderer.invoke('remove-dashboard')
+  },
+
+  // --- Request Log ---
+
+  getRequestLog: (siteId: string): Promise<RequestLogEntry[]> => {
+    return ipcRenderer.invoke('request-log:get', siteId)
+  },
+
+  clearRequestLog: (siteId: string): Promise<void> => {
+    return ipcRenderer.invoke('request-log:clear', siteId)
+  },
+
+  onRequestLogEntry: (callback: (entry: RequestLogEntry) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, entry: RequestLogEntry): void => {
+      callback(entry)
+    }
+    ipcRenderer.on('request-log:new', handler)
+    return () => {
+      ipcRenderer.removeListener('request-log:new', handler)
     }
   },
 

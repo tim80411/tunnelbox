@@ -121,15 +121,27 @@ export function registerServerCommands(
     .action(async (nameOrId: string) => {
       const json = program.opts().json
       try {
+        const site = findSite(store, nameOrId)
         const result = await serverStart(store, serverManager, nameOrId)
         if (json) {
-          output(result, json)
+          const jsonResult = {
+            ...result,
+            serveMode: site.serveMode,
+            ...(site.serveMode === 'proxy' && { proxyTarget: site.proxyTarget }),
+          }
+          output(jsonResult, json)
         } else {
           const lanLine = result.lanUrl ? `\n  LAN: ${link(result.lanUrl)}` : ''
           if (result.alreadyRunning) {
             output(`Server already running at ${link(result.url)}${lanLine}`, json)
           } else {
             output(`Server started at ${link(result.url)}${lanLine}`, json)
+          }
+          if (site.serveMode === 'proxy') {
+            output(`\n  API Endpoint: ${link(result.url)}`, false)
+            if (result.lanUrl) {
+              output(`  LAN Endpoint: ${link(result.lanUrl)}`, false)
+            }
           }
           if (result.lanUrl) {
             await printLanQr(result.lanUrl).catch(() => {/* QR unavailable, non-fatal */})

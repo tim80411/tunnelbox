@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import * as settingsStore from './settings-store'
+import { refreshMaxEntries } from './request-logger'
 import type { AppSettings } from '../shared/types'
 
 function broadcastSettingsChanged(settings: AppSettings): void {
@@ -16,6 +17,9 @@ export function registerSettingsIpcHandlers(): void {
 
   ipcMain.handle('update-settings', async (_event, patch: Partial<AppSettings>) => {
     const updated = settingsStore.updateSettings(patch)
+    if (patch.requestLogMaxEntries !== undefined) {
+      refreshMaxEntries()
+    }
     broadcastSettingsChanged(updated)
     return updated
   })

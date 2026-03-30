@@ -62,7 +62,7 @@ export function removeSite(id: string): void {
   saveSites(sites.filter((s) => s.id !== id))
 }
 
-export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 'providerType' | 'defaultDomain'>>): void {
+export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 'providerType' | 'defaultDomain' | 'tags'>>): void {
   const sites = getSites()
   const idx = sites.findIndex((s) => s.id === id)
   if (idx === -1) return

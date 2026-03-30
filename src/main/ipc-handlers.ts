@@ -12,6 +12,7 @@ import { normalizeProxyTarget, isValidProxyTarget, extractPort } from '../shared
 import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
+import { writeDashboard, cleanupDashboard } from './dashboard-generator'
 import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
 import { getBoreConfig, saveBoreConfig, type BoreServerConfig } from './providers/bore/bore-config-store'
@@ -70,7 +71,8 @@ export function registerIpcHandlers(
       url: server.status === 'running' ? `http://localhost:${server.port}` : '',
       providerType,
       ...(tunnel && { tunnel }),
-      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain })
+      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain }),
+      tags: storedSite?.tags || []
     }
 
     // LAN URL — always computed for running sites
@@ -233,6 +235,12 @@ export function registerIpcHandlers(
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to rename site')
     }
+  })
+
+  ipcMain.handle('update-site-tags', async (_event, siteId: string, tags: string[]) => {
+    const cleanTags = [...new Set(tags.map((t: string) => t.trim()).filter((t: string) => t.length > 0))]
+    siteStore.updateSite(siteId, { tags: cleanTags })
+    broadcastSiteUpdate()
   })
 
   ipcMain.handle('get-sites', async () => {
@@ -706,6 +714,54 @@ export function registerIpcHandlers(
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('visitor-event', event)
+    }
+  })
+
+  // --- Dashboard ---
+
+  let dashboardSiteId: string | null = null
+
+  ipcMain.handle('generate-dashboard', async () => {
+    const allServers = serverManager.getServers()
+    const storedSites = siteStore.getSites()
+
+    const entries = allServers
+      .map((s) => {
+        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)
+        if (!tunnel || tunnel.status !== 'running' || !tunnel.publicUrl) return null
+        const stored = storedSites.find((ss) => ss.id === s.id)
+        return { name: s.name, url: tunnel.publicUrl, tags: stored?.tags || [] }
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+
+    if (entries.length === 0) return null
+
+    const dir = writeDashboard(entries)
+
+    // Remove previous dashboard site if exists
+    if (dashboardSiteId) {
+      await serverManager.removeServer(dashboardSiteId)
+    }
+
+    dashboardSiteId = `dashboard-${Date.now()}`
+    await serverManager.startServer({
+      id: dashboardSiteId,
+      name: 'Dashboard',
+      serveMode: 'static',
+      folderPath: dir,
+    })
+    broadcastSiteUpdate()
+    return { siteId: dashboardSiteId }
+  })
+
+  ipcMain.handle('get-dashboard-site-id', () => dashboardSiteId)
+
+  ipcMain.handle('remove-dashboard', async () => {
+    if (dashboardSiteId) {
+      await serverManager.removeServer(dashboardSiteId)
+      cleanupDashboard()
+      dashboardSiteId = null
+      broadcastSiteUpdate()
     }
   })
 }
