@@ -56,14 +56,19 @@ var filterBar=document.getElementById('filter-bar');
 if(groupFilter){filterBar.style.display='block';filterBar.textContent='Filtered by: '+groupFilter;}
 var filtered=groupFilter?SITES.filter(function(s){return s.tags.indexOf(groupFilter)!==-1}):SITES;
 if(filtered.length===0){
-  container.innerHTML='<div class="empty">沒有符合條件的站點</div>';
+  var empty=document.createElement('div');empty.className='empty';empty.textContent='沒有符合條件的站點';
+  container.appendChild(empty);
 }else{
   filtered.forEach(function(s){
     var div=document.createElement('div');div.className='site';
-    var tagsHtml=s.tags.map(function(t){return '<span class="tag">'+t+'</span>'}).join('');
-    div.innerHTML='<div class="site-name">'+s.name+'</div>'
-      +'<a class="site-url" href="'+s.url+'" target="_blank" rel="noopener">'+s.url+'</a>'
-      +(tagsHtml?'<div class="tags">'+tagsHtml+'</div>':'');
+    var nameEl=document.createElement('div');nameEl.className='site-name';nameEl.textContent=s.name;
+    var link=document.createElement('a');link.className='site-url';link.href=s.url;link.target='_blank';link.rel='noopener';link.textContent=s.url;
+    div.appendChild(nameEl);div.appendChild(link);
+    if(s.tags.length>0){
+      var tagsEl=document.createElement('div');tagsEl.className='tags';
+      s.tags.forEach(function(t){var chip=document.createElement('span');chip.className='tag';chip.textContent=t;tagsEl.appendChild(chip);});
+      div.appendChild(tagsEl);
+    }
     container.appendChild(div);
   });
 }
