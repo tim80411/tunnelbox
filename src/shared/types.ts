@@ -18,6 +18,7 @@ interface BaseSiteInfo {
   tunnel?: TunnelInfo
   providerType?: string // 'cloudflare' | 'frp' | 'bore' — for UI badge
   defaultDomain?: string // pre-configured domain for one-click named tunnel
+  tags?: string[]
 }
 
 export interface StaticSiteInfo extends BaseSiteInfo {
@@ -106,6 +107,7 @@ export interface StoredStaticSite {
   directoryListing?: boolean // opt-in: expose folder listing (default false)
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
+  tags?: string[]
 }
 
 export interface StoredProxySite {
@@ -117,6 +119,7 @@ export interface StoredProxySite {
   passthroughPort?: number
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
+  tags?: string[]
 }
 
 export type StoredSite = StoredStaticSite | StoredProxySite
@@ -371,6 +374,9 @@ export interface ElectronAPI {
   getRemoteConsoleLogs: (siteId: string) => Promise<RemoteConsoleEntry[]>
   clearRemoteConsoleLogs: (siteId: string) => Promise<void>
   onRemoteConsoleEntry: (callback: (entry: RemoteConsoleEntry) => void) => () => void
+
+  // Site Tags
+  updateSiteTags: (siteId: string, tags: string[]) => Promise<void>
 
   // Request Log
   getRequestLog: (siteId: string) => Promise<RequestLogEntry[]>

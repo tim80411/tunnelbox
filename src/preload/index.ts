@@ -425,6 +425,12 @@ const electronAPI: ElectronAPI = {
     }
   },
 
+  // --- Site Tags ---
+
+  updateSiteTags: (siteId: string, tags: string[]): Promise<void> => {
+    return ipcRenderer.invoke('update-site-tags', siteId, tags)
+  },
+
   // --- Request Log ---
 
   getRequestLog: (siteId: string): Promise<RequestLogEntry[]> => {

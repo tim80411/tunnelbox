@@ -70,7 +70,8 @@ export function registerIpcHandlers(
       url: server.status === 'running' ? `http://localhost:${server.port}` : '',
       providerType,
       ...(tunnel && { tunnel }),
-      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain })
+      ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain }),
+      tags: storedSite?.tags || []
     }
 
     // LAN URL — always computed for running sites
@@ -233,6 +234,12 @@ export function registerIpcHandlers(
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to rename site')
     }
+  })
+
+  ipcMain.handle('update-site-tags', async (_event, siteId: string, tags: string[]) => {
+    const cleanTags = [...new Set(tags.map((t: string) => t.trim()).filter((t: string) => t.length > 0))]
+    siteStore.updateSite(siteId, { tags: cleanTags })
+    broadcastSiteUpdate()
   })
 
   ipcMain.handle('get-sites', async () => {
