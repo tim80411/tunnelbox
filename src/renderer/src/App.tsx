@@ -8,8 +8,11 @@ import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import ShareHistoryPanel from './components/ShareHistoryPanel'
 import RemoteConsolePanel from './components/RemoteConsolePanel'
+import RequestLogPanel from './components/RequestLogPanel'
+import RequestDetailPanel from './components/RequestDetailPanel'
 import NotificationBell from './components/NotificationBell'
 import { useSettings } from './hooks/useSettings'
+import { useRequestLog } from './hooks/useRequestLog'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
 import { providers } from './providers/registry'
@@ -416,6 +419,11 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [])
 
+  // Request log for the selected proxy site
+  const selectedSite = useMemo(() => sites.find((s) => s.id === selectedSiteId) ?? null, [sites, selectedSiteId])
+  const selectedProxySiteId = selectedSite?.serveMode === 'proxy' ? selectedSite.id : null
+  const { entries: requestLogEntries, selectedEntry: selectedRequestEntry, setSelectedEntry: setSelectedRequestEntry, clearLog: clearRequestLog } = useRequestLog(selectedProxySiteId)
+
   const hasRunningNamedTunnels = sites.some(
     (s) => s.tunnel?.type === 'named' && s.tunnel.status === 'running'
   )
@@ -716,6 +724,14 @@ function App(): React.ReactElement {
                     Remove
                   </button>
                 </div>
+                {site.serveMode === 'proxy' && selectedSiteId === site.id && (
+                  <RequestLogPanel
+                    entries={requestLogEntries}
+                    selectedEntry={selectedRequestEntry}
+                    onSelectEntry={setSelectedRequestEntry}
+                    onClear={clearRequestLog}
+                  />
+                )}
               </div>
             )})
           )}
@@ -804,6 +820,13 @@ function App(): React.ReactElement {
         onClose={() => setConsoleForSiteId(null)}
         enabled={settings.remoteConsoleEnabled}
       />
+
+      {selectedRequestEntry && (
+        <RequestDetailPanel
+          entry={selectedRequestEntry}
+          onClose={() => setSelectedRequestEntry(null)}
+        />
+      )}
 
       {/* Add Site Modal */}
       {showAddModal && (
