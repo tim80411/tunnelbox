@@ -191,6 +191,23 @@ export interface RemoteConsoleEntry {
   siteId: string
 }
 
+// --- Request Log ---
+
+export interface RequestLogEntry {
+  id: string
+  siteId: string
+  timestamp: number
+  method: string
+  path: string
+  statusCode: number
+  duration: number // ms
+  requestHeaders: Record<string, string | string[] | undefined>
+  responseHeaders: Record<string, string | string[] | undefined>
+  requestBody: string | null // null if no body, GET, or truncated beyond limit
+  requestBodySize: number
+  requestBodyTruncated: boolean
+}
+
 // --- App Settings ---
 
 export interface AppSettings {
@@ -352,6 +369,11 @@ export interface ElectronAPI {
   getRemoteConsoleLogs: (siteId: string) => Promise<RemoteConsoleEntry[]>
   clearRemoteConsoleLogs: (siteId: string) => Promise<void>
   onRemoteConsoleEntry: (callback: (entry: RemoteConsoleEntry) => void) => () => void
+
+  // Request Log
+  getRequestLog: (siteId: string) => Promise<RequestLogEntry[]>
+  clearRequestLog: (siteId: string) => Promise<void>
+  onRequestLogEntry: (callback: (entry: RequestLogEntry) => void) => () => void
 
   // Auto Update
   getAppVersion: () => Promise<string>
