@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { createLogger } from './logger'
+import { getSettings } from './settings-store'
 import type { RequestLogEntry } from '../shared/types'
 
 const log = createLogger('RequestLogger')
@@ -84,8 +85,9 @@ export function addEntry(data: Omit<RequestLogEntry, 'id'>): void {
   buffer.push(entry)
 
   // Trim oldest if over limit
-  if (buffer.length > DEFAULT_MAX_ENTRIES) {
-    buffer.splice(0, buffer.length - DEFAULT_MAX_ENTRIES)
+  const maxEntries = getSettings().requestLogMaxEntries ?? DEFAULT_MAX_ENTRIES
+  if (buffer.length > maxEntries) {
+    buffer.splice(0, buffer.length - maxEntries)
   }
 
   log.info(`Request logged: ${data.method} ${data.path} ${data.statusCode} (${data.duration}ms) [${data.siteId}]`)

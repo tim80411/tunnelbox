@@ -215,13 +215,15 @@ export interface AppSettings {
   defaultServeMode: ServeMode
   visitorNotifications: boolean
   remoteConsoleEnabled: boolean
+  requestLogMaxEntries: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autoStartServers: false,
   defaultServeMode: 'static',
   visitorNotifications: true,
-  remoteConsoleEnabled: false
+  remoteConsoleEnabled: false,
+  requestLogMaxEntries: 200
 }
 
 // --- Add Site Params (IPC) ---
