@@ -11,6 +11,7 @@ import RemoteConsolePanel from './components/RemoteConsolePanel'
 import RequestLogPanel from './components/RequestLogPanel'
 import RequestDetailPanel from './components/RequestDetailPanel'
 import TagEditor from './components/TagEditor'
+import DashboardPanel from './components/DashboardPanel'
 import NotificationBell from './components/NotificationBell'
 import { useSettings } from './hooks/useSettings'
 import { useRequestLog } from './hooks/useRequestLog'
@@ -527,6 +528,8 @@ function App(): React.ReactElement {
           正在下載更新... {updateState.percent}%
         </div>
       )}
+
+      <DashboardPanel sites={sites} />
 
       <div className="app-body">
         <div

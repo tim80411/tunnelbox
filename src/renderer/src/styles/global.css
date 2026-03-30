@@ -2110,6 +2110,53 @@ html, body, #root {
   padding-top: 1px;
 }
 
+/* ── Dashboard Panel ──────────────────────────────────────────── */
+
+.dashboard-panel {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.dashboard-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: var(--sp-2);
+  color: var(--text-primary);
+}
+
+.dashboard-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.dashboard-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.dashboard-group-urls {
+  margin-top: var(--sp-1);
+}
+
+.dashboard-group-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+
+.dashboard-group-url-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px 0;
+}
+
 /* ── Tag Editor ───────────────────────────────────────────────── */
 
 .tag-editor {
