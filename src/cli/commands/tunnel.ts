@@ -141,22 +141,25 @@ export function registerTunnelCommands(
     .action(async (nameOrId: string) => {
       const json = program.opts().json
       try {
+        const site = findSite(store, nameOrId)
         const result = await tunnelQuick(store, serverManager, nameOrId, getDeps())
-        if (result.alreadyRunning) {
-          output(
-            json
-              ? result
-              : `Tunnel already running: ${link(result.publicUrl)}`,
-            json
-          )
+        if (json) {
+          const jsonResult = {
+            ...result,
+            serveMode: site.serveMode,
+            ...(site.serveMode === 'proxy' && { proxyTarget: site.proxyTarget }),
+          }
+          output(jsonResult, json)
         } else {
-          const prefix = result.serverAutoStarted ? 'Server auto-started. ' : ''
-          output(
-            json
-              ? result
-              : `${prefix}Tunnel started: ${link(result.publicUrl)}`,
-            json
-          )
+          if (result.alreadyRunning) {
+            output(`Tunnel already running: ${link(result.publicUrl)}`, false)
+          } else {
+            const prefix = result.serverAutoStarted ? 'Server auto-started. ' : ''
+            output(`${prefix}Tunnel started: ${link(result.publicUrl)}`, false)
+          }
+          if (site.serveMode === 'proxy') {
+            output(`\n  Public API Endpoint: ${link(result.publicUrl)}`, false)
+          }
         }
       } catch (err) {
         const { handleError } = await import('../errors')
