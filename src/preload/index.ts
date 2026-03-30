@@ -431,6 +431,20 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('update-site-tags', siteId, tags)
   },
 
+  // --- Dashboard ---
+
+  generateDashboard: (): Promise<{ siteId: string } | null> => {
+    return ipcRenderer.invoke('generate-dashboard')
+  },
+
+  getDashboardSiteId: (): Promise<string | null> => {
+    return ipcRenderer.invoke('get-dashboard-site-id')
+  },
+
+  removeDashboard: (): Promise<void> => {
+    return ipcRenderer.invoke('remove-dashboard')
+  },
+
   // --- Request Log ---
 
   getRequestLog: (siteId: string): Promise<RequestLogEntry[]> => {

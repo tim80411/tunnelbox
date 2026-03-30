@@ -378,6 +378,11 @@ export interface ElectronAPI {
   // Site Tags
   updateSiteTags: (siteId: string, tags: string[]) => Promise<void>
 
+  // Dashboard
+  generateDashboard: () => Promise<{ siteId: string } | null>
+  getDashboardSiteId: () => Promise<string | null>
+  removeDashboard: () => Promise<void>
+
   // Request Log
   getRequestLog: (siteId: string) => Promise<RequestLogEntry[]>
   clearRequestLog: (siteId: string) => Promise<void>

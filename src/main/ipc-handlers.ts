@@ -12,6 +12,7 @@ import { normalizeProxyTarget, isValidProxyTarget, extractPort } from '../shared
 import type { ProviderEnv } from '../shared/provider-types'
 import type { SiteServer } from './server-manager'
 import { initSiteActions } from './site-actions'
+import { writeDashboard, cleanupDashboard } from './dashboard-generator'
 import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
 import { getBoreConfig, saveBoreConfig, type BoreServerConfig } from './providers/bore/bore-config-store'
@@ -713,6 +714,60 @@ export function registerIpcHandlers(
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('visitor-event', event)
+    }
+  })
+
+  // --- Dashboard ---
+
+  let dashboardSiteId: string | null = null
+
+  ipcMain.handle('generate-dashboard', async () => {
+    const allServers = serverManager.getServers()
+    const storedSites = siteStore.getSites()
+
+    const entries = allServers
+      .filter((s) => {
+        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)
+        return tunnel && tunnel.status === 'running' && tunnel.publicUrl
+      })
+      .map((s) => {
+        const tunnel = tunnelManager.getTunnelInfoAcrossProviders(s.id)!
+        const stored = storedSites.find((ss) => ss.id === s.id)
+        return {
+          name: s.name,
+          url: tunnel.publicUrl!,
+          tags: stored?.tags || [],
+        }
+      })
+
+    if (entries.length === 0) return null
+
+    const dir = writeDashboard(entries)
+
+    // Remove previous dashboard site if exists
+    if (dashboardSiteId) {
+      await serverManager.removeServer(dashboardSiteId)
+    }
+
+    dashboardSiteId = `dashboard-${Date.now()}`
+    await serverManager.startServer({
+      id: dashboardSiteId,
+      name: 'Dashboard',
+      serveMode: 'static',
+      folderPath: dir,
+    })
+    broadcastSiteUpdate()
+    return { siteId: dashboardSiteId }
+  })
+
+  ipcMain.handle('get-dashboard-site-id', () => dashboardSiteId)
+
+  ipcMain.handle('remove-dashboard', async () => {
+    if (dashboardSiteId) {
+      await serverManager.removeServer(dashboardSiteId)
+      cleanupDashboard()
+      dashboardSiteId = null
+      broadcastSiteUpdate()
     }
   })
 }
