@@ -2110,6 +2110,66 @@ html, body, #root {
   padding-top: 1px;
 }
 
+/* ── Tag Editor ───────────────────────────────────────────────── */
+
+.tag-editor {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: var(--sp-1);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.tag-remove {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.tag-remove:hover {
+  color: var(--text-primary);
+}
+
+.tag-input-row {
+  display: flex;
+  gap: var(--sp-1);
+  align-items: center;
+}
+
+.tag-input {
+  flex: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ── Request Log Panel ─────────────────────────────────────────── */
 
 .request-log-panel {
