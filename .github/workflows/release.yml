@@ -47,7 +47,15 @@ jobs:
         run: pnpm build
 
       - name: Build & Publish to GitHub Releases
-        run: pnpm dist:${{ matrix.platform }} --publish always
+        shell: bash
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ matrix.platform }}" = "mac" ] && [ -z "$CSC_LINK" ]; then
+            echo "No macOS signing credentials found — building unsigned artifacts."
+            EXTRA_ARGS="-c.mac.identity=null -c.mac.notarize=false -c.mac.hardenedRuntime=false"
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          pnpm dist:${{ matrix.platform }} --publish always $EXTRA_ARGS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS code signing
