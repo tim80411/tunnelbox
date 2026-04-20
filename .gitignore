@@ -1,6 +1,6 @@
 node_modules
 dist
-build/.iconset/
+build/icon.iconset/
 out
 .DS_Store
 *.log

@@ -21,7 +21,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ICON_SVG = resolve(ROOT, 'brand/icon.svg');
 const SYMBOL_SVG = resolve(ROOT, 'brand/symbol.svg');
 const BUILD_DIR = resolve(ROOT, 'build');
-const ICONSET_DIR = resolve(BUILD_DIR, '.iconset');
+const ICONSET_DIR = resolve(BUILD_DIR, 'icon.iconset');
 const TRAY_DIR = resolve(ROOT, 'resources/tray');
 
 // macOS .iconset naming convention.
