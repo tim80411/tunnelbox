@@ -6,6 +6,25 @@ A desktop app for managing local static websites and sharing them via Cloudflare
 
 > **User Guide** — For installation, usage instructions, and troubleshooting, see the [Documentation](https://timothyown.gitbook.io/tunnel-box).
 
+## Install (macOS)
+
+Via Homebrew tap:
+
+```bash
+brew tap tim80411/tap
+brew install --cask tunnelbox
+```
+
+Because the release is not notarized by Apple, macOS Gatekeeper will block the app on first launch with "Apple could not verify TunnelBox is free of malware". Remove the quarantine attribute once after install:
+
+```bash
+sudo xattr -dr com.apple.quarantine /Applications/TunnelBox.app
+```
+
+Then launch normally via `open /Applications/TunnelBox.app` or from Launchpad.
+
+> This step is a one-off per install. `brew upgrade --cask tunnelbox` will re-apply the quarantine flag on the new version, so run the `xattr` command again after each upgrade.
+
 ## Features
 
 - Local static server with auto port allocation and hot reload

@@ -5,7 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     root: '.',
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.claude/**',
+      '**/.worktrees/**',
+    ],
   },
   resolve: {
     alias: {
