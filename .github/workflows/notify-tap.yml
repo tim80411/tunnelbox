@@ -1,0 +1,20 @@
+name: Notify Homebrew Tap
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch tap update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+          repository: tim80411/homebrew-tap
+          event-type: update-tunnelbox
+          client-payload: '{"version": "${{ github.event.release.tag_name }}"}'
