@@ -1,4 +1,6 @@
-# TunnelBox
+<p align="center">
+  <img src="brand/wordmark.svg" alt="TunnelBox" height="64">
+</p>
 
 [![Build & Release](https://github.com/tim80411/tunnelbox/actions/workflows/release.yml/badge.svg)](https://github.com/tim80411/tunnelbox/actions/workflows/release.yml)
 
