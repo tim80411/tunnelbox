@@ -501,9 +501,24 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.btn-inline-copy:hover {
+.btn-inline-copy:hover:not(:disabled) {
   opacity: 1;
   color: var(--accent);
+}
+
+.btn-inline-copy:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.btn-inline-copy--error {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.btn-icon--error {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* ── Tooltip ───────────────────────────────────────────────────── */

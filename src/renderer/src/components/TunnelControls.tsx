@@ -259,6 +259,13 @@ function TunnelControls({
           </span>
         )}
 
+        <CopyButton
+          text={wanUrl || ''}
+          tooltip="複製公開網址"
+          disabled={!wanUrl}
+          variant="inline"
+        />
+
         {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying') && (
           <span className="cloudflared-spinner" />
         )}
@@ -287,8 +294,7 @@ function TunnelControls({
             <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
           </button>
 
-          {/* Copy / QR / Refresh */}
-          <CopyButton text={wanUrl || ''} tooltip="複製公開網址" disabled={!wanUrl} />
+          {/* QR / Refresh */}
           <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
           <button className="btn-icon" disabled data-tooltip="重新偵測">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>

@@ -34,6 +34,11 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('open-in-browser', id)
   },
 
+  // Reveal folder in OS file manager
+  openFolder: (folderPath: string): Promise<void> => {
+    return ipcRenderer.invoke('open-folder', folderPath)
+  },
+
   // Folder selection
   selectFolder: (): Promise<string | null> => {
     return ipcRenderer.invoke('select-folder')

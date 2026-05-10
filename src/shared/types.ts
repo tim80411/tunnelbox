@@ -274,6 +274,9 @@ export interface ElectronAPI {
   // Browser
   openInBrowser: (id: string) => Promise<void>
 
+  // Reveal folder in OS file manager
+  openFolder: (folderPath: string) => Promise<void>
+
   // Folder selection
   selectFolder: () => Promise<string | null>
 

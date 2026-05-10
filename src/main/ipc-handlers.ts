@@ -1,5 +1,5 @@
 import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron'
-import { statSync } from 'fs'
+import { existsSync, statSync } from 'fs'
 import { parseMacOSFilePaths, parseWindowsDropFiles } from '../preload/clipboard-file-paths'
 import { ServerManager } from './server-manager'
 import * as siteStore from './store'
@@ -295,6 +295,17 @@ export function registerIpcHandlers(
       await shell.openExternal(`http://localhost:${server.port}`)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to open in browser')
+    }
+  })
+
+  ipcMain.handle('open-folder', async (_event, folderPath: string) => {
+    try {
+      if (!folderPath) throw new Error('資料夾路徑為空')
+      if (!existsSync(folderPath)) throw new Error(`資料夾已不存在：${folderPath}`)
+      const result = await shell.openPath(folderPath)
+      if (result) throw new Error(result)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '無法開啟資料夾')
     }
   })
 
