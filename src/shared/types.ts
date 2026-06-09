@@ -241,6 +241,7 @@ export interface AppSettings {
   remoteConsoleEnabled: boolean
   requestLogMaxEntries: number
   launchAtStartup: boolean
+  betaChannel: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -249,7 +250,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   visitorNotifications: true,
   remoteConsoleEnabled: false,
   requestLogMaxEntries: 200,
-  launchAtStartup: false
+  launchAtStartup: false,
+  betaChannel: false
 }
 
 // --- Add Site Params (IPC) ---

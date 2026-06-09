@@ -35,6 +35,10 @@ Then launch normally via `open /Applications/TunnelBox.app` or from Launchpad.
 - Custom Domain — bind your own domain to a Named Tunnel
 - Auto cloudflared management — detection, download, installation
 
+## TunnelBox Pro
+
+Pro is for power users who need their tunnel running 24/7 or managing multiple clients at once. Pro adds: unlimited simultaneous shares (Free: 2), multiple Cloudflare accounts for agency/multi-client workflows, 24/7 background daemon mode so shares keep running after you close the window, early-access beta channel, and a permanent Founder badge for the first 100 buyers. See the [pricing page](https://tunnelboxapp.com/#pricing) for details.
+
 ## Tech Stack
 
 | Layer | Technology |

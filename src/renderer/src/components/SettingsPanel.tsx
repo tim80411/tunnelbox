@@ -1,5 +1,6 @@
-import type { AppSettings, ServeMode, CloudflareAuth } from '../../../shared/types'
+import type { AppSettings, ServeMode, CloudflareAuth, CloudflareAccountsState } from '../../../shared/types'
 import type { UpdateState } from '../../../shared/update-types'
+import type { TierState } from '../../../shared/license-types'
 import type { ProviderType } from '../providers/registry'
 import type { ProviderEnv } from '../../../shared/provider-types'
 import { providers as providerDefs } from '../providers/registry'
@@ -7,6 +8,9 @@ import ProviderTabs from './ProviderTabs'
 import ProviderStatus from './ProviderStatus'
 import ProviderConfigForm from './ProviderConfigForm'
 import CloudflareAuthSection from './CloudflareAuthSection'
+import CloudflareAccountsSection from './CloudflareAccountsSection'
+import FounderBadge from './FounderBadge'
+import { DAEMON_COPY } from '../../../shared/copy/pro-strings'
 
 interface SettingsPanelProps {
   open: boolean
@@ -16,6 +20,8 @@ interface SettingsPanelProps {
   appVersion: string
   updateState: UpdateState
   onCheckForUpdates: () => Promise<void>
+  tierState?: TierState
+  onUpgrade?: () => void
 
   providers?: Record<ProviderType, {
     env: ProviderEnv
@@ -27,6 +33,11 @@ interface SettingsPanelProps {
   hasRunningNamedTunnels?: boolean
   onLogin?: () => Promise<void>
   onLogout?: () => Promise<void>
+  cfAccountsState?: CloudflareAccountsState
+  onAddCfAccount?: () => Promise<CloudflareAccountsState>
+  onRemoveCfAccount?: (accountId: string) => Promise<CloudflareAccountsState>
+  onSetActiveCfAccount?: (accountId: string) => Promise<CloudflareAccountsState>
+  onSetCfAccountLabel?: (accountId: string, label: string | null) => Promise<CloudflareAccountsState>
 }
 
 // Default no-op env for fallback
@@ -53,9 +64,17 @@ function SettingsPanel({
   auth: authProp,
   hasRunningNamedTunnels = false,
   onLogin,
-  onLogout
+  onLogout,
+  tierState,
+  onUpgrade,
+  cfAccountsState,
+  onAddCfAccount,
+  onRemoveCfAccount,
+  onSetActiveCfAccount,
+  onSetCfAccountLabel
 }: SettingsPanelProps): React.ReactElement {
   const isChecking = updateState.phase === 'checking'
+  const isPro = tierState?.isPro ?? false
 
   const resolvedProviders = providersProp ?? defaultProviders
   const resolvedAuth: CloudflareAuth = authProp ?? { status: 'logged_out' }
@@ -164,6 +183,14 @@ function SettingsPanel({
               <span className="settings-item-label">Version</span>
               <span className="settings-item-desc">v{appVersion || '...'}</span>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {isPro && tierState?.founderTier != null && (
+                <FounderBadge founderTier={tierState.founderTier} />
+              )}
+              {isPro && tierState?.founderTier == null && (
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>Pro</span>
+              )}
+            </div>
           </div>
 
           <div className="settings-item">
@@ -182,6 +209,64 @@ function SettingsPanel({
             </button>
           </div>
 
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <span className="settings-item-label">
+                Beta channel
+                {!isPro && (
+                  <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                    Pro = early access workflow
+                  </span>
+                )}
+              </span>
+              <span className="settings-item-desc">
+                {isPro
+                  ? '下次「Check for updates」時偵測 beta 版本'
+                  : '提前取得新功能的 Pro early-access 模式'}
+              </span>
+            </div>
+            <label
+              className="settings-toggle"
+              style={!isPro ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              onClick={!isPro ? onUpgrade : undefined}
+            >
+              <input
+                type="checkbox"
+                checked={isPro && (settings.betaChannel ?? false)}
+                disabled={!isPro}
+                onChange={(e) => isPro && onUpdate({ betaChannel: e.target.checked })}
+              />
+              <span className="settings-toggle-track" />
+            </label>
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <span className="settings-item-label">
+                {DAEMON_COPY.launchAtStartupLabel}
+                {!isPro && (
+                  <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                    Pro = 24/7 share mode
+                  </span>
+                )}
+              </span>
+              <span className="settings-item-desc">{DAEMON_COPY.launchAtStartupDesc}</span>
+            </div>
+            <label
+              className="settings-toggle"
+              style={!isPro ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              onClick={!isPro ? onUpgrade : undefined}
+            >
+              <input
+                type="checkbox"
+                checked={isPro && (settings.launchAtStartup ?? false)}
+                disabled={!isPro}
+                onChange={(e) => isPro && onUpdate({ launchAtStartup: e.target.checked })}
+              />
+              <span className="settings-toggle-track" />
+            </label>
+          </div>
+
           {/* Provider Sections */}
           <div className="settings-section-divider">Providers</div>
 
@@ -196,12 +281,23 @@ function SettingsPanel({
                     onInstall={resolvedProviders.cloudflare.install}
                     label="cloudflared"
                   />
-                  <CloudflareAuthSection
-                    auth={resolvedAuth}
-                    hasRunningNamedTunnels={hasRunningNamedTunnels}
-                    onLogin={onLogin ?? noop}
-                    onLogout={onLogout ?? noop}
-                  />
+                  {cfAccountsState && onAddCfAccount && onRemoveCfAccount && onSetActiveCfAccount && onSetCfAccountLabel ? (
+                    <CloudflareAccountsSection
+                      state={cfAccountsState}
+                      isPro={isPro}
+                      onAdd={onAddCfAccount}
+                      onRemove={onRemoveCfAccount}
+                      onSetActive={onSetActiveCfAccount}
+                      onSetLabel={onSetCfAccountLabel}
+                    />
+                  ) : (
+                    <CloudflareAuthSection
+                      auth={resolvedAuth}
+                      hasRunningNamedTunnels={hasRunningNamedTunnels}
+                      onLogin={onLogin ?? noop}
+                      onLogout={onLogout ?? noop}
+                    />
+                  )}
                 </>
               )
             },

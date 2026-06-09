@@ -63,3 +63,10 @@
 
 - [ ] 端到端測試 — 所有功能目前無自動化測試，僅靠 spec 的驗收標準做手動驗證
 - [ ] 本地自訂域名、區網分享、Linux 支援三個 branch 尚未合併 — 需逐一 review 後合併，可能有 merge conflict（共用檔案如 `types.ts`、`ipc-handlers.ts` 已有較大變動）
+
+## TunnelBox Pro v1.0 — Launch 前置 / Follow-up
+
+- [ ] **Launch 前置**：把 `build/license-email-template.md` 與 `build/voting-email-template.md` 裡的 `https://discord.gg/PLACEHOLDER` 與 Google Form 連結換成真實 URL
+- [ ] **Defense-in-depth (v1.x)**：`src/main/cloudflared/account-manager.ts` 的 `setActiveAccount()` 與 `setSiteAccount()` 補上 main-process Pro gate；目前僅靠 UI 擋（QA T11 flag）
+- [ ] **Launch 前置**：把 `scripts/generate-license-keypair.mjs` 跑一次產生正式 keypair；公鑰寫入 build 環境變數 `TUNNELBOX_LICENSE_PUBKEY_V1`；私鑰只給 server-side signer
+- [ ] **Server-side（charging-method ES-110 webhook signer，本次 Pro 衝刺未做）**：在 LemonSqueezy 端起 webhook，order_created 簽 license（含 founder_tier）、發 email；屬獨立部署、非 Electron app 內
