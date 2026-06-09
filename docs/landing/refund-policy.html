@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Refund Policy — TunnelBox</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0f14;
+      --surface: #161a24;
+      --border: #2a3045;
+      --accent: #4f8ef7;
+      --muted: #8892a4;
+      --text: #e8ecf4;
+      --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 720px; margin: 0 auto; padding: 64px 24px 96px; }
+    .back { font-size: 0.9rem; color: var(--muted); display: inline-block; margin-bottom: 32px; }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    .updated { color: var(--muted); font-size: 0.85rem; margin-bottom: 40px; }
+    h2 { font-size: 1.2rem; margin: 36px 0 12px; }
+    p { margin-bottom: 14px; color: var(--text); }
+    ul { margin: 0 0 14px 22px; }
+    li { margin-bottom: 8px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+    strong { color: #fff; }
+    footer { border-top: 1px solid var(--border); margin-top: 56px; padding-top: 20px; color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <a class="back" href="/">&larr; Back to TunnelBox</a>
+
+    <h1>Refund Policy</h1>
+    <p class="updated">TunnelBox Pro &mdash; one-time purchase</p>
+
+    <div class="card">
+      <strong>30-day unconditional refund.</strong> If TunnelBox Pro isn't right for
+      you, request a full refund within 30 days of purchase &mdash; no questions asked,
+      no need to contact the author.
+    </div>
+
+    <h2>How to request a refund</h2>
+    <p>Refunds are handled directly by our payment processor, LemonSqueezy:</p>
+    <ul>
+      <li>Open your <strong>LemonSqueezy order confirmation email</strong> and click
+        &ldquo;Request a refund&rdquo;, or</li>
+      <li>Use the <strong>LemonSqueezy self-serve customer portal</strong> linked in
+        that email.</li>
+    </ul>
+    <p>
+      Once submitted, LemonSqueezy processes the refund automatically. You'll typically
+      receive the funds within 1&ndash;5 business days, depending on your card or PayPal
+      provider. No author intervention is required.
+    </p>
+    <p>
+      LemonSqueezy enforces a platform refund-obligation window of <strong>34 days</strong>,
+      so requests made between day 31 and day 34 are still honored through the self-serve
+      portal.
+    </p>
+
+    <h2>Refunds and your license</h2>
+    <p>
+      TunnelBox is designed to never &ldquo;phone home,&rdquo; so your Pro license is
+      verified entirely offline on your own machine. As a deliberate consequence:
+    </p>
+    <ul>
+      <li>
+        <strong>A refund does not revoke an already-issued license.</strong> Your
+        <code>license.json</code> keeps working on your device after a refund &mdash;
+        there is no remote kill-switch. This is an intentional, honest trade-off of the
+        no-phone-home design and is stated in the EULA.
+      </li>
+      <li>
+        Renewal prompts and all other behavior remain identical to any other Pro user.
+      </li>
+    </ul>
+
+    <footer>
+      Questions about a refund that the self-serve portal can't resolve? Reach us through
+      your LemonSqueezy order email. &middot; <a href="/">tunnelbox</a>
+    </footer>
+  </main>
+</body>
+</html>
