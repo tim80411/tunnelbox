@@ -18,7 +18,8 @@ export function getSettings(): AppSettings {
       visitorNotifications: store.get('visitorNotifications') ?? DEFAULT_SETTINGS.visitorNotifications,
       remoteConsoleEnabled: store.get('remoteConsoleEnabled') ?? DEFAULT_SETTINGS.remoteConsoleEnabled,
       requestLogMaxEntries: store.get('requestLogMaxEntries') ?? DEFAULT_SETTINGS.requestLogMaxEntries,
-      launchAtStartup: store.get('launchAtStartup') ?? DEFAULT_SETTINGS.launchAtStartup
+      launchAtStartup: store.get('launchAtStartup') ?? DEFAULT_SETTINGS.launchAtStartup,
+      betaChannel: store.get('betaChannel') ?? DEFAULT_SETTINGS.betaChannel
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
@@ -45,6 +46,9 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     }
     if (patch.launchAtStartup !== undefined) {
       store.set('launchAtStartup', patch.launchAtStartup)
+    }
+    if (patch.betaChannel !== undefined) {
+      store.set('betaChannel', patch.betaChannel)
     }
     return getSettings()
   } catch (err) {

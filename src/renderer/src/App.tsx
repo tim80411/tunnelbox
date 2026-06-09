@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import type { SiteInfo, CloudflareAuth, ServeMode, ProxySiteInfo } from '../../shared/types'
+import type { SiteInfo, CloudflareAuth, ServeMode, ProxySiteInfo, CloudflareAccountsState } from '../../shared/types'
 import TunnelControls from './components/TunnelControls'
+import ConcurrentSharesDialog from './components/ConcurrentSharesDialog'
 import QrButton from './components/QrButton'
 import CopyButton from './components/CopyButton'
 import ProviderInstallBar from './components/ProviderInstallBar'
@@ -17,6 +18,8 @@ import { useSettings } from './hooks/useSettings'
 import { useRequestLog } from './hooks/useRequestLog'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
+import { useTierGate } from './hooks/useTierGate'
+import FounderBadge from './components/FounderBadge'
 import { providers } from './providers/registry'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
@@ -28,6 +31,7 @@ function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [auth, setAuth] = useState<CloudflareAuth>({ status: 'logged_out' })
+  const [cfAccounts, setCfAccounts] = useState<CloudflareAccountsState>({ accounts: [], activeAccountId: null })
 
   // Confirm remove modal state
   const [confirmRemove, setConfirmRemove] = useState<SiteInfo | null>(null)
@@ -40,12 +44,21 @@ function App(): React.ReactElement {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
+  // Concurrent shares dialog state (US-219)
+  const [shareGateDialog, setShareGateDialog] = useState<{
+    targetSite: SiteInfo
+    activeIds: string[]
+    startFn: () => Promise<unknown>
+  } | null>(null)
+
   // Panel state
   const [showSettings, setShowSettings] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showShareHistory, setShowShareHistory] = useState(false)
   const [consoleForSiteId, setConsoleForSiteId] = useState<string | null>(null)
+  const [showUpgradePro, setShowUpgradePro] = useState(false)
   const { settings, update: updateSettings } = useSettings()
+  const tierState = useTierGate()
   const {
     state: updateState, appVersion, forceUpdate,
     checkForUpdates, downloadUpdate, installUpdate, dismissUpdate
@@ -78,6 +91,7 @@ function App(): React.ReactElement {
 
     window.electron.getAuthStatus?.().then(setAuth).catch(() => {})
     window.electron.isQuickActionInstalled?.().then(setQuickActionInstalled).catch(() => {})
+    window.electron.listCfAccounts?.().then(setCfAccounts).catch(() => {})
 
     const unsubSites = window.electron.onSiteUpdated((updatedSites) => {
       setSites(updatedSites)
@@ -102,12 +116,14 @@ function App(): React.ReactElement {
     })
 
     const unsubAuth = window.electron.onAuthStatusChanged?.(setAuth)
+    const unsubCfAccounts = window.electron.onCfAccountsChanged?.(setCfAccounts)
 
     return () => {
       unsubSites()
       unsubFiles()
       unsubTunnel?.()
       unsubAuth?.()
+      unsubCfAccounts?.()
     }
   }, [loadSites])
 
@@ -209,14 +225,30 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  // Gate check wrapper: if Free user is at the active-site limit, show the swap dialog.
+  // `startFn` is the actual start call (LOCAL server or WAN tunnel) to retry after the user picks a swap.
+  const withShareGate = useCallback(
+    async (siteId: string, startFn: () => Promise<unknown>) => {
+      const gate = await window.electron.checkShareGate(siteId)
+      if (!gate.allowed) {
+        const targetSite = sites.find((s) => s.id === siteId)
+        if (!targetSite) return
+        setShareGateDialog({ targetSite, activeIds: gate.activeIds, startFn })
+        return
+      }
+      await startFn()
+    },
+    [sites]
+  )
+
   const handleStartServer = useCallback(async (id: string) => {
     try {
       setError(null)
-      await window.electron.startServer(id)
+      await withShareGate(id, () => window.electron.startServer(id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start server')
     }
-  }, [])
+  }, [withShareGate])
 
   const handleStopServer = useCallback(async (id: string) => {
     try {
@@ -230,6 +262,7 @@ function App(): React.ReactElement {
   const handleRestartServer = useCallback(async (site: SiteInfo) => {
     try {
       setError(null)
+      // Restart on an already-running site does not count as a "new start" — bypass gate.
       if (site.status === 'running') await window.electron.stopServer(site.id)
       await window.electron.startServer(site.id)
     } catch (err) {
@@ -249,11 +282,11 @@ function App(): React.ReactElement {
   const handleShareSite = useCallback(async (siteId: string) => {
     try {
       setError(null)
-      await window.electron.startQuickTunnel(siteId)
+      await withShareGate(siteId, () => window.electron.startQuickTunnel(siteId))
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
     }
-  }, [])
+  }, [withShareGate])
 
   const handleStopSharing = useCallback(async (siteId: string) => {
     try {
@@ -267,20 +300,20 @@ function App(): React.ReactElement {
   const handleStartFrpTunnel = useCallback(async (siteId: string) => {
     try {
       setError(null)
-      await window.electron.startFrpTunnel(siteId)
+      await withShareGate(siteId, () => window.electron.startFrpTunnel(siteId))
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 frp Tunnel 失敗')
     }
-  }, [])
+  }, [withShareGate])
 
   const handleStartBoreTunnel = useCallback(async (siteId: string) => {
     try {
       setError(null)
-      await window.electron.startBoreTunnel(siteId)
+      await withShareGate(siteId, () => window.electron.startBoreTunnel(siteId))
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 bore Tunnel 失敗')
     }
-  }, [])
+  }, [withShareGate])
 
   const handleSelectProvider = useCallback(async (siteId: string, provider: 'cloudflare' | 'frp' | 'bore') => {
     try {
@@ -304,6 +337,30 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleAddCfAccount = useCallback(async () => {
+    const state = await window.electron.addCfAccount()
+    setCfAccounts(state)
+    return state
+  }, [])
+
+  const handleRemoveCfAccount = useCallback(async (accountId: string) => {
+    const state = await window.electron.removeCfAccount(accountId)
+    setCfAccounts(state)
+    return state
+  }, [])
+
+  const handleSetActiveCfAccount = useCallback(async (accountId: string) => {
+    const state = await window.electron.setActiveCfAccount(accountId)
+    setCfAccounts(state)
+    return state
+  }, [])
+
+  const handleSetCfAccountLabel = useCallback(async (accountId: string, label: string | null) => {
+    const state = await window.electron.setCfAccountLabel(accountId, label)
+    setCfAccounts(state)
+    return state
+  }, [])
+
   const handleLogout = useCallback(async () => {
     try {
       setError(null)
@@ -317,12 +374,12 @@ function App(): React.ReactElement {
   const handleBindFixedDomain = useCallback(async (siteId: string, domain: string) => {
     try {
       setError(null)
-      await window.electron.bindFixedDomain(siteId, domain)
+      await withShareGate(siteId, () => window.electron.bindFixedDomain(siteId, domain))
     } catch (err) {
       setError(err instanceof Error ? err.message : '綁定固定網域失敗')
       throw err
     }
-  }, [])
+  }, [withShareGate])
 
   const handleUnbindFixedDomain = useCallback(async (siteId: string) => {
     try {
@@ -336,11 +393,11 @@ function App(): React.ReactElement {
   const handleStartNamedTunnel = useCallback(async (siteId: string) => {
     try {
       setError(null)
-      await window.electron.startNamedTunnel(siteId)
+      await withShareGate(siteId, () => window.electron.startNamedTunnel(siteId))
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 Named Tunnel 失敗')
     }
-  }, [])
+  }, [withShareGate])
 
   const handleStopNamedTunnel = useCallback(async (siteId: string) => {
     try {
@@ -396,7 +453,7 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove
+  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
@@ -453,6 +510,8 @@ function App(): React.ReactElement {
           appVersion={appVersion}
           updateState={updateState}
           onCheckForUpdates={checkForUpdates}
+          tierState={tierState}
+          onUpgrade={() => setShowUpgradePro(true)}
           providers={{
             cloudflare: { env: cfProvider.env, config: cfProvider.config, install: cfProvider.install, saveConfig: cfProvider.saveConfig },
             frp: { env: frpProvider.env, config: frpProvider.config, install: frpProvider.install, saveConfig: frpProvider.saveConfig },
@@ -462,11 +521,19 @@ function App(): React.ReactElement {
           hasRunningNamedTunnels={hasRunningNamedTunnels}
           onLogin={handleLogin}
           onLogout={handleLogout}
+          cfAccountsState={cfAccounts}
+          onAddCfAccount={handleAddCfAccount}
+          onRemoveCfAccount={handleRemoveCfAccount}
+          onSetActiveCfAccount={handleSetActiveCfAccount}
+          onSetCfAccountLabel={handleSetCfAccountLabel}
         />
         <div className="app-main">
       <header className="app-header">
         <h1>TunnelBox</h1>
         <div className="app-header-actions">
+          {tierState.isPro && tierState.founderTier != null && (
+            <FounderBadge founderTier={tierState.founderTier} size="sm" />
+          )}
           {quickActionInstalled === false && (
             <button
               className="btn btn-sm"
@@ -779,6 +846,27 @@ function App(): React.ReactElement {
         </div>{/* end app-main */}
       </div>{/* end app-layout */}
 
+      {/* Concurrent Shares Dialog (US-219) */}
+      {shareGateDialog && (
+        <ConcurrentSharesDialog
+          targetSite={shareGateDialog.targetSite}
+          activeSites={sites.filter((s) => shareGateDialog.activeIds.includes(s.id))}
+          onStopAndStart={async (stopSiteId) => {
+            setShareGateDialog(null)
+            try {
+              await window.electron.stopTunnel(stopSiteId)
+              await shareGateDialog.startFn()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : '切換 share 失敗')
+            }
+          }}
+          onUpgrade={() => {
+            setShareGateDialog(null)
+          }}
+          onCancel={() => setShareGateDialog(null)}
+        />
+      )}
+
       {/* Confirm Remove Modal */}
       {confirmRemove && (
         <div className="modal-overlay" data-dismiss onClick={() => setConfirmRemove(null)}>
@@ -962,6 +1050,30 @@ function App(): React.ReactElement {
                 disabled={adding || (newServeMode === 'proxy' ? !newProxyTarget.trim() : !newSitePath.trim())}
               >
                 {adding ? 'Adding...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Pro Modal */}
+      {showUpgradePro && (
+        <div className="modal-overlay" data-dismiss onClick={() => setShowUpgradePro(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Upgrade to Pro</h2>
+            <p className="confirm-text" style={{ marginBottom: 12 }}>
+              Pro is for 24/7 share mode, multi-client parallel workflows, early-access beta channel, and more.
+            </p>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setShowUpgradePro(false)}>Maybe later</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowUpgradePro(false)
+                  window.open('https://tunnelboxapp.com/#pricing', '_blank')
+                }}
+              >
+                Get Pro
               </button>
             </div>
           </div>

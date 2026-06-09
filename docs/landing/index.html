@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TunnelBox — Share Local Sites Instantly</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #161a24;
+      --surface2: #1e2433;
+      --border: #2a3045;
+      --accent: #4f8ef7;
+      --accent-dim: #2d5ab0;
+      --green: #3ecf8e;
+      --muted: #8892a4;
+      --text: #e8ecf4;
+      --text-dim: #b0bac8;
+      --danger: #f04e4e;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout helpers ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 80px 0; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13, 15, 20, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 960px; margin: 0 auto; padding: 0 24px; height: 60px;
+    }
+    .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--text); letter-spacing: -0.02em; }
+    .nav-cta {
+      background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);
+      padding: 8px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .nav-cta:hover { background: var(--accent-dim); text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero { padding: 100px 0 80px; text-align: center; }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800; letter-spacing: -0.04em; line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero .tagline {
+      font-size: 1.15rem; color: var(--text-dim); max-width: 540px;
+      margin: 0 auto 16px;
+    }
+    .hero .core-message {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      border-radius: var(--radius-sm);
+      padding: 14px 20px;
+      font-size: 1rem; color: var(--text);
+      margin-bottom: 36px;
+      text-align: left;
+      max-width: 540px;
+    }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--radius-sm); padding: 14px 28px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent-dim); text-decoration: none; }
+    .btn-secondary {
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 14px 28px; font-size: 1rem; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+    /* ── Section headings ── */
+    .section-heading {
+      text-align: center; margin-bottom: 48px;
+    }
+    .section-heading h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 800; letter-spacing: -0.03em; margin-bottom: 10px;
+    }
+    .section-heading p { color: var(--text-dim); font-size: 1rem; max-width: 520px; margin: 0 auto; }
+
+    /* ── Pricing section ── */
+    #pricing { background: var(--surface); }
+
+    .price-card-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+      margin-bottom: 48px;
+    }
+    .price-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+    }
+    .price-card.featured { border-color: var(--accent); position: relative; }
+    .price-card .badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700;
+      padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+    }
+    .price-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .price-card .amount { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; }
+    .price-card .amount span { font-size: 1rem; font-weight: 400; color: var(--muted); }
+    .price-card .sub { font-size: 0.85rem; color: var(--muted); margin: 4px 0 20px; }
+    .price-card .cta {
+      display: block; text-align: center; padding: 12px 0;
+      border-radius: var(--radius-sm); font-weight: 700; font-size: 0.95rem;
+      text-decoration: none; transition: background 0.15s, color 0.15s;
+    }
+    .price-card.free .cta {
+      border: 1px solid var(--border); color: var(--text-dim);
+    }
+    .price-card.free .cta:hover { border-color: var(--text-dim); color: var(--text); text-decoration: none; }
+    .price-card.featured .cta {
+      background: var(--accent); color: #fff;
+    }
+    .price-card.featured .cta:hover { background: var(--accent-dim); text-decoration: none; }
+
+    /* ── Comparison table ── */
+    .table-wrap { overflow-x: auto; }
+
+    .compare-table {
+      width: 100%; border-collapse: collapse; font-size: 0.95rem;
+    }
+    .compare-table th, .compare-table td {
+      padding: 14px 16px; text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table thead th {
+      background: var(--surface2); font-weight: 700; font-size: 0.85rem;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+    }
+    .compare-table thead th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+    .compare-table thead th:last-child { border-radius: 0 var(--radius-sm) 0 0; }
+    .compare-table tbody tr:last-child td { border-bottom: none; }
+    .compare-table tbody tr:hover { background: var(--surface2); }
+    .compare-table td:not(:first-child) { text-align: center; }
+    .compare-table th:not(:first-child) { text-align: center; }
+    .compare-table .col-feature { font-weight: 500; }
+    .compare-table .col-free { color: var(--text-dim); }
+    .compare-table .col-pro { color: var(--accent); font-weight: 600; }
+    .tick { color: var(--green); font-weight: 700; }
+    .dash { color: var(--muted); }
+    .table-section-label td {
+      padding: 10px 16px 6px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted);
+      background: var(--surface2); border-bottom: none;
+    }
+
+    /* Mobile stacked table */
+    @media (max-width: 767px) {
+      .compare-table thead { display: none; }
+      .compare-table, .compare-table tbody, .compare-table tr, .compare-table td {
+        display: block; width: 100%;
+      }
+      .compare-table tr {
+        border-bottom: 1px solid var(--border);
+        padding: 12px 16px;
+      }
+      .compare-table tr:last-child { border-bottom: none; }
+      .compare-table td {
+        border: none; padding: 2px 0; text-align: left !important;
+      }
+      .compare-table .col-feature {
+        font-weight: 700; font-size: 0.95rem; margin-bottom: 6px;
+        display: block;
+      }
+      .compare-table .col-free::before { content: "Free: "; color: var(--muted); font-weight: 600; }
+      .compare-table .col-pro::before { content: "Pro: "; color: var(--accent); font-weight: 600; }
+      .compare-table .col-free, .compare-table .col-pro {
+        display: inline-block; margin-right: 16px;
+        font-size: 0.9rem;
+      }
+      .table-section-label { display: none; }
+    }
+
+    /* ── Use case cards ── */
+    .use-case-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px;
+    }
+    .use-case-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+      transition: border-color 0.15s;
+    }
+    .use-case-card:hover { border-color: var(--accent); }
+    .use-case-card .icon {
+      font-size: 1.6rem; margin-bottom: 12px;
+    }
+    .use-case-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .use-case-card p { font-size: 0.88rem; color: var(--text-dim); line-height: 1.5; }
+    .use-case-card .context-tag {
+      display: inline-block; margin-top: 12px; font-size: 0.75rem;
+      color: var(--muted); background: var(--surface2);
+      padding: 3px 10px; border-radius: 999px;
+    }
+
+    /* ── FAQ ── */
+    #faq { background: var(--surface); }
+    .faq-list { max-width: 680px; margin: 0 auto; }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+    }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-question {
+      width: 100%; background: none; border: none; color: var(--text);
+      font-size: 1rem; font-weight: 600; text-align: left;
+      padding: 20px 0; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .faq-question:hover { color: var(--accent); }
+    .faq-chevron {
+      flex-shrink: 0; width: 20px; height: 20px; color: var(--muted);
+      transition: transform 0.2s;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-answer {
+      display: none; padding: 0 0 20px; color: var(--text-dim); font-size: 0.95rem; line-height: 1.7;
+    }
+    .faq-item.open .faq-answer { display: block; }
+    .faq-answer ul { padding-left: 20px; margin-top: 8px; }
+    .faq-answer li { margin-bottom: 4px; }
+    .faq-answer strong { color: var(--text); }
+
+    /* ── Pricing fine print ── */
+    .fine-print {
+      margin-top: 32px; padding: 20px 24px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 0.85rem;
+      color: var(--muted); line-height: 1.7;
+    }
+    .fine-print li { margin-bottom: 4px; }
+    .fine-print ul { padding-left: 20px; }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 48px 0 32px;
+    }
+    .footer-inner {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      flex-wrap: wrap; gap: 32px;
+      max-width: 960px; margin: 0 auto; padding: 0 24px;
+    }
+    .footer-brand .name { font-weight: 700; font-size: 1rem; margin-bottom: 6px; }
+    .footer-brand p { font-size: 0.85rem; color: var(--muted); max-width: 260px; }
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
+    .footer-links a { font-size: 0.85rem; color: var(--muted); }
+    .footer-links a:hover { color: var(--text); }
+    .footer-bottom {
+      max-width: 960px; margin: 32px auto 0; padding: 24px 24px 0;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem; color: var(--muted);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 767px) {
+      .section { padding: 56px 0; }
+      .hero { padding: 64px 0 56px; }
+      .price-card-row { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">TunnelBox</span>
+    <a class="nav-cta" href="https://tunnelbox.lemonsqueezy.com/buy" target="_blank" rel="noopener">Upgrade to Pro</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1>Share local sites with<br><span>one click.</span></h1>
+    <p class="tagline">TunnelBox wraps cloudflared into a simple macOS app. No config. No CLI required.</p>
+    <p class="core-message">
+      TunnelBox is completely free with all features available.<br>
+      <strong>Pro removes daily friction.</strong>
+    </p>
+    <div class="hero-btns">
+      <a class="btn-primary" href="https://tunnelbox.lemonsqueezy.com/buy" target="_blank" rel="noopener">Upgrade to Pro &mdash; $39 one-time</a>
+      <a class="btn-secondary" href="https://github.com/tim80411/tunnel-box/releases" target="_blank" rel="noopener">Download Free</a>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing & comparison -->
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="section-heading">
+      <h2>Free vs Pro</h2>
+      <p>All core tunneling features are free forever. Pro is for power workflows.</p>
+    </div>
+
+    <!-- Price cards -->
+    <div class="price-card-row">
+      <div class="price-card free">
+        <h3>Free</h3>
+        <div class="amount">$0 <span>forever</span></div>
+        <div class="sub">Full tunneling features. No time limit.</div>
+        <a class="cta" href="https://github.com/tim80411/tunnel-box/releases" target="_blank" rel="noopener">Download</a>
+      </div>
+      <div class="price-card featured">
+        <div class="badge">One-time purchase</div>
+        <h3>Pro</h3>
+        <div class="amount">$39 <span>USD, one-time</span></div>
+        <div class="sub">Includes 1&nbsp;year of updates. Lifetime access to current Pro features.</div>
+        <a class="cta" href="https://tunnelbox.lemonsqueezy.com/buy" target="_blank" rel="noopener">Upgrade to Pro</a>
+      </div>
+    </div>
+
+    <!-- Comparison table -->
+    <div class="table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th style="width:52%">Feature</th>
+            <th>Free</th>
+            <th>Pro</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="table-section-label">
+            <td colspan="3">Core Features</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Cloudflare Tunnel</td>
+            <td class="col-free tick">&#10003; Full</td>
+            <td class="col-pro tick">&#10003; Full</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Reverse proxy</td>
+            <td class="col-free tick">&#10003; Full</td>
+            <td class="col-pro tick">&#10003; Full</td>
+          </tr>
+          <tr>
+            <td class="col-feature">CLI tool</td>
+            <td class="col-free tick">&#10003; Full</td>
+            <td class="col-pro tick">&#10003; Full</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Auto-update</td>
+            <td class="col-free tick">&#10003; All</td>
+            <td class="col-pro tick">&#10003; All</td>
+          </tr>
+          <tr class="table-section-label">
+            <td colspan="3">Pro Workflow Capacity</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Concurrent shares</td>
+            <td class="col-free">2 at once</td>
+            <td class="col-pro">Unlimited</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Cloudflare accounts</td>
+            <td class="col-free">1</td>
+            <td class="col-pro">Multi-account</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Background mode (24/7)</td>
+            <td class="col-free dash">&mdash;</td>
+            <td class="col-pro tick">&#10003;</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Beta channel + Discord</td>
+            <td class="col-free dash">&mdash;</td>
+            <td class="col-pro tick">&#10003;</td>
+          </tr>
+          <tr>
+            <td class="col-feature">Founder badge</td>
+            <td class="col-free dash">&mdash;</td>
+            <td class="col-pro">First 100 buyers</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Fine print -->
+    <div class="fine-print">
+      <ul>
+        <li><strong>30-day unconditional refund</strong> — request via your LemonSqueezy order email or the self-serve portal, no questions asked.</li>
+        <li><strong>Pro = lifetime access to current Pro features.</strong> Features listed above are included permanently once purchased.</li>
+        <li><strong>No future feature SLAs or access timing guarantees.</strong> New features added after purchase may be Free or Pro at our discretion.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- What Pro is for -->
+<section class="section" id="use-cases">
+  <div class="container">
+    <div class="section-heading">
+      <h2>What Pro is for</h2>
+      <p>Free is great for one-off demos. Pro is for ongoing, professional workflows.</p>
+    </div>
+    <div class="use-case-grid">
+      <div class="use-case-card">
+        <div class="icon">&#x1F4BB;</div>
+        <h3>Demoing to multiple clients</h3>
+        <p>Keep separate share URLs live for each client simultaneously — no stopping one to start another.</p>
+        <span class="context-tag">Multi-share workflow</span>
+      </div>
+      <div class="use-case-card">
+        <div class="icon">&#x1F465;</div>
+        <h3>Managing client Cloudflare accounts</h3>
+        <p>Switch between client CF accounts with a picker and bind each site to its own account &mdash; no logout dance.</p>
+        <span class="context-tag">Agency / multi-client</span>
+      </div>
+      <div class="use-case-card">
+        <div class="icon">&#x23F0;</div>
+        <h3>24/7 share &amp; API endpoint</h3>
+        <p>Close the window without closing the tunnel. Pro hides to the tray and keeps sharing until you say stop.</p>
+        <span class="context-tag">Always-on mode</span>
+      </div>
+      <div class="use-case-card">
+        <div class="icon">&#x1F680;</div>
+        <h3>Supporting the project + community</h3>
+        <p>Get early access to beta builds, join the Pro Discord, and &mdash; for the first 100 buyers &mdash; earn a permanent Founder badge.</p>
+        <span class="context-tag">Community bundle</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-heading">
+      <h2>Frequently asked questions</h2>
+    </div>
+    <div class="faq-list">
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What's NOT in Pro?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Pro does <strong>NOT</strong> gate these &mdash; they're all <strong>FREE</strong>:</p>
+          <ul>
+            <li>CLI tool</li>
+            <li>frp self-hosted tunneling</li>
+            <li>Multi-provider switching</li>
+            <li>Reverse proxy</li>
+            <li>Local HTTPS</li>
+            <li>Share-group presets</li>
+            <li>LAN sharing</li>
+            <li>Custom domains</li>
+            <li>All Cloudflare tunnel features</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What does Free include?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Everything you need to share local sites: Cloudflare Tunnel, reverse proxy, CLI, Local HTTPS, LAN sharing, share-group presets, frp self-hosted tunneling, custom domains &mdash; and auto-updates, always. Free is great for single-demo use and everyday development.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What happens when I run 3 shares on Free?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Free mode supports 2 simultaneous shares. When you start a third, TunnelBox shows a dialog: stop one of the existing shares to continue, or upgrade to Pro for unlimited concurrent shares. No data is lost; your share configs are preserved.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What does "background mode" mean on Free?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>On Free, closing the TunnelBox window stops the app and all active shares &mdash; TunnelBox is a one-at-a-time demo tool. Pro mode hides to the system tray when you close the window, keeping tunnels alive as long as you like. You can also enable "Launch at startup" for permanent hosting.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Is Pro a subscription?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>No. Pro is a one-time payment of $39. You get lifetime access to the Pro features that exist today, plus one year of updates. There's no recurring charge. If new major Pro features ship after your purchase, access to those is at our discretion &mdash; but everything in the table above is yours permanently.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What's the refund policy?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>30-day unconditional refund. If Pro isn't right for you, email us via your LemonSqueezy order confirmation or use the LemonSqueezy self-serve portal. No questions asked.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What is the Founder badge?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>The first 100 Pro buyers receive a permanent "Founder #N" badge visible in the About screen and in the app title bar chip. It's a thank-you for early support &mdash; no special pricing, just a permanent identity marker inside the app.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="name">TunnelBox</div>
+      <p>A simple macOS wrapper for Cloudflare Tunnel. Built by an indie developer.</p>
+    </div>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="/refund-policy">Refund Policy</a>
+      <a href="/eula">EULA</a>
+      <a href="/privacy">Privacy</a>
+      <a href="https://github.com/tim80411/tunnel-box" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+  <div class="footer-bottom">
+    <p>TunnelBox is not affiliated with, endorsed by, or sponsored by Cloudflare, Inc.</p>
+    <p>TunnelBox uses <a href="https://github.com/cloudflare/cloudflared" target="_blank" rel="noopener">cloudflared</a>, licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache 2.0 License</a>.</p>
+  </div>
+</footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-question').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var item = this.closest('.faq-item');
+      var isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item.open').forEach(function(el) {
+        el.classList.remove('open');
+        el.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+      });
+      if (!isOpen) {
+        item.classList.add('open');
+        this.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
