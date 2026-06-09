@@ -1,0 +1,13 @@
+name = "tunnelbox-license-signer"
+main = "src/index.ts"
+compatibility_date = "2026-06-09"
+
+# Secrets — set with `wrangler secret put <NAME>`, never commit:
+#   LS_WEBHOOK_SECRET   — LemonSqueezy store webhook signing secret
+#   ED25519_PRIVATE_KEY — hex-encoded Ed25519 private key from
+#                         `scripts/generate-license-keypair.mjs` (signer side ONLY)
+#
+# The matching public key goes into the app build as TUNNELBOX_LICENSE_PUBKEY_V1.
+
+# [observability]
+# enabled = true
