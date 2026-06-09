@@ -20,6 +20,7 @@ import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useProvider } from './hooks/useProvider'
 import { useTierGate } from './hooks/useTierGate'
 import FounderBadge from './components/FounderBadge'
+import { shouldShowRenewBanner, majorMinor } from '../../shared/renew-banner'
 import { providers } from './providers/registry'
 import { useSiteDropZone } from './hooks/useSiteDropZone'
 import { usePasteToAdd } from './hooks/usePasteToAdd'
@@ -480,6 +481,12 @@ function App(): React.ReactElement {
     if (filePath) await importLicenseAt(filePath)
   }, [importLicenseAt])
 
+  // Soft-lock renew banner (US-107): dismiss is remembered per major.minor.
+  const handleDismissRenewBanner = useCallback(() => {
+    const mm = majorMinor(appVersion)
+    if (mm) void updateSettings({ dismissedRenewBannerVersion: mm })
+  }, [appVersion, updateSettings])
+
   // Path 3: offer to import a license sitting in ~/Downloads (Free users, once per session).
   useEffect(() => {
     if (tierState.isPro) return
@@ -547,6 +554,13 @@ function App(): React.ReactElement {
   const hasFrpSites = useMemo(() => sites.some((s) => s.providerType === 'frp'), [sites])
   const hasBoreSites = useMemo(() => sites.some((s) => s.providerType === 'bore'), [sites])
 
+
+  const showRenewBanner = shouldShowRenewBanner({
+    isPro: tierState.isPro,
+    softLocked: tierState.softLocked,
+    appVersion,
+    dismissedVersion: settings.dismissedRenewBannerVersion ?? ''
+  })
 
   return (
     <div className="app-container">
@@ -618,6 +632,34 @@ function App(): React.ReactElement {
           </button>
         </div>
       </header>
+
+      {showRenewBanner && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '10px 16px',
+            background: '#2a2410',
+            borderBottom: '1px solid #5a4a1e',
+            color: '#e8d8a0',
+            fontSize: 13
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            您的 Pro 授權已停止更新；目前版本仍可繼續無限期使用。要拿到新功能請續訂。
+          </span>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => window.open('https://tunnelboxapp.com/#pricing', '_blank')}
+          >
+            Renew
+          </button>
+          <button className="btn btn-sm" onClick={handleDismissRenewBanner}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {successMessage && (
         <div className="success-bar">

@@ -19,7 +19,9 @@ export function getSettings(): AppSettings {
       remoteConsoleEnabled: store.get('remoteConsoleEnabled') ?? DEFAULT_SETTINGS.remoteConsoleEnabled,
       requestLogMaxEntries: store.get('requestLogMaxEntries') ?? DEFAULT_SETTINGS.requestLogMaxEntries,
       launchAtStartup: store.get('launchAtStartup') ?? DEFAULT_SETTINGS.launchAtStartup,
-      betaChannel: store.get('betaChannel') ?? DEFAULT_SETTINGS.betaChannel
+      betaChannel: store.get('betaChannel') ?? DEFAULT_SETTINGS.betaChannel,
+      dismissedRenewBannerVersion:
+        store.get('dismissedRenewBannerVersion') ?? DEFAULT_SETTINGS.dismissedRenewBannerVersion
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
@@ -49,6 +51,9 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     }
     if (patch.betaChannel !== undefined) {
       store.set('betaChannel', patch.betaChannel)
+    }
+    if (patch.dismissedRenewBannerVersion !== undefined) {
+      store.set('dismissedRenewBannerVersion', patch.dismissedRenewBannerVersion)
     }
     return getSettings()
   } catch (err) {
