@@ -17,14 +17,26 @@ let showWindowCallback: (() => void) | null = null
 export function createTray(onShowWindow: () => void): void {
   showWindowCallback = onShowWindow
 
-  const icon = nativeImage.createFromPath(getResourcePath('tray', 'iconTemplate.png'))
+  const iconPath = getResourcePath('tray', 'iconTemplate.png')
+  const icon = nativeImage.createFromPath(iconPath)
   // setTemplateImage is macOS-only; makes the icon adapt to light/dark menu bar
   if (process.platform === 'darwin') {
     icon.setTemplateImage(true)
   }
 
+  // Diagnostic: log what we actually loaded so a tray-invisible bug is debuggable
+  log.info(`Tray icon path: ${iconPath}`)
+  log.info(`Tray icon isEmpty=${icon.isEmpty()} size=${JSON.stringify(icon.getSize())}`)
+
   tray = new Tray(icon)
   tray.setToolTip('TunnelBox')
+
+  // Text fallback alongside icon — guarantees visibility even if icon fails to render
+  // (e.g. unsigned dev Electron + macOS template-image restriction).
+  // Remove or shorten before shipping production if it feels noisy.
+  if (process.platform === 'darwin') {
+    tray.setTitle('TB')
+  }
 
   // On Windows and Linux, left-click opens the main window
   if (process.platform !== 'darwin') {
