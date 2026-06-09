@@ -22,6 +22,7 @@ interface SettingsPanelProps {
   onCheckForUpdates: () => Promise<void>
   tierState?: TierState
   onUpgrade?: () => void
+  onActivatePro?: () => void
 
   providers?: Record<ProviderType, {
     env: ProviderEnv
@@ -67,6 +68,7 @@ function SettingsPanel({
   onLogout,
   tierState,
   onUpgrade,
+  onActivatePro,
   cfAccountsState,
   onAddCfAccount,
   onRemoveCfAccount,
@@ -189,6 +191,11 @@ function SettingsPanel({
               )}
               {isPro && tierState?.founderTier == null && (
                 <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>Pro</span>
+              )}
+              {!isPro && onActivatePro && (
+                <button className="btn btn-sm btn-primary" onClick={onActivatePro}>
+                  Activate Pro
+                </button>
               )}
             </div>
           </div>

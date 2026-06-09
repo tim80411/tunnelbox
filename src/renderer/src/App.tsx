@@ -57,6 +57,10 @@ function App(): React.ReactElement {
   const [showShareHistory, setShowShareHistory] = useState(false)
   const [consoleForSiteId, setConsoleForSiteId] = useState<string | null>(null)
   const [showUpgradePro, setShowUpgradePro] = useState(false)
+  // License import (US-105)
+  const [proActivated, setProActivated] = useState<{ email: string } | null>(null)
+  const [pendingLicenseReplace, setPendingLicenseReplace] = useState<string | null>(null)
+  const [downloadsLicensePrompt, setDownloadsLicensePrompt] = useState<string | null>(null)
   const { settings, update: updateSettings } = useSettings()
   const tierState = useTierGate()
   const {
@@ -448,11 +452,57 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  const { isDraggingOver, dropZoneHandlers } = useSiteDropZone({ onError: setError })
+  const runLicenseImport = useCallback(async (filePath: string) => {
+    const res = await window.electron.importLicense(filePath)
+    if (res.ok) {
+      setError(null)
+      setProActivated({ email: res.email })
+    } else if (res.error !== 'cancelled') {
+      setError(res.error)
+    }
+  }, [])
+
+  // Entry point for drag-drop and the picker — confirm before replacing an
+  // existing Pro license (US-105 scenario 5).
+  const importLicenseAt = useCallback(
+    async (filePath: string) => {
+      if (tierState.isPro) {
+        setPendingLicenseReplace(filePath)
+        return
+      }
+      await runLicenseImport(filePath)
+    },
+    [tierState.isPro, runLicenseImport]
+  )
+
+  const handleActivatePro = useCallback(async () => {
+    const filePath = await window.electron.pickLicense()
+    if (filePath) await importLicenseAt(filePath)
+  }, [importLicenseAt])
+
+  // Path 3: offer to import a license sitting in ~/Downloads (Free users, once per session).
+  useEffect(() => {
+    if (tierState.isPro) return
+    let cancelled = false
+    window.electron
+      .findDownloadedLicense?.()
+      .then((p) => {
+        if (!cancelled && p) setDownloadsLicensePrompt(p)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [tierState.isPro])
+
+  const { isDraggingOver, dropZoneHandlers } = useSiteDropZone({
+    onError: setError,
+    onLicenseFile: importLicenseAt
+  })
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog
+  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog || !!proActivated || !!pendingLicenseReplace || !!downloadsLicensePrompt
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
@@ -511,6 +561,7 @@ function App(): React.ReactElement {
           onCheckForUpdates={checkForUpdates}
           tierState={tierState}
           onUpgrade={() => setShowUpgradePro(true)}
+          onActivatePro={handleActivatePro}
           providers={{
             cloudflare: { env: cfProvider.env, config: cfProvider.config, install: cfProvider.install, saveConfig: cfProvider.saveConfig },
             frp: { env: frpProvider.env, config: frpProvider.config, install: frpProvider.install, saveConfig: frpProvider.saveConfig },
@@ -1073,6 +1124,71 @@ function App(): React.ReactElement {
                 }}
               >
                 Get Pro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pro activated confirmation (US-105) */}
+      {proActivated && (
+        <div className="modal-overlay" data-dismiss onClick={() => setProActivated(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Pro activated 🎉</h2>
+            <p className="confirm-text" style={{ marginBottom: 12 }}>
+              Thanks for supporting TunnelBox. Pro is now active for <strong>{proActivated.email}</strong>.
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-primary" onClick={() => setProActivated(null)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replace existing license confirm (US-105 scenario 5) */}
+      {pendingLicenseReplace && (
+        <div className="modal-overlay" data-dismiss onClick={() => setPendingLicenseReplace(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Replace existing Pro license?</h2>
+            <p className="confirm-text" style={{ marginBottom: 12 }}>
+              You already have an active Pro license. Importing this file will replace it.
+            </p>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setPendingLicenseReplace(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  const p = pendingLicenseReplace
+                  setPendingLicenseReplace(null)
+                  void runLicenseImport(p)
+                }}
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Found-in-Downloads prompt (US-105 path 3) */}
+      {downloadsLicensePrompt && (
+        <div className="modal-overlay" data-dismiss onClick={() => setDownloadsLicensePrompt(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Activate Pro?</h2>
+            <p className="confirm-text" style={{ marginBottom: 12 }}>
+              Found a license file in your Downloads. Import it to activate Pro?
+            </p>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setDownloadsLicensePrompt(null)}>Not now</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  const p = downloadsLicensePrompt
+                  setDownloadsLicensePrompt(null)
+                  void runLicenseImport(p)
+                }}
+              >
+                Activate
               </button>
             </div>
           </div>

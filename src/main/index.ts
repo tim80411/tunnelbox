@@ -23,6 +23,7 @@ import { createLogger } from './logger'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
 import { registerTierGateIpc } from './license/tier-gate-ipc'
+import { registerLicenseImportIpc } from './license/import-ipc'
 import { tierGate } from './license/tier-gate'
 import { FREE_SHARE_LIMIT } from './concurrent-share-gate'
 import { attachCloseHandler, watchTierForDowngrade } from './window-close-handler'
@@ -124,6 +125,7 @@ app.whenReady().then(async () => {
     registerQuickActionHandlers()
     registerRemoteConsoleIpc()
     registerTierGateIpc()
+    registerLicenseImportIpc()
 
     // Load license state into memory before any window opens
     await tierGate.refresh()

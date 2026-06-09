@@ -1,5 +1,5 @@
 import type { UpdateState, ForceUpdateCheckResult } from './update-types'
-import type { TierState } from './license-types'
+import type { TierState, ImportResult } from './license-types'
 
 // --- Site Serve Mode ---
 
@@ -443,6 +443,11 @@ export interface ElectronAPI {
     refresh: () => Promise<TierState>
     onChange: (callback: (state: TierState) => void) => () => void
   }
+
+  // --- License import (US-105) ---
+  importLicense: (filePath: string) => Promise<ImportResult>
+  pickLicense: () => Promise<string | null>
+  findDownloadedLicense: () => Promise<string | null>
 
   // --- Concurrent Share Gate (US-219) ---
   checkShareGate: (siteId: string) => Promise<{ allowed: boolean; activeIds: string[] }>
