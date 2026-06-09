@@ -17,7 +17,8 @@ export function getSettings(): AppSettings {
       defaultServeMode: store.get('defaultServeMode'),
       visitorNotifications: store.get('visitorNotifications') ?? DEFAULT_SETTINGS.visitorNotifications,
       remoteConsoleEnabled: store.get('remoteConsoleEnabled') ?? DEFAULT_SETTINGS.remoteConsoleEnabled,
-      requestLogMaxEntries: store.get('requestLogMaxEntries') ?? DEFAULT_SETTINGS.requestLogMaxEntries
+      requestLogMaxEntries: store.get('requestLogMaxEntries') ?? DEFAULT_SETTINGS.requestLogMaxEntries,
+      launchAtStartup: store.get('launchAtStartup') ?? DEFAULT_SETTINGS.launchAtStartup
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
@@ -41,6 +42,9 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     }
     if (patch.requestLogMaxEntries !== undefined) {
       store.set('requestLogMaxEntries', patch.requestLogMaxEntries)
+    }
+    if (patch.launchAtStartup !== undefined) {
+      store.set('launchAtStartup', patch.launchAtStartup)
     }
     return getSettings()
   } catch (err) {

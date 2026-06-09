@@ -84,6 +84,24 @@ export interface CloudflareAuth {
   accountId?: string
 }
 
+// --- Multi-account Cloudflare ---
+
+export interface CloudflareAccount {
+  id: string
+  email?: string
+  cfAccountId?: string
+  customLabel?: string
+  certPath: string
+  lastUsedAt: string // ISO 8601
+}
+
+export interface CloudflareAccountsState {
+  accounts: CloudflareAccount[]
+  activeAccountId: string | null
+}
+
+export type StoredCfAccounts = CloudflareAccountsState
+
 // --- Named Tunnel Persistence ---
 
 export interface StoredTunnel {
@@ -109,6 +127,7 @@ export interface StoredStaticSite {
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
+  cloudflareAccountId?: string | null
 }
 
 export interface StoredProxySite {
@@ -121,6 +140,7 @@ export interface StoredProxySite {
   providerType?: string  // 'cloudflare' | 'frp' | 'bore' — defaults to 'cloudflare' at read time
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
+  cloudflareAccountId?: string | null
 }
 
 export type StoredSite = StoredStaticSite | StoredProxySite
@@ -220,6 +240,7 @@ export interface AppSettings {
   visitorNotifications: boolean
   remoteConsoleEnabled: boolean
   requestLogMaxEntries: number
+  launchAtStartup: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -227,7 +248,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultServeMode: 'static',
   visitorNotifications: true,
   remoteConsoleEnabled: false,
-  requestLogMaxEntries: 200
+  requestLogMaxEntries: 200,
+  launchAtStartup: false
 }
 
 // --- Add Site Params (IPC) ---
@@ -302,6 +324,15 @@ export interface ElectronAPI {
   logoutCloudflare: () => Promise<void>
   getAuthStatus: () => Promise<CloudflareAuth>
 
+  // --- Multi-account Cloudflare ---
+  listCfAccounts: () => Promise<CloudflareAccountsState>
+  addCfAccount: () => Promise<CloudflareAccountsState>
+  removeCfAccount: (accountId: string) => Promise<CloudflareAccountsState>
+  setActiveCfAccount: (accountId: string) => Promise<CloudflareAccountsState>
+  setSiteCfAccount: (siteId: string, accountId: string | null) => Promise<void>
+  setCfAccountLabel: (accountId: string, label: string | null) => Promise<CloudflareAccountsState>
+  onCfAccountsChanged: (callback: (state: CloudflareAccountsState) => void) => () => void
+
   // --- Fixed Domain (Named Tunnel + DNS) ---
   bindFixedDomain: (siteId: string, domain: string) => Promise<string>
   unbindFixedDomain: (siteId: string) => Promise<void>
@@ -358,6 +389,9 @@ export interface ElectronAPI {
   onMenuRemoveSite: (callback: () => void) => () => void
   onMenuShowShortcuts: (callback: () => void) => () => void
 
+  // Pro friction dialogs (push from main)
+  onOpenUpgradeDialog: (callback: () => void) => () => void
+
   // Share History
   getShareHistory: () => Promise<ShareRecord[]>
   exportShareHistory: () => Promise<boolean>
@@ -407,6 +441,9 @@ export interface ElectronAPI {
     refresh: () => Promise<TierState>
     onChange: (callback: (state: TierState) => void) => () => void
   }
+
+  // --- Concurrent Share Gate (US-219) ---
+  checkShareGate: (siteId: string) => Promise<{ allowed: boolean; activeIds: string[] }>
 }
 
 declare global {

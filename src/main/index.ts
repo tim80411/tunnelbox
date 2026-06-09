@@ -24,6 +24,9 @@ import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
 import { registerTierGateIpc } from './license/tier-gate-ipc'
 import { tierGate } from './license/tier-gate'
+import { FREE_SHARE_LIMIT } from './concurrent-share-gate'
+import { attachCloseHandler, watchTierForDowngrade } from './window-close-handler'
+import { getSettings } from './settings-store'
 
 const log = createLogger('Main')
 
@@ -55,6 +58,15 @@ function createWindow(): void {
     mainWindow?.show()
     flushPendingUrl()
   })
+
+  attachCloseHandler(
+    mainWindow,
+    () => app.quit(),
+    () => {
+      mainWindow?.show()
+      mainWindow?.webContents.send('open-upgrade-dialog')
+    }
+  )
 
   // Forward Cmd+V / Ctrl+V to renderer for paste-to-add feature
   mainWindow.webContents.on('before-input-event', (_event, input) => {
@@ -122,23 +134,33 @@ app.whenReady().then(async () => {
     initRequestLogger()
 
     // Start local HTTP API for CLI communication
-    await initApiServer(serverManager)
+    await initApiServer(serverManager, tunnelManager)
 
-    // Restore sites from persistent store
+    // Restore sites from persistent store.
+    // Free users are capped at FREE_SHARE_LIMIT active local servers — restore that many,
+    // register the rest as stopped (preserves config, just doesn't auto-start).
     const storedSites = siteStore.getSites()
+    const isPro = tierGate.isPro()
+    let restoredCount = 0
     for (const site of storedSites) {
+      if (!isPro && restoredCount >= FREE_SHARE_LIMIT) {
+        serverManager.registerStopped(site)
+        log.info(`Free tier limit reached — registering "${site.name}" as stopped`)
+        continue
+      }
       try {
         await serverManager.startServer(site)
         log.info(`Restored and started server for "${site.name}"`)
+        restoredCount++
       } catch (err) {
         log.error(`Failed to restore server for "${site.name}":`, err)
-        // Register as stopped so it still shows in the list
         serverManager.registerStopped(site)
       }
     }
 
-    // Restore named tunnels (Story 27: auto-reconnect on boot)
-    tunnelManager.restoreAll((siteId) => {
+    // Restore named tunnels (Story 27: auto-reconnect on boot) — only for sites whose
+    // local server is actually running (others were skipped above due to Free limit).
+    await tunnelManager.restoreAll((siteId) => {
       const server = serverManager.getServer(siteId)
       return server && server.status === 'running' ? server.port : null
     }).catch((err) => {
@@ -157,6 +179,22 @@ app.whenReady().then(async () => {
         createWindow()
       }
     })
+
+    // Watch for Pro→Free downgrade: bring window to foreground
+    watchTierForDowngrade(() => mainWindow)
+
+    // Sync launch-at-startup OS setting on boot (Pro only enforced in UI; setting persisted here)
+    // Unsigned dev builds throw on setLoginItemSettings — downgrade to debug log.
+    const settings = getSettings()
+    try {
+      if (tierGate.isPro() && settings.launchAtStartup) {
+        app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })
+      } else if (!settings.launchAtStartup) {
+        app.setLoginItemSettings({ openAtLogin: false })
+      }
+    } catch (loginItemErr) {
+      log.debug('setLoginItemSettings failed (expected in dev):', loginItemErr)
+    }
   } catch (err) {
     log.error('Failed to initialize application:', err)
     // Show error window if initialization fails
@@ -174,8 +212,16 @@ app.whenReady().then(async () => {
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    // In daemon mode (US-221) the hidden window must be explicitly shown on
+    // dock-click/re-focus, or the user is locked out with no visible entry point.
+    const windows = BrowserWindow.getAllWindows()
+    if (windows.length === 0) {
       createWindow()
+      return
+    }
+    for (const win of windows) {
+      if (!win.isVisible()) win.show()
+      win.focus()
     }
   })
 })

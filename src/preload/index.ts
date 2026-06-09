@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 import type { TierState } from '../shared/license-types'
 
@@ -104,6 +104,12 @@ const electronAPI: ElectronAPI = {
     const handler = (): void => callback()
     ipcRenderer.on('menu:show-shortcuts', handler)
     return () => ipcRenderer.removeListener('menu:show-shortcuts', handler)
+  },
+
+  onOpenUpgradeDialog: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('open-upgrade-dialog', handler)
+    return () => ipcRenderer.removeListener('open-upgrade-dialog', handler)
   },
 
   // --- frp Provider ---
@@ -521,6 +527,46 @@ const electronAPI: ElectronAPI = {
       return () => {
         ipcRenderer.removeListener('tier-gate:changed', handler)
       }
+    }
+  },
+
+  // --- Concurrent Share Gate (US-219) ---
+  checkShareGate: (siteId: string): Promise<{ allowed: boolean; activeIds: string[] }> => {
+    return ipcRenderer.invoke('check-share-gate', siteId)
+  },
+
+  // --- Multi-account Cloudflare (US-220) ---
+  listCfAccounts: (): Promise<CloudflareAccountsState> => {
+    return ipcRenderer.invoke('cf-accounts:list')
+  },
+
+  addCfAccount: (): Promise<CloudflareAccountsState> => {
+    return ipcRenderer.invoke('cf-accounts:add')
+  },
+
+  removeCfAccount: (accountId: string): Promise<CloudflareAccountsState> => {
+    return ipcRenderer.invoke('cf-accounts:remove', accountId)
+  },
+
+  setActiveCfAccount: (accountId: string): Promise<CloudflareAccountsState> => {
+    return ipcRenderer.invoke('cf-accounts:set-active', accountId)
+  },
+
+  setSiteCfAccount: (siteId: string, accountId: string | null): Promise<void> => {
+    return ipcRenderer.invoke('cf-accounts:set-site-account', siteId, accountId)
+  },
+
+  setCfAccountLabel: (accountId: string, label: string | null): Promise<CloudflareAccountsState> => {
+    return ipcRenderer.invoke('cf-accounts:set-label', accountId, label)
+  },
+
+  onCfAccountsChanged: (callback: (state: CloudflareAccountsState) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: CloudflareAccountsState): void => {
+      callback(state)
+    }
+    ipcRenderer.on('cf-accounts-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('cf-accounts-changed', handler)
     }
   }
 }

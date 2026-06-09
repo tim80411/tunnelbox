@@ -11,6 +11,18 @@ export {
 } from './quick-tunnel'
 export { login as loginCloudflare, logout as logoutCloudflare, getAuthStatus } from './auth-manager'
 export {
+  getAccountsState,
+  addAccount,
+  removeAccount,
+  setActiveAccount,
+  setSiteAccount,
+  setAccountLabel,
+  getBoundSiteIds,
+  getActiveCert,
+  getCertForSite,
+  applyDowngradeToFree
+} from './account-manager'
+export {
   initNamedTunnel,
   bindFixedDomain,
   unbindFixedDomain,

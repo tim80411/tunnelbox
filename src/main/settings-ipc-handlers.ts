@@ -1,6 +1,7 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import * as settingsStore from './settings-store'
 import { refreshMaxEntries } from './request-logger'
+import { tierGate } from './license/tier-gate'
 import type { AppSettings } from '../shared/types'
 
 function broadcastSettingsChanged(settings: AppSettings): void {
@@ -19,6 +20,10 @@ export function registerSettingsIpcHandlers(): void {
     const updated = settingsStore.updateSettings(patch)
     if (patch.requestLogMaxEntries !== undefined) {
       refreshMaxEntries()
+    }
+    if (patch.launchAtStartup !== undefined) {
+      const enable = patch.launchAtStartup && tierGate.isPro()
+      app.setLoginItemSettings({ openAtLogin: enable, openAsHidden: enable })
     }
     broadcastSettingsChanged(updated)
     return updated

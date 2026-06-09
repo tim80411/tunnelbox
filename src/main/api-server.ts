@@ -9,6 +9,8 @@ import { bindFixedDomain, unbindFixedDomain } from './cloudflared'
 import { installCloudflared, detectCloudflared } from './cloudflared'
 import { checkRateLimit, startCleanup, stopCleanup } from './rate-limiter'
 import type { ServerManager } from './server-manager'
+import { checkShareGate } from './concurrent-share-gate'
+import type { TunnelProviderManager } from './tunnel-provider-manager'
 
 const log = createLogger('ApiServer')
 
@@ -133,6 +135,16 @@ async function handleTunnelQuick(req: http.IncomingMessage, res: http.ServerResp
   const siteServer = serverManager.getServer(siteId)
   if (!siteServer) {
     json(res, 404, { error: 'Site not found' })
+    return
+  }
+
+  // Concurrent share gate check (scenario 4: CLI 3rd share blocked for Free users)
+  const gateResult = checkShareGate(serverManager, siteId)
+  if (!gateResult.allowed) {
+    json(res, 403, {
+      error: 'Free 一次只能同時運行 2 個 site。請升級 Pro 或停掉現有 site。',
+      code: 'SHARE_LIMIT_EXCEEDED'
+    })
     return
   }
 
@@ -342,7 +354,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
  * Start the local HTTP API server.
  * Binds to 127.0.0.1 only (localhost). Writes port to discovery file after listening.
  */
-export async function initApiServer(manager: ServerManager): Promise<void> {
+export async function initApiServer(manager: ServerManager, _tmgr: TunnelProviderManager): Promise<void> {
   serverManager = manager
   authToken = crypto.randomBytes(32).toString('hex')
 

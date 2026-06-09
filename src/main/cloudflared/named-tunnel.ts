@@ -4,6 +4,7 @@ import { promises as dns } from 'node:dns'
 import { ProcessManager } from './process-manager'
 import { findBinary } from './detector'
 import { getAuthStatus } from './auth-manager'
+import { getCertForSite } from './account-manager'
 import { stopQuickTunnel, hasTunnel as hasQuickTunnel } from './quick-tunnel'
 import { createLogger } from '../logger'
 import * as siteStore from '../store'
@@ -179,7 +180,8 @@ async function attemptReconnect(siteId: string): Promise<void> {
   try {
     const binaryPath = await findBinary()
     if (!binaryPath) return
-    startTunnelProcess(siteId, stored.tunnelId, binaryPath, port)
+    const certPath = getCertForSite(siteId)
+    startTunnelProcess(siteId, stored.tunnelId, binaryPath, port, certPath)
   } catch (err) {
     log.error(`Reconnect failed for ${siteId}:`, err)
   }
@@ -205,9 +207,10 @@ function requireAuth(): void {
   }
 }
 
-function runCloudflared(binaryPath: string, args: string[]): Promise<string> {
+function runCloudflared(binaryPath: string, args: string[], certPath?: string | null): Promise<string> {
+  const finalArgs = certPath ? ['--origincert', certPath, ...args] : args
   return new Promise((resolve, reject) => {
-    execFile(binaryPath, args, { timeout: 30_000 }, (err, stdout, stderr) => {
+    execFile(binaryPath, finalArgs, { timeout: 30_000 }, (err, stdout, stderr) => {
       if (err) {
         const output = (stderr || stdout || err.message).trim()
         // Map known errors to Chinese messages
@@ -233,6 +236,8 @@ export async function bindFixedDomain(
   const binaryPath = await findBinary()
   if (!binaryPath) throw new Error('cloudflared 尚未安裝')
 
+  const certPath = getCertForSite(siteId)
+
   // Stop any existing quick tunnel
   if (hasQuickTunnel(siteId)) {
     stopQuickTunnel(siteId)
@@ -241,7 +246,7 @@ export async function bindFixedDomain(
   const tunnelName = `tunnelbox-${siteId.slice(0, 12)}`
 
   // Step 1: Create tunnel
-  const createOutput = await runCloudflared(binaryPath, ['tunnel', 'create', tunnelName])
+  const createOutput = await runCloudflared(binaryPath, ['tunnel', 'create', tunnelName], certPath)
   log.info(`Create output: ${createOutput}`)
 
   const idMatch =
@@ -254,11 +259,11 @@ export async function bindFixedDomain(
 
   // Step 2: Route DNS (rollback tunnel on failure)
   try {
-    await runCloudflared(binaryPath, ['tunnel', 'route', 'dns', tunnelId, domain])
+    await runCloudflared(binaryPath, ['tunnel', 'route', 'dns', tunnelId, domain], certPath)
   } catch (err) {
     // Rollback: delete the just-created tunnel
     try {
-      await runCloudflared(binaryPath, ['tunnel', 'delete', tunnelId])
+      await runCloudflared(binaryPath, ['tunnel', 'delete', tunnelId], certPath)
     } catch {
       log.error(`Rollback: failed to delete tunnel ${tunnelId}`)
     }
@@ -284,7 +289,7 @@ export async function bindFixedDomain(
   reconnectAttempts.delete(siteId)
   broadcastTunnelStatus(siteId, tunnelInfo)
 
-  startTunnelProcess(siteId, tunnelId, binaryPath, port)
+  startTunnelProcess(siteId, tunnelId, binaryPath, port, certPath)
 
   return publicUrl
 }
@@ -309,8 +314,10 @@ export async function unbindFixedDomain(siteId: string): Promise<void> {
   const binaryPath = await findBinary()
   if (!binaryPath) throw new Error('cloudflared 尚未安裝')
 
+  const certPath = getCertForSite(siteId)
+
   try {
-    await runCloudflared(binaryPath, ['tunnel', 'delete', stored.tunnelId])
+    await runCloudflared(binaryPath, ['tunnel', 'delete', stored.tunnelId], certPath)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     if (!msg.includes('not found') && !msg.includes('does not exist') && !msg.includes('already been deleted')) {
@@ -376,6 +383,8 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
   const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
   if (!stored) throw new Error('找不到此網頁的 Named Tunnel')
 
+  const certPath = getCertForSite(siteId)
+
   const tunnelInfo: TunnelInfo = {
     type: 'named',
     status: 'starting',
@@ -387,7 +396,7 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
   reconnectAttempts.delete(siteId)
   broadcastTunnelStatus(siteId, tunnelInfo)
 
-  startTunnelProcess(siteId, stored.tunnelId, binaryPath, port)
+  startTunnelProcess(siteId, stored.tunnelId, binaryPath, port, certPath)
 }
 
 /**
@@ -446,6 +455,7 @@ export async function restoreNamedTunnels(
     }
 
     try {
+      const certPath = getCertForSite(tunnel.siteId)
       const tunnelInfo: TunnelInfo = {
         type: 'named',
         status: 'starting',
@@ -454,7 +464,7 @@ export async function restoreNamedTunnels(
       }
       activeNamedTunnels.set(tunnel.siteId, tunnelInfo)
       namedTunnelPorts.set(tunnel.siteId, port)
-      startTunnelProcess(tunnel.siteId, tunnel.tunnelId, binaryPath, port)
+      startTunnelProcess(tunnel.siteId, tunnel.tunnelId, binaryPath, port, certPath)
       log.info(`Restored tunnel for site ${tunnel.siteId}`)
     } catch (err) {
       log.error(`Failed to restore tunnel for ${tunnel.siteId}:`, err)
@@ -509,7 +519,8 @@ function startTunnelProcess(
   siteId: string,
   tunnelId: string,
   binaryPath: string,
-  port: number
+  port: number,
+  certPath: string | null | undefined
 ): void {
   const processId = `named-tunnel-${siteId}`
 
@@ -547,13 +558,16 @@ function startTunnelProcess(
     }
   }, 10_000)
 
-  processManager.spawn(processId, binaryPath, [
+  const args = [
+    ...(certPath ? ['--origincert', certPath] : []),
     'tunnel',
     'run',
     '--url',
     `http://localhost:${port}`,
     tunnelId
-  ])
+  ]
+
+  processManager.spawn(processId, binaryPath, args)
 }
 
 function broadcastTunnelStatus(siteId: string, tunnel: TunnelInfo | null): void {

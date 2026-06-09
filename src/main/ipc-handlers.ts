@@ -16,6 +16,7 @@ import { writeDashboard, cleanupDashboard } from './dashboard-generator'
 import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
 import { getBoreConfig, saveBoreConfig, type BoreServerConfig } from './providers/bore/bore-config-store'
+import { checkShareGate } from './concurrent-share-gate'
 
 let serverManager: ServerManager
 
@@ -184,7 +185,16 @@ export function registerIpcHandlers(
         storedSite = { id, name: trimmedName, serveMode: 'static', folderPath: params.folderPath }
       }
 
-      const server = await serverManager.startServer(storedSite)
+      // Adding a site always succeeds; if it would exceed the Free limit (US-219)
+      // it lands in 'stopped' state instead of starting.
+      const gate = checkShareGate(serverManager, id)
+      let server: SiteServer
+      if (gate.allowed) {
+        server = await serverManager.startServer(storedSite)
+      } else {
+        serverManager.registerStopped(storedSite)
+        server = serverManager.getServer(id)!
+      }
       siteStore.addSite(storedSite)
 
       const info = toSiteInfo(server)
@@ -259,6 +269,12 @@ export function registerIpcHandlers(
       const existing = serverManager.getServer(id)
       if (!existing) throw new Error(`Site not found: ${id}`)
       if (existing.status === 'running') return
+
+      // Free users limited to 2 simultaneously-running sites (Friction #1, US-219).
+      const gate = checkShareGate(serverManager, id)
+      if (!gate.allowed) {
+        throw new Error(`SHARE_GATE_BLOCKED:${gate.activeIds.join(',')}`)
+      }
 
       const storedSite = siteStore.getSites().find((s) => s.id === id)
       if (!storedSite) throw new Error(`Stored site not found: ${id}`)
@@ -366,6 +382,14 @@ export function registerIpcHandlers(
     }
   })
 
+  // --- Concurrent Share Gate ---
+
+  ipcMain.handle('check-share-gate', (_event, siteId: string) => {
+    const result = checkShareGate(serverManager, siteId)
+    if (result.allowed) return { allowed: true, activeIds: [] }
+    return { allowed: false, activeIds: result.activeIds }
+  })
+
   // --- Quick Tunnel ---
 
   ipcMain.handle('start-quick-tunnel', async (_event, siteId: string) => {
@@ -445,6 +469,67 @@ export function registerIpcHandlers(
       return cfProvider.getAuthStatus()
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : '取得認證狀態失敗')
+    }
+  })
+
+  // --- Multi-account Cloudflare ---
+
+  ipcMain.handle('cf-accounts:list', async () => {
+    try {
+      const { getAccountsState } = await import('./cloudflared/account-manager')
+      return getAccountsState()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '取得帳號列表失敗')
+    }
+  })
+
+  ipcMain.handle('cf-accounts:add', async () => {
+    try {
+      const { addAccount } = await import('./cloudflared/account-manager')
+      return await addAccount()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '新增帳號失敗'
+      if (msg === 'FREE_ACCOUNT_LIMIT') {
+        throw new Error('FREE_ACCOUNT_LIMIT')
+      }
+      throw new Error(msg)
+    }
+  })
+
+  ipcMain.handle('cf-accounts:remove', async (_event, accountId: string) => {
+    try {
+      const { removeAccount } = await import('./cloudflared/account-manager')
+      return removeAccount(accountId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '移除帳號失敗')
+    }
+  })
+
+  ipcMain.handle('cf-accounts:set-active', async (_event, accountId: string) => {
+    try {
+      const { setActiveAccount } = await import('./cloudflared/account-manager')
+      return setActiveAccount(accountId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '切換帳號失敗')
+    }
+  })
+
+  ipcMain.handle('cf-accounts:set-site-account', async (_event, siteId: string, accountId: string | null) => {
+    try {
+      const { setSiteAccount } = await import('./cloudflared/account-manager')
+      setSiteAccount(siteId, accountId)
+      broadcastSiteUpdate()
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定站點帳號失敗')
+    }
+  })
+
+  ipcMain.handle('cf-accounts:set-label', async (_event, accountId: string, label: string | null) => {
+    try {
+      const { setAccountLabel } = await import('./cloudflared/account-manager')
+      return setAccountLabel(accountId, label)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : '設定帳號標籤失敗')
     }
   })
 

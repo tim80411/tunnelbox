@@ -1,7 +1,7 @@
 import Store from 'electron-store'
 import { createLogger } from './logger'
 import { migrateSite } from '../shared/types'
-import type { StoredSite, StoredAuth, StoredTunnel } from '../shared/types'
+import type { StoredSite, StoredAuth, StoredTunnel, CloudflareAccount, StoredCfAccounts } from '../shared/types'
 
 const log = createLogger('Store')
 
@@ -15,6 +15,7 @@ interface StoreSchema {
   auth: StoredAuth | null
   tunnels: StoredTunnel[]
   domainBindings: StoredDomainBinding[]
+  cfAccounts: StoredCfAccounts
 }
 
 const store = new Store<StoreSchema>({
@@ -23,7 +24,8 @@ const store = new Store<StoreSchema>({
     sites: [],
     auth: null,
     tunnels: [],
-    domainBindings: []
+    domainBindings: [],
+    cfAccounts: { accounts: [], activeAccountId: null }
   }
 })
 
@@ -62,7 +64,7 @@ export function removeSite(id: string): void {
   saveSites(sites.filter((s) => s.id !== id))
 }
 
-export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 'providerType' | 'defaultDomain' | 'tags'>>): void {
+export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 'providerType' | 'defaultDomain' | 'tags' | 'cloudflareAccountId'>>): void {
   const sites = getSites()
   const idx = sites.findIndex((s) => s.id === id)
   if (idx === -1) return
@@ -161,5 +163,45 @@ export function removeDomainBinding(siteId: string): void {
   } catch (err) {
     log.error(' Failed to remove domain binding:', err)
   }
+}
+
+// --- CF Accounts (multi-account) ---
+
+export function getCfAccounts(): StoredCfAccounts {
+  try {
+    const raw = store.get('cfAccounts')
+    if (raw && Array.isArray(raw.accounts)) return raw
+    // Migration: promote legacy single StoredAuth to accounts[0]
+    const legacy = store.get('auth')
+    if (legacy?.certPath) {
+      const account: CloudflareAccount = {
+        id: 'default',
+        email: legacy.accountEmail,
+        certPath: legacy.certPath,
+        lastUsedAt: new Date().toISOString()
+      }
+      const migrated: StoredCfAccounts = { accounts: [account], activeAccountId: 'default' }
+      store.set('cfAccounts', migrated)
+      return migrated
+    }
+    return { accounts: [], activeAccountId: null }
+  } catch (err) {
+    log.error('Failed to read cfAccounts:', err)
+    return { accounts: [], activeAccountId: null }
+  }
+}
+
+export function saveCfAccounts(data: StoredCfAccounts): void {
+  try {
+    store.set('cfAccounts', data)
+  } catch (err) {
+    log.error('Failed to save cfAccounts:', err)
+  }
+}
+
+export function getSiteCfAccountId(siteId: string): string | null | undefined {
+  const sites = getSites()
+  const site = sites.find((s) => s.id === siteId)
+  return site?.cloudflareAccountId
 }
 
