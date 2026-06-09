@@ -225,8 +225,7 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  // Gate check wrapper: if Free user is at the active-site limit, show the swap dialog.
-  // `startFn` is the actual start call (LOCAL server or WAN tunnel) to retry after the user picks a swap.
+  // If a Free user is at the active-site limit, show the swap dialog; otherwise run startFn.
   const withShareGate = useCallback(
     async (siteId: string, startFn: () => Promise<unknown>) => {
       const gate = await window.electron.checkShareGate(siteId)
