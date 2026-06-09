@@ -10,6 +10,7 @@ export default defineConfig({
       '**/dist/**',
       '**/.claude/**',
       '**/.worktrees/**',
+      'server/**', // self-contained sub-packages (e.g. license-signer) own their tests/deps
     ],
   },
   resolve: {
