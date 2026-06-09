@@ -8,4 +8,9 @@ out
 .project/
 .worktrees/
 .claude/worktrees/
+.claude/settings.local.json
 .superpowers/
+
+# Local working docs (not for upstream)
+docs/superpowers/
+docs/competitive-research-*.md

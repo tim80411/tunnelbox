@@ -22,6 +22,8 @@ import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
+import { registerTierGateIpc } from './license/tier-gate-ipc'
+import { tierGate } from './license/tier-gate'
 
 const log = createLogger('Main')
 
@@ -109,6 +111,10 @@ app.whenReady().then(async () => {
     registerUpdaterHandlers()
     registerQuickActionHandlers()
     registerRemoteConsoleIpc()
+    registerTierGateIpc()
+
+    // Load license state into memory before any window opens
+    await tierGate.refresh()
 
     // Initialize visitor notifications, notification center, request logger & remote console
     initVisitorNotifications()
