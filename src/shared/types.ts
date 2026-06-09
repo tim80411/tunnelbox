@@ -1,4 +1,5 @@
 import type { UpdateState, ForceUpdateCheckResult } from './update-types'
+import type { TierState } from './license-types'
 
 // --- Site Serve Mode ---
 
@@ -399,6 +400,13 @@ export interface ElectronAPI {
   installUpdate: () => Promise<void>
   checkForceUpdate: () => Promise<ForceUpdateCheckResult>
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void
+
+  // --- Tier Gate (Pro license) ---
+  tierGate: {
+    getState: () => Promise<TierState>
+    refresh: () => Promise<TierState>
+    onChange: (callback: (state: TierState) => void) => () => void
+  }
 }
 
 declare global {

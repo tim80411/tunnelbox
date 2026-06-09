@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
+import type { TierState } from '../shared/license-types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -503,6 +504,23 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('update-state-changed', handler)
     return () => {
       ipcRenderer.removeListener('update-state-changed', handler)
+    }
+  },
+
+  // --- Tier Gate (Pro license) ---
+  tierGate: {
+    getState: (): Promise<TierState> => ipcRenderer.invoke('tier-gate:get-state'),
+
+    refresh: (): Promise<TierState> => ipcRenderer.invoke('tier-gate:refresh'),
+
+    onChange: (callback: (state: TierState) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: TierState): void => {
+        callback(state)
+      }
+      ipcRenderer.on('tier-gate:changed', handler)
+      return () => {
+        ipcRenderer.removeListener('tier-gate:changed', handler)
+      }
     }
   }
 }
