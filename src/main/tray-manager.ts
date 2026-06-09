@@ -24,16 +24,13 @@ export function createTray(onShowWindow: () => void): void {
     icon.setTemplateImage(true)
   }
 
-  // Diagnostic: log what we actually loaded so a tray-invisible bug is debuggable
   log.info(`Tray icon path: ${iconPath}`)
   log.info(`Tray icon isEmpty=${icon.isEmpty()} size=${JSON.stringify(icon.getSize())}`)
 
   tray = new Tray(icon)
   tray.setToolTip('TunnelBox')
 
-  // Text fallback alongside icon — guarantees visibility even if icon fails to render
-  // (e.g. unsigned dev Electron + macOS template-image restriction).
-  // Remove or shorten before shipping production if it feels noisy.
+  // Text fallback in case the template icon fails to render (e.g. unsigned dev build).
   if (process.platform === 'darwin') {
     tray.setTitle('TB')
   }

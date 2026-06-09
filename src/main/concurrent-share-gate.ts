@@ -3,22 +3,10 @@ import type { ServerManager } from './server-manager'
 
 export const FREE_SHARE_LIMIT = 2
 
-/**
- * Active local-server statuses that count toward the friction limit.
- *
- * Design note: the gate counts LOCAL servers running, not WAN tunnels.
- * Rationale: TunnelBox surfaces local servers via the "運行中" badge, which
- * is the user's primary mental model for "what's active right now". WAN
- * tunnels can't exist without a running local server, so capping at local
- * also caps WAN by transitivity — but the friction fires earlier (at the
- * moment the user clicks the LOCAL play button), making the Pro upsell
- * appear at the natural attention spot rather than only when the user
- * tries to expose the site publicly.
- *
- * 'error' is treated as still-active: cloudflared/proxy may flip a running
- * server into error transiently; we don't want the count to mysteriously
- * drop and let the user start a 3rd while the 2nd is mid-recovery.
- */
+// Counts running LOCAL servers, not WAN tunnels: a tunnel can't exist without a
+// running local server, so this caps WAN too while firing the upsell at the LOCAL
+// play button. 'error' counts as active so a transient flip can't drop the count
+// and let a Free user open a 3rd share mid-recovery.
 const ACTIVE_STATUSES = new Set<'running' | 'error'>(['running', 'error'])
 
 export function getActiveShareIds(serverManager: ServerManager): string[] {

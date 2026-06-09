@@ -123,10 +123,9 @@ export function setAppMenu(): void {
           toolTip: tierGate.isPro() ? undefined : DAEMON_COPY.menuRunInBackgroundTooltip,
           click: (): void => {
             if (tierGate.isPro()) {
-              // Hide all windows — app stays alive in tray
+              // app stays alive in tray
               BrowserWindow.getAllWindows().forEach((w) => w.hide())
             } else {
-              // Tell renderer to show upgrade dialog
               sendToFocusedWindow('open-upgrade-dialog')
             }
           }

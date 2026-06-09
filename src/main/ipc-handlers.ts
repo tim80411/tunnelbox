@@ -185,10 +185,8 @@ export function registerIpcHandlers(
         storedSite = { id, name: trimmedName, serveMode: 'static', folderPath: params.folderPath }
       }
 
-      // Free users capped at FREE_SHARE_LIMIT simultaneously-running sites (US-219).
-      // Per user request: adding the site always succeeds (config-level), but if doing so
-      // would exceed the limit, the new site lands in 'stopped' state — user can
-      // manually start it later (which will trigger the swap dialog as expected).
+      // Adding a site always succeeds; if it would exceed the Free limit (US-219)
+      // it lands in 'stopped' state instead of starting.
       const gate = checkShareGate(serverManager, id)
       let server: SiteServer
       if (gate.allowed) {

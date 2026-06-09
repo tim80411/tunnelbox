@@ -61,12 +61,8 @@ function createWindow(): void {
 
   attachCloseHandler(
     mainWindow,
+    () => app.quit(),
     () => {
-      // Perform full quit (cleanup is done in before-quit)
-      app.quit()
-    },
-    () => {
-      // Open upgrade dialog: tell renderer to open it
       mainWindow?.show()
       mainWindow?.webContents.send('open-upgrade-dialog')
     }
@@ -216,10 +212,8 @@ app.whenReady().then(async () => {
   }
 
   app.on('activate', () => {
-    // Dock click / app re-focus path. In daemon mode (US-221) closing the X hides
-    // the window instead of destroying it — getAllWindows() returns 1 hidden window.
-    // Must explicitly show() / focus() it to bring the UI back; otherwise user is
-    // locked out with no visible entry point.
+    // In daemon mode (US-221) the hidden window must be explicitly shown on
+    // dock-click/re-focus, or the user is locked out with no visible entry point.
     const windows = BrowserWindow.getAllWindows()
     if (windows.length === 0) {
       createWindow()
