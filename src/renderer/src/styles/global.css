@@ -1259,57 +1259,80 @@ html, body, #root {
   animation: fade-in var(--duration) ease-out;
 }
 
-.settings-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 320px;
-  background: var(--bg-elevated);
-  border-left: 1px solid var(--border-default);
-  z-index: 51;
-  transform: translateX(100%);
-  transition: transform 200ms ease-out;
+/* ── Settings — centered modal (Direction B .sheet) ──────────── */
+/* Reuses the shared .modal-overlay/.modal system; this variant adds the
+   wider width, capped height and scrollable body the settings content needs. */
+.modal--settings {
+  width: 640px;
+  max-width: 94%;
+  max-height: 86vh;
+  padding: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.settings-panel-open {
-  transform: translateX(0);
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
-/* ── Settings Panel — wide screen: fixed left sidebar ─────────── */
+.settings-modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.settings-modal-title-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.settings-modal-title-ic svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* mono section labels (Direction B .ssec) that sit inside the body padding */
+.settings-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+
+.settings-section-label:first-child {
+  margin-top: var(--sp-2);
+}
+
+/* The last row in each grouped section drops its divider. */
+.settings-group .settings-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Settings overlay — wide screen: slide-in panels keep no backdrop ── */
+/* RemoteConsolePanel and RequestDetailPanel still use .settings-overlay as
+   their dimmer; on wide screens they present as side panels without it. */
 @media (min-width: 768px) {
   .settings-overlay {
     display: none;
-  }
-
-  .settings-panel {
-    position: relative;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    z-index: auto;
-    border-left: none;
-    border-right: 1px solid var(--border-default);
-    transform: none;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    transition: width 200ms ease-out, min-width 200ms ease-out;
-    flex-shrink: 0;
-  }
-
-  .settings-panel-open {
-    width: 280px;
-    min-width: 280px;
-    overflow-y: auto;
-  }
-
-  /* Prevent content reflow during width animation */
-  .settings-panel .settings-header,
-  .settings-panel .settings-body {
-    min-width: 280px;
   }
 }
 
@@ -1603,19 +1626,6 @@ html, body, #root {
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 2px;
-}
-
-/* ── Settings Section Divider ────────────────────────────────── */
-
-.settings-section-divider {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  padding: var(--sp-3) var(--sp-5) var(--sp-1);
-  border-top: 1px solid var(--border-subtle);
-  margin-top: var(--sp-2);
 }
 
 .settings-frp-saved {

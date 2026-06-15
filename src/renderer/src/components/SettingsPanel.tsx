@@ -58,6 +58,14 @@ const defaultProviders: Record<ProviderType, {
   bore: { env: defaultEnv, config: null, install: noop, saveConfig: noopSave }
 }
 
+// Direction B settings-modal gear glyph (matches the .sheet-head treatment in the design).
+const GEAR_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82M4.6 9a1.65 1.65 0 0 0-.33-1.82M12 2v3M12 19v3M2 12h3M19 12h3" />
+  </svg>
+)
+
 function SettingsPanel({
   open, settings, onClose, onUpdate,
   appVersion, updateState, onCheckForUpdates,
@@ -94,158 +102,133 @@ function SettingsPanel({
     }
   })()
 
+  if (!open) return <></>
+
   return (
-    <>
-      {open && <div className="settings-overlay" data-dismiss onClick={onClose} />}
-      <aside className={`settings-panel${open ? ' settings-panel-open' : ''}`}>
-        <div className="settings-header">
-          <h2 className="panel-title">Settings</h2>
+    <div className="modal-overlay" data-dismiss onClick={onClose}>
+      <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
+        <div className="settings-modal-head">
+          <h2 className="settings-modal-title">
+            <span className="settings-modal-title-ic">{GEAR_ICON}</span>
+            Settings
+          </h2>
           <button className="panel-close" onClick={onClose}>×</button>
         </div>
 
         <div className="settings-body">
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Auto-start servers</span>
-              <span className="settings-item-desc">啟動應用程式時自動啟動所有伺服器</span>
+          {/* ── General ──────────────────────────────────────────── */}
+          <div className="settings-section-label">General</div>
+          <div className="settings-group">
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Auto-start servers</span>
+                <span className="settings-item-desc">啟動應用程式時自動啟動所有伺服器</span>
+              </div>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.autoStartServers}
+                  onChange={(e) => onUpdate({ autoStartServers: e.target.checked })}
+                />
+                <span className="settings-toggle-track" />
+              </label>
             </div>
-            <label className="settings-toggle">
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Default serve mode</span>
+                <span className="settings-item-desc">新增站點時的預設模式</span>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.defaultServeMode}
+                onChange={(e) => onUpdate({ defaultServeMode: e.target.value as ServeMode })}
+              >
+                <option value="static">Static</option>
+                <option value="proxy">Proxy</option>
+              </select>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">
+                  {DAEMON_COPY.launchAtStartupLabel}
+                  {!isPro && (
+                    <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                      Pro = 24/7 share mode
+                    </span>
+                  )}
+                </span>
+                <span className="settings-item-desc">{DAEMON_COPY.launchAtStartupDesc}</span>
+              </div>
+              <label
+                className="settings-toggle"
+                style={!isPro ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                onClick={!isPro ? onUpgrade : undefined}
+              >
+                <input
+                  type="checkbox"
+                  checked={isPro && (settings.launchAtStartup ?? false)}
+                  disabled={!isPro}
+                  onChange={(e) => isPro && onUpdate({ launchAtStartup: e.target.checked })}
+                />
+                <span className="settings-toggle-track" />
+              </label>
+            </div>
+          </div>
+
+          {/* ── Notifications & Monitoring ───────────────────────── */}
+          <div className="settings-section-label">Notifications &amp; Monitoring</div>
+          <div className="settings-group">
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Visitor notifications</span>
+                <span className="settings-item-desc">訪客透過 tunnel 到訪時顯示桌面通知</span>
+              </div>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.visitorNotifications}
+                  onChange={(e) => onUpdate({ visitorNotifications: e.target.checked })}
+                />
+                <span className="settings-toggle-track" />
+              </label>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Remote console</span>
+                <span className="settings-item-desc">在注入 script 中攔截訪客端 console 輸出並回傳至本地 app</span>
+              </div>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.remoteConsoleEnabled}
+                  onChange={(e) => onUpdate({ remoteConsoleEnabled: e.target.checked })}
+                />
+                <span className="settings-toggle-track" />
+              </label>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Request log limit</span>
+                <span className="settings-item-desc">每個 Proxy 站點保留的最大請求記錄數</span>
+              </div>
               <input
-                type="checkbox"
-                checked={settings.autoStartServers}
-                onChange={(e) => onUpdate({ autoStartServers: e.target.checked })}
+                className="settings-select"
+                type="number"
+                min={50}
+                max={1000}
+                value={settings.requestLogMaxEntries}
+                onChange={(e) => onUpdate({ requestLogMaxEntries: Math.max(50, Math.min(1000, Number(e.target.value))) })}
+                style={{ width: 80, textAlign: 'center' }}
               />
-              <span className="settings-toggle-track" />
-            </label>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Default serve mode</span>
-              <span className="settings-item-desc">新增站點時的預設模式</span>
-            </div>
-            <select
-              className="settings-select"
-              value={settings.defaultServeMode}
-              onChange={(e) => onUpdate({ defaultServeMode: e.target.value as ServeMode })}
-            >
-              <option value="static">Static</option>
-              <option value="proxy">Proxy</option>
-            </select>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Visitor notifications</span>
-              <span className="settings-item-desc">訪客透過 tunnel 到訪時顯示桌面通知</span>
-            </div>
-            <label className="settings-toggle">
-              <input
-                type="checkbox"
-                checked={settings.visitorNotifications}
-                onChange={(e) => onUpdate({ visitorNotifications: e.target.checked })}
-              />
-              <span className="settings-toggle-track" />
-            </label>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Remote console</span>
-              <span className="settings-item-desc">在注入 script 中攔截訪客端 console 輸出並回傳至本地 app</span>
-            </div>
-            <label className="settings-toggle">
-              <input
-                type="checkbox"
-                checked={settings.remoteConsoleEnabled}
-                onChange={(e) => onUpdate({ remoteConsoleEnabled: e.target.checked })}
-              />
-              <span className="settings-toggle-track" />
-            </label>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Request log limit</span>
-              <span className="settings-item-desc">每個 Proxy 站點保留的最大請求記錄數</span>
-            </div>
-            <input
-              className="settings-select"
-              type="number"
-              min={50}
-              max={1000}
-              value={settings.requestLogMaxEntries}
-              onChange={(e) => onUpdate({ requestLogMaxEntries: Math.max(50, Math.min(1000, Number(e.target.value))) })}
-              style={{ width: 80, textAlign: 'center' }}
-            />
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Version</span>
-              <span className="settings-item-desc">v{appVersion || '...'}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {isPro && tierState?.founderTier != null && (
-                <FounderBadge founderTier={tierState.founderTier} />
-              )}
-              {isPro && tierState?.founderTier == null && (
-                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>Pro</span>
-              )}
-              {!isPro && onActivatePro && (
-                <button className="btn btn-sm btn-primary" onClick={onActivatePro}>
-                  Activate Pro
-                </button>
-              )}
             </div>
           </div>
 
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">Updates</span>
-              {updateStatusText && (
-                <span className="settings-item-desc">{updateStatusText}</span>
-              )}
-            </div>
-            <button
-              className="btn btn-sm"
-              onClick={onCheckForUpdates}
-              disabled={isChecking || updateState.phase === 'downloading'}
-            >
-              {isChecking ? '檢查中...' : '檢查更新'}
-            </button>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">
-                {DAEMON_COPY.launchAtStartupLabel}
-                {!isPro && (
-                  <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
-                    Pro = 24/7 share mode
-                  </span>
-                )}
-              </span>
-              <span className="settings-item-desc">{DAEMON_COPY.launchAtStartupDesc}</span>
-            </div>
-            <label
-              className="settings-toggle"
-              style={!isPro ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-              onClick={!isPro ? onUpgrade : undefined}
-            >
-              <input
-                type="checkbox"
-                checked={isPro && (settings.launchAtStartup ?? false)}
-                disabled={!isPro}
-                onChange={(e) => isPro && onUpdate({ launchAtStartup: e.target.checked })}
-              />
-              <span className="settings-toggle-track" />
-            </label>
-          </div>
-
-          {/* Provider Sections */}
-          <div className="settings-section-divider">Providers</div>
-
+          {/* ── Providers ────────────────────────────────────────── */}
+          <div className="settings-section-label">Providers</div>
           <ProviderTabs tabs={[
             {
               key: 'cloudflare',
@@ -316,9 +299,49 @@ function SettingsPanel({
               )
             }
           ]} />
+
+          {/* ── About ────────────────────────────────────────────── */}
+          <div className="settings-section-label">About</div>
+          <div className="settings-group">
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Version</span>
+                <span className="settings-item-desc">v{appVersion || '...'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isPro && tierState?.founderTier != null && (
+                  <FounderBadge founderTier={tierState.founderTier} />
+                )}
+                {isPro && tierState?.founderTier == null && (
+                  <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>Pro</span>
+                )}
+                {!isPro && onActivatePro && (
+                  <button className="btn btn-sm btn-primary" onClick={onActivatePro}>
+                    Activate Pro
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Updates</span>
+                {updateStatusText && (
+                  <span className="settings-item-desc">{updateStatusText}</span>
+                )}
+              </div>
+              <button
+                className="btn btn-sm"
+                onClick={onCheckForUpdates}
+                disabled={isChecking || updateState.phase === 'downloading'}
+              >
+                {isChecking ? '檢查中...' : '檢查更新'}
+              </button>
+            </div>
+          </div>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   )
 }
 
