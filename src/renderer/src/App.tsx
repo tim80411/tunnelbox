@@ -913,63 +913,81 @@ function App(): React.ReactElement {
       {/* Add Site Modal */}
       {showAddModal && (
         <div className="modal-overlay" data-dismiss onClick={closeAddModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Add New Site</h2>
-
-            {addError && (
-              <div className="modal-error">{addError}</div>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Mode</label>
-              <div className="serve-mode-toggle">
-                <button
-                  className={`serve-mode-btn${newServeMode === 'static' ? ' active' : ''}`}
-                  onClick={() => setNewServeMode('static')}
-                  type="button"
-                >
-                  Static
-                </button>
-                <button
-                  className={`serve-mode-btn${newServeMode === 'proxy' ? ' active' : ''}`}
-                  onClick={() => setNewServeMode('proxy')}
-                  type="button"
-                >
-                  Proxy
-                </button>
-              </div>
+          <div className="modal modal--add" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2 className="modal-head-title">
+                <span className="modal-head-ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </span>
+                Add New Site
+              </h2>
+              <button className="panel-close" onClick={closeAddModal}>×</button>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="My Website"
-                value={newSiteName}
-                onChange={(e) => setNewSiteName(e.target.value)}
-                autoFocus
-              />
-            </div>
+            <div className="modal-body">
+              {addError && (
+                <div className="modal-error">{addError}</div>
+              )}
 
-            {newServeMode === 'static' ? (
               <div className="form-group">
-                <label className="form-label">Folder Path</label>
-                <div className="form-row">
-                  <input
-                    className="form-input"
-                    type="text"
-                    placeholder="Select a folder..."
-                    value={newSitePath}
-                    readOnly
-                  />
-                  <button className="btn" onClick={handleSelectFolder}>
-                    Browse
+                <label className="form-label">Name</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="My Website"
+                  value={newSiteName}
+                  onChange={(e) => setNewSiteName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Service Mode</label>
+                <div className="serve-mode-toggle">
+                  <button
+                    className={`serve-mode-btn${newServeMode === 'static' ? ' active' : ''}`}
+                    onClick={() => { setNewServeMode('static'); setNewPassthrough(false) }}
+                    type="button"
+                  >
+                    Static<small>Static files</small>
+                  </button>
+                  <button
+                    className={`serve-mode-btn${newServeMode === 'proxy' && !newPassthrough ? ' active' : ''}`}
+                    onClick={() => { setNewServeMode('proxy'); setNewPassthrough(false) }}
+                    type="button"
+                  >
+                    Proxy<small>Reverse proxy</small>
+                  </button>
+                  <button
+                    className={`serve-mode-btn${newServeMode === 'proxy' && newPassthrough ? ' active' : ''}`}
+                    onClick={() => { setNewServeMode('proxy'); setNewPassthrough(true) }}
+                    type="button"
+                  >
+                    Direct<small>Port forward</small>
                   </button>
                 </div>
               </div>
-            ) : (
-              <>
+
+              {newServeMode === 'static' ? (
+                <div className="form-group">
+                  <label className="form-label">Folder Path</label>
+                  <div className="form-row">
+                    <input
+                      className="form-input"
+                      type="text"
+                      placeholder="Select a folder..."
+                      value={newSitePath}
+                      readOnly
+                    />
+                    <button className="btn" onClick={handleSelectFolder}>
+                      Browse
+                    </button>
+                  </div>
+                  <span className="form-field-hint">TunnelBox serves the static files in this folder directly.</span>
+                </div>
+              ) : (
                 <div className="form-group">
                   <label className="form-label">
                     {newPassthrough ? 'Port' : 'Proxy Target'}
@@ -981,21 +999,16 @@ function App(): React.ReactElement {
                     value={newProxyTarget}
                     onChange={(e) => setNewProxyTarget(e.target.value)}
                   />
+                  <span className="form-field-hint">
+                    {newPassthrough
+                      ? 'Tunnel points directly to this port — no local proxy server.'
+                      : 'Forwards requests to a local server that is already running.'}
+                  </span>
                 </div>
-                <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85em', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={newPassthrough}
-                      onChange={(e) => setNewPassthrough(e.target.checked)}
-                    />
-                    Direct mode — no proxy server, tunnel points directly to your port
-                  </label>
-                </div>
-              </>
-            )}
+              )}
+            </div>
 
-            <div className="modal-actions">
+            <div className="modal-foot">
               <button className="btn" onClick={closeAddModal}>
                 Cancel
               </button>
@@ -1004,7 +1017,10 @@ function App(): React.ReactElement {
                 onClick={handleConfirmAdd}
                 disabled={adding || (newServeMode === 'proxy' ? !newProxyTarget.trim() : !newSitePath.trim())}
               >
-                {adding ? 'Adding...' : 'Confirm'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                {adding ? 'Adding...' : 'Create Site'}
               </button>
             </div>
           </div>

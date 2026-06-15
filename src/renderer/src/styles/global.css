@@ -773,15 +773,30 @@ html, body, #root {
 
 .serve-mode-btn {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   padding: var(--sp-2) var(--sp-3);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.3;
   border: none;
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
   transition: background var(--duration), color var(--duration);
+}
+
+/* Direction B sub-label under each mode (Static files / Reverse proxy / Port forward) */
+.serve-mode-btn small {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  opacity: 0.7;
 }
 
 .serve-mode-btn:not(:last-child) {
@@ -912,6 +927,15 @@ html, body, #root {
 
 .form-row .form-input {
   flex: 1;
+}
+
+/* Direction B field hint (.fh) — small helper text below an input */
+.form-field-hint {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
 }
 
 /* ── Confirm Text ──────────────────────────────────────────────── */
@@ -1259,11 +1283,12 @@ html, body, #root {
   animation: fade-in var(--duration) ease-out;
 }
 
-/* ── Settings — centered modal (Direction B .sheet) ──────────── */
-/* Reuses the shared .modal-overlay/.modal system; this variant adds the
-   wider width, capped height and scrollable body the settings content needs. */
-.modal--settings {
-  width: 640px;
+/* ── Direction B modals — shared centered "sheet" chrome ─────── */
+/* Layered on the shared .modal-overlay/.modal system. A sheet has a fixed
+   head, a scrollable body and (optionally) a fixed foot, capped at 86vh so
+   long content scrolls inside instead of overflowing the window. */
+.modal--settings,
+.modal--add {
   max-width: 94%;
   max-height: 86vh;
   padding: 0;
@@ -1272,7 +1297,10 @@ html, body, #root {
   overflow: hidden;
 }
 
-.settings-modal-head {
+.modal--settings { width: 640px; }
+.modal--add { width: 560px; }
+
+.modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1281,7 +1309,7 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.settings-modal-title {
+.modal-head-title {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -1291,7 +1319,7 @@ html, body, #root {
   color: var(--text-primary);
 }
 
-.settings-modal-title-ic {
+.modal-head-ic {
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -1302,9 +1330,25 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.settings-modal-title-ic svg {
+.modal-head-ic svg {
   width: 14px;
   height: 14px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 /* mono section labels (Direction B .ssec) that sit inside the body padding */
@@ -1366,12 +1410,6 @@ html, body, #root {
 .panel-close:hover {
   color: var(--text-primary);
   background: var(--bg-muted);
-}
-
-.settings-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--sp-4) var(--sp-5);
 }
 
 .settings-item {

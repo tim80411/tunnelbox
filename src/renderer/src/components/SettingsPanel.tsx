@@ -107,15 +107,15 @@ function SettingsPanel({
   return (
     <div className="modal-overlay" data-dismiss onClick={onClose}>
       <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-modal-head">
-          <h2 className="settings-modal-title">
-            <span className="settings-modal-title-ic">{GEAR_ICON}</span>
+        <div className="modal-head">
+          <h2 className="modal-head-title">
+            <span className="modal-head-ic">{GEAR_ICON}</span>
             Settings
           </h2>
           <button className="panel-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="settings-body">
+        <div className="modal-body">
           {/* ── General ──────────────────────────────────────────── */}
           <div className="settings-section-label">General</div>
           <div className="settings-group">
