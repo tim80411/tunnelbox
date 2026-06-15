@@ -651,7 +651,7 @@ function App(): React.ReactElement {
           </span>
           <button
             className="btn btn-sm btn-primary"
-            onClick={() => window.open('https://tunnelboxapp.com/#pricing', '_blank')}
+            onClick={() => window.open('https://tunnelbox.teachers-assist.com/#pricing', '_blank')}
           >
             Renew
           </button>
@@ -1162,7 +1162,7 @@ function App(): React.ReactElement {
                 className="btn btn-primary"
                 onClick={() => {
                   setShowUpgradePro(false)
-                  window.open('https://tunnelboxapp.com/#pricing', '_blank')
+                  window.open('https://tunnelbox.teachers-assist.com/#pricing', '_blank')
                 }}
               >
                 Get Pro

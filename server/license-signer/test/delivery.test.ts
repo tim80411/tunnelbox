@@ -35,7 +35,7 @@ function makeEnv(kv = fakeKV()): { env: DeliveryEnv; kv: ReturnType<typeof fakeK
     LICENSES: kv as unknown as KVNamespace,
     LS_WEBHOOK_SECRET: 'whsec',
     RESEND_API_KEY: 're_test',
-    LICENSE_FROM_EMAIL: 'TunnelBox <license@tunnelboxapp.com>'
+    LICENSE_FROM_EMAIL: 'TunnelBox <license@send.teachers-assist.com>'
   }
   return { env, kv }
 }
