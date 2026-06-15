@@ -13,7 +13,7 @@ compatibility_date = "2026-06-09"
 
 [vars]
 # From address for the license email — must be on a Resend-verified domain.
-LICENSE_FROM_EMAIL = "TunnelBox <license@tunnelboxapp.com>"
+LICENSE_FROM_EMAIL = "TunnelBox <license@send.teachers-assist.com>"
 
 # Signed-license download store. Create the namespace first, then paste its id:
 #   wrangler kv namespace create LICENSES

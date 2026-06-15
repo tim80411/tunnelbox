@@ -9,7 +9,7 @@
 export interface EmailEnv {
   /** Resend API key (set via `wrangler secret put RESEND_API_KEY`). */
   RESEND_API_KEY: string
-  /** From address on a Resend-verified domain, e.g. "TunnelBox <license@tunnelboxapp.com>". */
+  /** From address on a Resend-verified domain, e.g. "TunnelBox <license@send.teachers-assist.com>". */
   LICENSE_FROM_EMAIL: string
 }
 
