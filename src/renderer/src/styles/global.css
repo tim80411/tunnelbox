@@ -1246,6 +1246,7 @@ html, body, #root {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  min-height: 0;
   transition: margin-left 200ms ease-out;
 }
 
@@ -2610,3 +2611,7 @@ html, body, #root {
 
 .qr-inline { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 13px 15px; }
 .qr-inline-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+.dh-rename-form { display: inline-flex; }
+.dh-rename-input { font-size: 21px; font-weight: 700; letter-spacing: -.025em; font-family: var(--font-sans); color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--accent-line, var(--accent)); border-radius: var(--radius); padding: 1px 6px; outline: none; }
+.dh-name h3 { cursor: default; }

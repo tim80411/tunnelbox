@@ -15,6 +15,16 @@ interface Props {
   onOpenFolder: (path: string) => void
   onRemove: (site: SiteInfo) => void
   onRefreshLan: () => void
+  // inline rename (double-click the detail title)
+  renamingId: string | null
+  renameValue: string
+  onRenameValueChange: (v: string) => void
+  onStartRename: (site: SiteInfo) => void
+  onConfirmRename: () => void
+  onCancelRename: () => void
+  // remote console (static sites, gated by settings)
+  consoleEnabled: boolean
+  onOpenConsole: (id: string) => void
   // tunnel (passed straight through to TunnelControls — types match its signature)
   cloudflaredAvailable: boolean
   authStatus: CloudflareAuth['status']
@@ -80,7 +90,20 @@ function SiteDetail(props: Props): React.ReactElement {
           <div>
             <div className="dh-name">
               <span className={`md-modebadge ${mode}`}>{mode}</span>
-              <h3>{site.name}</h3>
+              {props.renamingId === site.id ? (
+                <form className="dh-rename-form" onSubmit={(e) => { e.preventDefault(); props.onConfirmRename() }}>
+                  <input
+                    className="dh-rename-input"
+                    value={props.renameValue}
+                    onChange={(e) => props.onRenameValueChange(e.target.value)}
+                    onBlur={props.onConfirmRename}
+                    onKeyDown={(e) => { if (e.key === 'Escape') props.onCancelRename() }}
+                    autoFocus
+                  />
+                </form>
+              ) : (
+                <h3 onDoubleClick={() => props.onStartRename(site)} title="雙擊以重新命名">{site.name}</h3>
+              )}
               <span className={`md-statepill ${state}`}><span className="d" />{SITE_STATE_LABEL[state]}</span>
             </div>
             <div className="dh-path">
@@ -97,6 +120,9 @@ function SiteDetail(props: Props): React.ReactElement {
               <button className="btn btn-sm" onClick={() => props.onStopServer(site.id)}>停止</button>
             ) : (
               <button className="btn btn-sm btn-primary" onClick={() => props.onStartServer(site.id)}>啟動</button>
+            )}
+            {props.consoleEnabled && site.serveMode === 'static' && (
+              <button className="btn btn-sm" disabled={site.status !== 'running'} onClick={() => props.onOpenConsole(site.id)} title="開啟遠端 Console">Console</button>
             )}
             <button className="btn btn-sm btn-danger" onClick={() => props.onRemove(site)}>移除</button>
           </div>

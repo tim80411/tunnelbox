@@ -1,18 +1,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import type { SiteInfo, CloudflareAuth, ServeMode, ProxySiteInfo, CloudflareAccountsState } from '../../shared/types'
-import TunnelControls from './components/TunnelControls'
+import type { SiteInfo, CloudflareAuth, ServeMode, CloudflareAccountsState } from '../../shared/types'
 import ConcurrentSharesDialog from './components/ConcurrentSharesDialog'
-import QrButton from './components/QrButton'
-import CopyButton from './components/CopyButton'
 import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
 import ShareHistoryPanel from './components/ShareHistoryPanel'
 import RemoteConsolePanel from './components/RemoteConsolePanel'
-import RequestLogPanel from './components/RequestLogPanel'
 import RequestDetailPanel from './components/RequestDetailPanel'
-import TagEditor from './components/TagEditor'
 import DashboardPanel from './components/DashboardPanel'
+import SiteSummaryStrip from './components/SiteSummaryStrip'
+import SiteRail from './components/SiteRail'
+import SiteDetail from './components/SiteDetail'
+import SiteDetailEmpty from './components/SiteDetailEmpty'
+import { summarizeSites, filterSites, type SiteFilter } from './utils/site-view'
 import NotificationBell from './components/NotificationBell'
 import { useSettings } from './hooks/useSettings'
 import { useRequestLog } from './hooks/useRequestLog'
@@ -30,6 +30,8 @@ import { useMenuCommands } from './hooks/useMenuCommands'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<SiteFilter>('all')
   const [error, setError] = useState<string | null>(null)
   const [auth, setAuth] = useState<CloudflareAuth>({ status: 'logged_out' })
   const [cfAccounts, setCfAccounts] = useState<CloudflareAccountsState>({ accounts: [], activeAccountId: null })
@@ -543,9 +545,21 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [])
 
-  // Request log for the selected proxy site
+  // Selection + derived view-model for the master-detail layout
   const selectedSite = useMemo(() => sites.find((s) => s.id === selectedSiteId) ?? null, [sites, selectedSiteId])
-  const selectedProxySiteId = selectedSite?.serveMode === 'proxy' ? selectedSite.id : null
+  const counts = useMemo(() => summarizeSites(sites), [sites])
+  const filteredSites = useMemo(() => filterSites(sites, searchQuery, filter), [sites, searchQuery, filter])
+  // When the selected site is filtered out, fall back to the first visible site.
+  const effectiveSelectedId = (selectedSite && filteredSites.some((s) => s.id === selectedSite.id))
+    ? selectedSite.id
+    : (filteredSites[0]?.id ?? null)
+  const detailSite = useMemo(
+    () => sites.find((s) => s.id === effectiveSelectedId) ?? null,
+    [sites, effectiveSelectedId]
+  )
+
+  // Request log follows the site actually shown in the detail pane (not just selectedSiteId)
+  const selectedProxySiteId = detailSite?.serveMode === 'proxy' ? detailSite.id : null
   const { entries: requestLogEntries, selectedEntry: selectedRequestEntry, setSelectedEntry: setSelectedRequestEntry, clearLog: clearRequestLog } = useRequestLog(selectedProxySiteId)
 
   const hasRunningNamedTunnels = sites.some(
@@ -699,242 +713,81 @@ function App(): React.ReactElement {
 
       <DashboardPanel sites={sites} />
 
-      <div className="app-body">
-        <div
-          ref={listRef}
-          className={`site-list${isDraggingOver ? ' site-list-drop-active' : ''}`}
-          {...dropZoneHandlers}
-        >
-          {isDraggingOver && (
-            <div className="site-list-drop-hint">拖曳資料夾至此新增</div>
-          )}
-          {sites.length === 0 ? (
+      {sites.length === 0 ? (
+        <div className="app-body">
+          <div
+            ref={listRef}
+            className={`site-list${isDraggingOver ? ' site-list-drop-active' : ''}`}
+            {...dropZoneHandlers}
+          >
+            {isDraggingOver && <div className="site-list-drop-hint">拖曳資料夾至此新增</div>}
             <div className="site-list-empty">
               <div className="empty-icon">📂</div>
               <p className="empty-title">尚未建立任何網頁</p>
               <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個網頁</p>
-              <button className="btn btn-primary" onClick={openAddModal}>
-                + 新增網頁
-              </button>
+              <button className="btn btn-primary" onClick={openAddModal}>+ 新增網頁</button>
             </div>
-          ) : (
-            sites.map((site) => {
-              const isPassthrough = site.serveMode === 'proxy' && !!(site as ProxySiteInfo).passthrough
-              const modeBadge = isPassthrough ? 'direct' : site.serveMode
-              return (<div
-                key={site.id}
-                data-site-id={site.id}
-                className={`site-item${selectedSiteId === site.id ? ' site-item-selected' : ''}`}
-                onClick={() => setSelectedSiteId(site.id)}
-              >
-                <div className="site-item-info">
-                  <div className="site-item-name-row">
-                    <div className="site-item-name-group">
-                      <span className={`site-mode-badge site-mode-badge--${modeBadge}`}>
-                        {modeBadge}
-                      </span>
-                      {renamingId === site.id ? (
-                        <form
-                          className="site-rename-form"
-                          onSubmit={(e) => { e.preventDefault(); handleConfirmRename() }}
-                        >
-                          <input
-                            className="site-rename-input"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={handleConfirmRename}
-                            onKeyDown={(e) => { if (e.key === 'Escape') handleCancelRename() }}
-                            autoFocus
-                          />
-                        </form>
-                      ) : (
-                        <span
-                          className="site-item-name site-item-name-editable"
-                          onDoubleClick={() => handleStartRename(site)}
-                          title="Double-click to rename"
-                        >
-                          {site.name}
-                          <svg className="site-item-name-edit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                          </svg>
-                        </span>
-                      )}
-                    </div>
-                    <span className={`site-item-status ${site.status}`}>
-                      {site.status === 'running'
-                        ? '運行中'
-                        : site.status === 'stopped'
-                          ? '已停止'
-                          : '錯誤'}
-                    </span>
-                  </div>
-                  <div className="site-item-path-row">
-                    <span className="site-item-path">
-                      {site.serveMode === 'proxy'
-                        ? isPassthrough
-                          ? `Direct → Port ${(site as ProxySiteInfo).passthroughPort}`
-                          : `Proxy → ${site.proxyTarget}`
-                        : site.folderPath}
-                    </span>
-                    <button
-                      className="btn-inline-copy"
-                      onClick={() => navigator.clipboard.writeText(site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath)}
-                      data-tooltip={site.serveMode === 'proxy' ? (isPassthrough ? '複製 Port' : '複製目標 URL') : '複製路徑'}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="2" width="6" height="4" rx="1" />
-                        <path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" />
-                      </svg>
-                    </button>
-                    {site.serveMode === 'static' && (
-                      <button
-                        className="btn-inline-copy"
-                        onClick={() => handleOpenFolder(site.folderPath)}
-                        data-tooltip="在檔案管理器中開啟"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-                          <path d="M14 11l4 4-4 4" />
-                          <path d="M18 15H8" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  {/* Local */}
-                  <div className="site-item-url-row">
-                    <span className={`status-light status-light--${site.status === 'running' ? 'green' : 'gray'}`} />
-                    <span className="sharing-badge sharing-badge--local">Local</span>
-                    {site.status === 'running' && site.url ? (
-                      <a className="site-item-url" href={site.url} target="_blank" rel="noopener noreferrer" title={site.url}>
-                        {site.url}
-                      </a>
-                    ) : (
-                      <span className="site-item-url site-item-url--placeholder">啟動站點後可使用</span>
-                    )}
-                    <CopyButton
-                      text={site.url || ''}
-                      tooltip="複製網址"
-                      disabled={site.status !== 'running' || !site.url}
-                      variant="inline"
-                    />
-                    <div className="url-row-actions">
-                      <span className="btn-icon btn-icon--info" data-tooltip={`Port：${site.port}｜模式：${site.serveMode === 'proxy' ? (isPassthrough ? 'Direct' : 'Proxy') : '靜態檔案'}`}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                      </span>
-                      <button className="btn-icon" disabled data-tooltip="啟動"><svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
-                      <button className="btn-icon" disabled data-tooltip="停止"><svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
-                      <QrButton url={site.url || ''} title="Local QR Code" disabled={site.status !== 'running'} />
-                      <button className="btn-icon" disabled data-tooltip="重新偵測"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg></button>
-                    </div>
-                  </div>
-
-                  {/* LAN */}
-                  <div className="site-item-url-row">
-                    <span className={`status-light status-light--${site.lanUrl ? 'green' : 'gray'}`} />
-                    <span className="sharing-badge sharing-badge--lan">LAN</span>
-                    {site.lanUrl ? (
-                      <a className="site-item-url" href={site.lanUrl} target="_blank" rel="noopener noreferrer" title={site.lanUrl}>
-                        {site.lanUrl}
-                      </a>
-                    ) : (
-                      <span className="site-item-url site-item-url--placeholder">
-                        {site.status !== 'running' ? '啟動站點後可使用' : '未偵測到區網'}
-                      </span>
-                    )}
-                    <CopyButton
-                      text={site.lanUrl || ''}
-                      tooltip="複製區網網址"
-                      disabled={!site.lanUrl}
-                      variant="inline"
-                    />
-                    <div className="url-row-actions">
-                      <span className="btn-icon btn-icon--info" data-tooltip={site.lanInterfaceName ? `介面：${site.lanInterfaceName}${site.lanHasMultipleInterfaces ? '（有多個可用介面，目前使用最佳介面）' : ''}` : '區域網路分享'}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                      </span>
-                      <button className="btn-icon" disabled data-tooltip="啟動"><svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg></button>
-                      <button className="btn-icon" disabled data-tooltip="停止"><svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg></button>
-                      <QrButton url={site.lanUrl || ''} title="LAN QR Code" subtitle={site.lanInterfaceName} disabled={!site.lanUrl} />
-                      <button className="btn-icon" onClick={handleRefreshLan} disabled={site.status !== 'running'} data-tooltip="重新偵測區網 IP">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* WAN — integrated tunnel controls */}
-                  <TunnelControls
-                    site={site}
-                    cloudflaredAvailable={cfProvider.env.status === 'available'}
-                    authStatus={auth.status}
-                    onShare={handleShareSite}
-                    onStopSharing={handleStopSharing}
-                    onBindFixedDomain={handleBindFixedDomain}
-                    onUnbindFixedDomain={handleUnbindFixedDomain}
-                    onStartNamedTunnel={handleStartNamedTunnel}
-                    onStopNamedTunnel={handleStopNamedTunnel}
-                    onLogin={handleLogin}
-                    onStartFrpTunnel={handleStartFrpTunnel}
-                    onStartBoreTunnel={handleStartBoreTunnel}
-                    frpcEnv={frpProvider.env}
-                    boreEnv={boreProvider.env}
-                    onSelectProvider={handleSelectProvider}
-                  />
-                </div>
-                <div className="site-item-actions">
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => handleOpenInBrowser(site)}
-                    disabled={site.status !== 'running'}
-                  >
-                    Open
-                  </button>
-                  {site.status === 'running' ? (
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => handleStopServer(site.id)}
-                    >
-                      Stop
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => handleStartServer(site.id)}
-                    >
-                      Start
-                    </button>
-                  )}
-                  {settings.remoteConsoleEnabled && site.serveMode === 'static' && (
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setConsoleForSiteId(site.id)}
-                      disabled={site.status !== 'running'}
-                      title="Open Remote Console"
-                    >
-                      Console
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={() => setConfirmRemove(site)}
-                  >
-                    Remove
-                  </button>
-                </div>
-                {selectedSiteId === site.id && (
-                  <TagEditor siteId={site.id} tags={site.tags || []} />
-                )}
-                {site.serveMode === 'proxy' && selectedSiteId === site.id && (
-                  <RequestLogPanel
-                    entries={requestLogEntries}
-                    selectedEntry={selectedRequestEntry}
-                    onSelectEntry={setSelectedRequestEntry}
-                    onClear={clearRequestLog}
-                  />
-                )}
-              </div>
-            )})
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <SiteSummaryStrip counts={counts} filter={filter} onFilterChange={setFilter} />
+          <div className="md" ref={listRef} {...dropZoneHandlers}>
+            <SiteRail
+              sites={filteredSites}
+              totalCount={counts.total}
+              runningCount={counts.running}
+              selectedSiteId={effectiveSelectedId}
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onSelect={setSelectedSiteId}
+              onAddSite={openAddModal}
+              onOpenSettings={() => setShowSettings((v) => !v)}
+            />
+            {detailSite && detailSite.status !== 'stopped' ? (
+              <SiteDetail
+                site={detailSite}
+                onOpenInBrowser={handleOpenInBrowser}
+                onStartServer={handleStartServer}
+                onStopServer={handleStopServer}
+                onOpenFolder={handleOpenFolder}
+                onRemove={setConfirmRemove}
+                onRefreshLan={handleRefreshLan}
+                renamingId={renamingId}
+                renameValue={renameValue}
+                onRenameValueChange={setRenameValue}
+                onStartRename={handleStartRename}
+                onConfirmRename={handleConfirmRename}
+                onCancelRename={handleCancelRename}
+                consoleEnabled={settings.remoteConsoleEnabled}
+                onOpenConsole={setConsoleForSiteId}
+                cloudflaredAvailable={cfProvider.env.status === 'available'}
+                authStatus={auth.status}
+                onShare={handleShareSite}
+                onStopSharing={handleStopSharing}
+                onBindFixedDomain={handleBindFixedDomain}
+                onUnbindFixedDomain={handleUnbindFixedDomain}
+                onStartNamedTunnel={handleStartNamedTunnel}
+                onStopNamedTunnel={handleStopNamedTunnel}
+                onLogin={handleLogin}
+                onStartFrpTunnel={handleStartFrpTunnel}
+                onStartBoreTunnel={handleStartBoreTunnel}
+                frpcEnv={frpProvider.env}
+                boreEnv={boreProvider.env}
+                onSelectProvider={handleSelectProvider}
+                requestLogEntries={requestLogEntries}
+                selectedRequestEntry={selectedRequestEntry}
+                onSelectRequestEntry={setSelectedRequestEntry}
+                onClearRequestLog={clearRequestLog}
+              />
+            ) : detailSite ? (
+              <SiteDetailEmpty variant="stopped" siteName={detailSite.name} onStart={() => handleStartServer(detailSite.id)} />
+            ) : (
+              <SiteDetailEmpty variant="none" />
+            )}
+          </div>
+        </>
+      )}
         </div>{/* end app-main */}
       </div>{/* end app-layout */}
 
