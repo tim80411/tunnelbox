@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 
 interface UseSiteDropZoneOptions {
   onError: (message: string) => void
+  /** Called when a single license file (.json/.dat) is dropped, instead of adding a site. */
+  onLicenseFile?: (filePath: string) => void
 }
 
 interface SiteDropZoneResult {
@@ -14,7 +16,7 @@ interface SiteDropZoneResult {
   }
 }
 
-export function useSiteDropZone({ onError }: UseSiteDropZoneOptions): SiteDropZoneResult {
+export function useSiteDropZone({ onError, onLicenseFile }: UseSiteDropZoneOptions): SiteDropZoneResult {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const dragCounter = useRef(0)
 
@@ -55,30 +57,36 @@ export function useSiteDropZone({ onError }: UseSiteDropZoneOptions): SiteDropZo
       const item = e.dataTransfer.items[0]
       if (!item || item.kind !== 'file') return
 
+      const file = item.getAsFile()
+      if (!file) return
+      const droppedPath = window.electron.getPathForFile(file)
+
+      // A dropped license file (.json/.dat) activates Pro instead of adding a site.
+      if (droppedPath && /\.(json|dat)$/i.test(droppedPath) && onLicenseFile) {
+        onLicenseFile(droppedPath)
+        return
+      }
+
       const entry = item.webkitGetAsEntry?.()
       if (entry && !entry.isDirectory) {
         onError('請拖曳資料夾，不支援單一檔案')
         return
       }
 
-      const file = item.getAsFile()
-      if (!file) return
-
-      const folderPath = window.electron.getPathForFile(file)
-      if (!folderPath) {
+      if (!droppedPath) {
         onError('無法取得資料夾路徑')
         return
       }
 
-      const folderName = folderPath.split(/[\\/]/).filter(Boolean).pop() || folderPath
+      const folderName = droppedPath.split(/[\\/]/).filter(Boolean).pop() || droppedPath
 
       try {
-        await window.electron.addSite({ serveMode: 'static', name: folderName, folderPath })
+        await window.electron.addSite({ serveMode: 'static', name: folderName, folderPath: droppedPath })
       } catch (err) {
         onError(err instanceof Error ? err.message : '新增網頁失敗')
       }
     },
-    [onError]
+    [onError, onLicenseFile]
   )
 
   return {

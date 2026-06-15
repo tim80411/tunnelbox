@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
-import type { TierState } from '../shared/license-types'
+import type { TierState, ImportResult } from '../shared/license-types'
 
 const electronAPI: ElectronAPI = {
   // Site management
@@ -529,6 +529,12 @@ const electronAPI: ElectronAPI = {
       }
     }
   },
+
+  // --- License import (US-105) ---
+  importLicense: (filePath: string): Promise<ImportResult> =>
+    ipcRenderer.invoke('license:import', filePath),
+  pickLicense: (): Promise<string | null> => ipcRenderer.invoke('license:pick'),
+  findDownloadedLicense: (): Promise<string | null> => ipcRenderer.invoke('license:find-downloaded'),
 
   // --- Concurrent Share Gate (US-219) ---
   checkShareGate: (siteId: string): Promise<{ allowed: boolean; activeIds: string[] }> => {

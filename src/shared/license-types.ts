@@ -35,3 +35,8 @@ export type TierState = {
   softLocked: boolean
   founderTier: number | null
 }
+
+// Result of importing a license file (Story 105 / TIM-209)
+export type ImportResult =
+  | { ok: true; email: string; founderTier: number | null }
+  | { ok: false; error: string }
