@@ -9,6 +9,7 @@ out
 .worktrees/
 .claude/worktrees/
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 .superpowers/
 
 # Local working docs (not for upstream)
