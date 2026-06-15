@@ -28,21 +28,26 @@ LemonSqueezy order_created ──POST /webhook──▶ Worker
 
 ```bash
 cd server/license-signer
-npm install            # or pnpm install
+pnpm install            # or npm install
 
-# Generate the keypair (run from repo root — uses the app's script):
-node ../../scripts/generate-license-keypair.mjs
-#   → PRIVATE KEY hex  → set as the signer secret (below)
-#   → PUBLIC KEY hex   → set as TUNNELBOX_LICENSE_PUBKEY_V1 in the app build
+# 1. Create the KV namespace for signed licenses, then paste the printed id into wrangler.toml.
+wrangler kv namespace create LICENSES
 
-wrangler secret put ED25519_PRIVATE_KEY     # paste the PRIVATE key hex
-wrangler secret put LS_WEBHOOK_SECRET        # LemonSqueezy store signing secret
+# 2. Secrets. The Ed25519 private key already lives in OCI (generated at launch) —
+#    pipe it straight into the secret so it never touches disk:
+oci os object get --bucket-name tunnelbox-secrets \
+  --name license-signer/ed25519-private-v1.hex --file - | wrangler secret put ED25519_PRIVATE_KEY
+wrangler secret put LS_WEBHOOK_SECRET    # LemonSqueezy store webhook signing secret
+wrangler secret put RESEND_API_KEY       # Resend API key (verify your sending domain first)
+
+# 3. Set LICENSE_FROM_EMAIL in wrangler.toml [vars] to a Resend-verified address.
 
 wrangler deploy
 ```
 
 Then point a LemonSqueezy webhook at `https://<worker-domain>/webhook` for the
-`order_created` event, using the same signing secret.
+`order_created` event, using the same signing secret. The matching **public** key
+is already embedded in the app (key_v1).
 
 ## Test
 
@@ -50,17 +55,23 @@ Then point a LemonSqueezy webhook at `https://<worker-domain>/webhook` for the
 npm test           # vitest — sign↔verify round-trip + HMAC verification
 ```
 
-## Delivery (TODO — needs your LS account)
+## Delivery (implemented — Path B: KV + email)
 
-Step 4 (`src/index.ts`) is intentionally a stub. Two viable paths, both requiring
-your LemonSqueezy API key (and a KV/R2 binding for B):
+On `order_created` the Worker signs the license, stores it in Workers KV under an
+unguessable token, and emails the buyer a download link (`src/delivery.ts`,
+`src/email.ts`):
 
-- **A. LS order attachment** — POST the signed `license.json` back to the order via
-  the LemonSqueezy API so it appears on the buyer's receipt/download.
-- **B. Store + email** — write to Workers KV/R2 and email a download link.
+- **Token** = `HMAC(LS_WEBHOOK_SECRET, orderId)` — unguessable and deterministic, so
+  LemonSqueezy webhook retries map to the same entry and never double-email. If the
+  email send fails the KV entry is rolled back so the next retry redelivers.
+- **Download** — `GET /license/:token` returns the signed license as a `license.json`
+  attachment (matches the app's import filter + Downloads scan).
+- **Email** — sent via [Resend](https://resend.com); swap providers by editing only
+  `src/email.ts`. Requires `RESEND_API_KEY` and a verified sender domain.
 
-Until this is wired, the Worker verifies + signs and returns `{ ok, license_id }`
-but does not yet hand the file to the buyer.
+`founder_tier` is still `null` (the first-100 counter is deferred — see
+`lemonsqueezy.ts`); Founder badges won't be awarded until that durable counter
+is added.
 
 ## Security notes
 

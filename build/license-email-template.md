@@ -19,7 +19,7 @@ Thanks for getting TunnelBox Pro — you're all set.
 
 [Download your license file]({{DOWNLOAD_LINK}})
 
-To activate: open TunnelBox → Settings → Import License, then drag in your `.tunnelbox-license` file.
+To activate: open TunnelBox → Settings → **Activate Pro**, then pick the downloaded `license.json` (drag-and-drop onto the window works too).
 
 ## What you get
 
