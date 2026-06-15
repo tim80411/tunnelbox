@@ -3,7 +3,7 @@
  * Validates the §License-Failure-Degradation invariant from _overview.md.
  *
  * Setup: Pro user, 5 active shares, 3 CF accounts, background mode on,
- *        founder_tier=25, beta channel on.
+ *        founder_tier=25.
  * Trigger: license invalidated → tier-gate._setState to free → listeners fire.
  * Verify: each friction module enforces its downgrade invariant independently.
  */
@@ -96,7 +96,6 @@ vi.mock('../../src/main/cloudflared/detector', () => ({
 // Settings store mock
 // ---------------------------------------------------------------------------
 const settingsData = vi.hoisted(() => ({
-  betaChannel: true,
   launchAtStartup: true,
   autoStartServers: false,
   defaultServeMode: 'static' as const,
@@ -181,7 +180,6 @@ function setupProState() {
   activeSiteIds.clear()
   for (const id of ['s1', 's2', 's3', 's4', 's5']) activeSiteIds.add(id)
 
-  settingsData.betaChannel = true
   settingsData.launchAtStartup = true
 }
 
@@ -307,19 +305,6 @@ describe('Pro→Free downgrade cycle — §License-Failure-Degradation invariant
       expect(broadcastedState).not.toBeNull()
       expect(broadcastedState!.founderTier).toBeNull()
       expect(broadcastedState!.isPro).toBe(false)
-    })
-  })
-
-  // ── Invariant 5: Beta channel reset to stable ────────────────────────────
-  describe('Beta channel: reset to stable on downgrade (US-222 §情境 X)', () => {
-    it('tier-gate-ipc resets betaChannel to false when tier changes to free', async () => {
-      vi.resetModules()
-      const { registerTierGateIpc } = await import('../../src/main/license/tier-gate-ipc')
-      // registerTierGateIpc attaches its own onChange listener
-      registerTierGateIpc()
-      expect(settingsData.betaChannel).toBe(true) // still true before downgrade
-      triggerDowngrade()
-      expect(settingsData.betaChannel).toBe(false)
     })
   })
 

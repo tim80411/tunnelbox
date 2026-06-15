@@ -1,7 +1,6 @@
 import { app, ipcMain, BrowserWindow } from 'electron'
 import https from 'node:https'
 import { createLogger } from './logger'
-import { getSettings } from './settings-store'
 import type { UpdateState, ForceUpdateConfig, ForceUpdateCheckResult } from '../shared/update-types'
 
 const log = createLogger('Updater')
@@ -103,8 +102,7 @@ function initAutoUpdater(): void {
 
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
-  const settings = getSettings()
-  autoUpdater.channel = settings.betaChannel ? 'beta' : 'latest'
+  autoUpdater.channel = 'latest'
 
   autoUpdater.on('checking-for-update', () => {
     setState({ phase: 'checking' })
@@ -144,8 +142,6 @@ export async function checkForUpdates(): Promise<void> {
   }
   initAutoUpdater()
   const { autoUpdater } = require('electron-updater')
-  const settings = getSettings()
-  autoUpdater.channel = settings.betaChannel ? 'beta' : 'latest'
   await autoUpdater.checkForUpdates()
 }
 

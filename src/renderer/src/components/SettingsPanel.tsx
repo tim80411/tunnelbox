@@ -219,37 +219,6 @@ function SettingsPanel({
           <div className="settings-item">
             <div className="settings-item-info">
               <span className="settings-item-label">
-                Beta channel
-                {!isPro && (
-                  <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
-                    Pro = early access workflow
-                  </span>
-                )}
-              </span>
-              <span className="settings-item-desc">
-                {isPro
-                  ? '下次「Check for updates」時偵測 beta 版本'
-                  : '提前取得新功能的 Pro early-access 模式'}
-              </span>
-            </div>
-            <label
-              className="settings-toggle"
-              style={!isPro ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-              onClick={!isPro ? onUpgrade : undefined}
-            >
-              <input
-                type="checkbox"
-                checked={isPro && (settings.betaChannel ?? false)}
-                disabled={!isPro}
-                onChange={(e) => isPro && onUpdate({ betaChannel: e.target.checked })}
-              />
-              <span className="settings-toggle-track" />
-            </label>
-          </div>
-
-          <div className="settings-item">
-            <div className="settings-item-info">
-              <span className="settings-item-label">
                 {DAEMON_COPY.launchAtStartupLabel}
                 {!isPro && (
                   <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
