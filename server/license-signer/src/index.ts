@@ -1,16 +1,38 @@
 import { buildLicensePayload, signLicense } from './license'
 import { mapOrderToLicenseInput, verifyWebhookSignature, type LemonSqueezyEvent } from './lemonsqueezy'
+import { storeAndDeliver, fetchLicense } from './delivery'
 
 export interface Env {
   /** LemonSqueezy webhook signing secret (set via `wrangler secret put LS_WEBHOOK_SECRET`). */
   LS_WEBHOOK_SECRET: string
   /** Ed25519 private key, hex-encoded (set via `wrangler secret put ED25519_PRIVATE_KEY`). */
   ED25519_PRIVATE_KEY: string
+  /** Resend API key for delivering the license email (`wrangler secret put RESEND_API_KEY`). */
+  RESEND_API_KEY: string
+  /** From address on a Resend-verified domain (wrangler.toml [vars]). */
+  LICENSE_FROM_EMAIL: string
+  /** KV namespace holding signed licenses keyed by download token. */
+  LICENSES: KVNamespace
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
+
+    // Buyer license download: GET /license/:token — the link emailed after purchase.
+    if (req.method === 'GET' && url.pathname.startsWith('/license/')) {
+      const token = url.pathname.slice('/license/'.length)
+      const license = await fetchLicense(env, token)
+      if (!license) return new Response('Not Found', { status: 404 })
+      return new Response(license, {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-disposition': 'attachment; filename="license.json"'
+        }
+      })
+    }
+
     if (req.method !== 'POST' || url.pathname !== '/webhook') {
       return new Response('Not Found', { status: 404 })
     }
@@ -36,20 +58,25 @@ export default {
       })
     }
 
+    const orderId = event.data?.id
+    if (!orderId) return new Response('order payload missing id', { status: 400 })
+
     // 3. Sign the license (same canonical-JSON + @noble/ed25519 the app verifies with).
     const payload = buildLicensePayload(mapOrderToLicenseInput(event))
     const licenseFile = await signLicense(payload, env.ED25519_PRIVATE_KEY)
 
-    // 4. Deliver to the buyer.
-    // TODO(delivery): persist + deliver `licenseFile`. Two viable paths, both need
-    //   the user's LS API key (and KV/R2 for Option B):
-    //     A. POST it back as a LemonSqueezy order attachment via the LS API.
-    //     B. store in KV/R2 and email a download link.
-    //   Left for deployment — see README "Delivery".
-
-    return new Response(JSON.stringify({ ok: true, license_id: payload.license_id }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
+    // 4. Store + email the buyer a download link (idempotent per order id).
+    const result = await storeAndDeliver(env, {
+      licenseFile,
+      email: payload.purchaser_email,
+      orderId,
+      orderNumber: event.data?.attributes?.order_number,
+      origin: url.origin
     })
+
+    return new Response(
+      JSON.stringify({ ok: true, license_id: payload.license_id, delivered: result.delivered }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
   }
 }
