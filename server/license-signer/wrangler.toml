@@ -19,7 +19,7 @@ LICENSE_FROM_EMAIL = "TunnelBox <license@tunnelboxapp.com>"
 #   wrangler kv namespace create LICENSES
 [[kv_namespaces]]
 binding = "LICENSES"
-id = "PLACEHOLDER_run_wrangler_kv_namespace_create_LICENSES"
+id = "f5552e5c296847dcb518384743ff2ad6"
 
 # [observability]
 # enabled = true
