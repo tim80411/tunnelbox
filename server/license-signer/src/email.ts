@@ -1,15 +1,31 @@
 /**
- * License-delivery email via Resend (https://resend.com).
+ * License-delivery email via the Cloudflare Email Service Workers binding.
  *
- * Isolated here so the email provider is a one-file swap: only `sendLicenseEmail`
- * talks to a provider; the webhook/delivery logic depends on this signature, not
- * on Resend. Requires a Resend API key and a verified sender domain.
+ * No API key: the `send_email` binding (env.EMAIL) sends from a domain onboarded
+ * with `wrangler email sending enable <domain>`. Isolated here so the email
+ * provider is a one-file swap; delivery.ts depends only on this signature.
  */
 
+/**
+ * Minimal structural type for the `send_email` binding (env.EMAIL). Declared
+ * locally because the pinned @cloudflare/workers-types predates the object-form
+ * send(); run `wrangler types` to adopt the generated `SendEmail` type instead.
+ */
+export interface EmailSender {
+  send(message: {
+    to: string | string[]
+    from: { email: string; name?: string }
+    subject: string
+    html?: string
+    text?: string
+    replyTo?: string
+  }): Promise<unknown>
+}
+
 export interface EmailEnv {
-  /** Resend API key (set via `wrangler secret put RESEND_API_KEY`). */
-  RESEND_API_KEY: string
-  /** From address on a Resend-verified domain, e.g. "TunnelBox <license@tunnelboxapp.com>". */
+  /** Cloudflare Email Service binding (wrangler.toml `[[send_email]] name = "EMAIL"`). */
+  EMAIL: EmailSender
+  /** From address: "Name <email>" or a bare "email"; the domain must be onboarded. */
   LICENSE_FROM_EMAIL: string
 }
 
@@ -17,6 +33,13 @@ export interface LicenseEmailParams {
   to: string
   downloadUrl: string
   orderNumber?: number
+}
+
+/** Parse "Name <email>" (or a bare "email") into the binding's from object. */
+function parseFrom(value: string): { email: string; name?: string } {
+  const m = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/)
+  if (m) return { email: m[2].trim(), name: m[1].trim() || undefined }
+  return { email: value.trim() }
 }
 
 export async function sendLicenseEmail(env: EmailEnv, p: LicenseEmailParams): Promise<void> {
@@ -48,23 +71,13 @@ export async function sendLicenseEmail(env: EmailEnv, p: LicenseEmailParams): Pr
   <p style="color:#666;font-size:13px">${orderLine}TunnelBox Pro · Lifetime access</p>
 </div>`
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: env.LICENSE_FROM_EMAIL,
-      to: p.to,
-      subject: 'Your TunnelBox Pro license is ready',
-      text,
-      html
-    })
+  // The binding throws on failure (error.code / error.message); the caller
+  // (storeAndDeliver) catches and rolls back so LemonSqueezy can retry.
+  await env.EMAIL.send({
+    to: p.to,
+    from: parseFrom(env.LICENSE_FROM_EMAIL),
+    subject: 'Your TunnelBox Pro license is ready',
+    text,
+    html
   })
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    throw new Error(`Resend email failed: ${res.status} ${detail}`)
-  }
 }

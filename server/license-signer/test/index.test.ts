@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import worker, { type Env } from '../src/index'
+import { type EmailSender } from '../src/email'
 import { deriveToken } from '../src/delivery'
 
 const SECRET = 'whsec'
@@ -21,15 +22,17 @@ function fakeKV() {
   }
 }
 
-function makeEnv(kv = fakeKV()): { env: Env; kv: ReturnType<typeof fakeKV> } {
+function makeEnv() {
+  const kv = fakeKV()
+  const send = vi.fn(async () => ({ messageId: 'm1' }))
   const env: Env = {
     LS_WEBHOOK_SECRET: SECRET,
     ED25519_PRIVATE_KEY: PRIV_HEX,
-    RESEND_API_KEY: 're_test',
+    EMAIL: { send } as unknown as EmailSender,
     LICENSE_FROM_EMAIL: 'TunnelBox <license@x.com>',
     LICENSES: kv as unknown as KVNamespace
   }
-  return { env, kv }
+  return { env, kv, send }
 }
 
 async function hmacHex(body: string, secret: string): Promise<string> {
@@ -47,15 +50,8 @@ async function hmacHex(body: string, secret: string): Promise<string> {
 }
 
 describe('worker routes', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-  beforeEach(() => {
-    fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
-    vi.stubGlobal('fetch', fetchMock)
-  })
-  afterEach(() => vi.unstubAllGlobals())
-
   it('order_created webhook signs, stores, and emails (200 + delivered)', async () => {
-    const { env, kv } = makeEnv()
+    const { env, kv, send } = makeEnv()
     const body = JSON.stringify({
       meta: { event_name: 'order_created' },
       data: { id: 'ord-1', attributes: { user_email: 'b@x.com', order_number: 42 } }
@@ -74,11 +70,11 @@ describe('worker routes', () => {
     expect(json.ok).toBe(true)
     expect(json.delivered).toBe(true)
     expect(kv.store.size).toBe(1)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // the email
+    expect(send).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a bad webhook signature (401, no work done)', async () => {
-    const { env, kv } = makeEnv()
+    const { env, kv, send } = makeEnv()
     const body = JSON.stringify({
       meta: { event_name: 'order_created' },
       data: { id: 'ord-1', attributes: { user_email: 'b@x.com' } }
@@ -89,11 +85,11 @@ describe('worker routes', () => {
     )
     expect(res.status).toBe(401)
     expect(kv.store.size).toBe(0)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('acks non-order events (202) without storing or emailing', async () => {
-    const { env, kv } = makeEnv()
+    const { env, kv, send } = makeEnv()
     const body = JSON.stringify({ meta: { event_name: 'subscription_created' } })
     const sig = await hmacHex(body, SECRET)
     const res = await worker.fetch(
@@ -102,7 +98,7 @@ describe('worker routes', () => {
     )
     expect(res.status).toBe(202)
     expect(kv.store.size).toBe(0)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('GET /license/:token returns the stored file as a license.json attachment', async () => {
