@@ -6,6 +6,41 @@ import { createLogger } from '../logger'
 
 const log = createLogger('LicenseVerifier')
 
+// Build date baked into the bundle at BUILD time. electron-vite's `define`
+// (see electron.vite.config.ts) statically replaces `__TUNNELBOX_BUILD_DATE__`
+// with a 'YYYY-MM-DD' string literal when the release is compiled, so every
+// shipped build has a FIXED soft-lock boundary.
+//
+// We deliberately do NOT read process.env here: in a packaged Electron app that
+// variable is unset, so the soft-lock check would silently drift to the user's
+// clock and could lock a build the user already owns once today passes their
+// expires_at (Story 107 / TIM-211).
+//
+// In dev/test the `define` is absent, so `__TUNNELBOX_BUILD_DATE__` is an
+// undeclared global. `typeof` is the one reference form that is safe on an
+// undeclared identifier (it yields 'undefined' instead of throwing), so the
+// short-circuit below never dereferences a missing global; we then fall back to
+// today's date.
+declare const __TUNNELBOX_BUILD_DATE__: string | undefined
+
+export const BUILD_DATE: string =
+  (typeof __TUNNELBOX_BUILD_DATE__ !== 'undefined' && __TUNNELBOX_BUILD_DATE__) ||
+  new Date().toISOString().slice(0, 10)
+
+/**
+ * Soft-lock rule (Story 107 / TIM-211): a Pro license keeps the build the user
+ * already owns usable indefinitely; only builds cut AFTER the updates window
+ * lapsed require renewal. So a build is soft-locked iff it was produced strictly
+ * after the window ended, i.e. `expires_at < buildDate`. Equal dates are NOT
+ * soft-locked — the user keeps the build cut on their last covered day.
+ *
+ * `buildDate` defaults to the build-time {@link BUILD_DATE}; it is injectable so
+ * the boundary can be exercised deterministically in tests.
+ */
+export function isSoftLocked(expiresAt: string, buildDate: string = BUILD_DATE): boolean {
+  return new Date(expiresAt) < new Date(buildDate)
+}
+
 // Public key embedded in the app binary (key_v1).
 // A public verification key is NOT a secret, so it is hardcoded here — this is the
 // only path that survives bundling into a packaged app (a runtime process.env read
@@ -55,7 +90,10 @@ function base64ToBytes(b64: string): Uint8Array {
   return Uint8Array.from(Buffer.from(b64, 'base64'))
 }
 
-export async function verifyLicense(licensePath?: string): Promise<VerifyResult> {
+export async function verifyLicense(
+  licensePath?: string,
+  opts?: { buildDate?: string }
+): Promise<VerifyResult> {
   const filePath = licensePath ?? getLicensePath()
 
   if (!fs.existsSync(filePath)) {
@@ -106,13 +144,10 @@ export async function verifyLicense(licensePath?: string): Promise<VerifyResult>
     return { valid: false, reason: 'invalid_signature' }
   }
 
-  // Soft-lock check: expires_at < app build date means user needs to renew for newer builds
-  // Build date is embedded at build time; fall back to today if not set
-  const buildDateStr =
-    process.env['TUNNELBOX_BUILD_DATE'] ?? new Date().toISOString().slice(0, 10)
-  const expiresAt = new Date(payload.expires_at)
-  const buildDate = new Date(buildDateStr)
-  const softLocked = expiresAt < buildDate
+  // Soft-lock check: a newer build (cut after the updates window lapsed) needs a
+  // renewal, but the build the user already owns stays usable. The boundary is the
+  // build date baked in at build time — never the runtime clock. See isSoftLocked.
+  const softLocked = isSoftLocked(payload.expires_at, opts?.buildDate)
 
   const founderTier =
     typeof payload.founder_tier === 'number' ? payload.founder_tier : null

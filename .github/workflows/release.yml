@@ -41,6 +41,13 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Freeze the license soft-lock boundary at the moment the release is cut.
+      # electron.vite.config.ts reads this and bakes it into the bundle as
+      # __TUNNELBOX_BUILD_DATE__. UTC keeps the three matrix platforms in sync.
+      - name: Set build date
+        shell: bash
+        run: echo "TUNNELBOX_BUILD_DATE=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+
       - name: Build app
         run: pnpm build
 
