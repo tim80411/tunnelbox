@@ -1,15 +1,16 @@
 import { buildLicensePayload, signLicense } from './license'
 import { mapOrderToLicenseInput, verifyWebhookSignature, type LemonSqueezyEvent } from './lemonsqueezy'
 import { storeAndDeliver, fetchLicense } from './delivery'
+import { type EmailSender } from './email'
 
 export interface Env {
   /** LemonSqueezy webhook signing secret (set via `wrangler secret put LS_WEBHOOK_SECRET`). */
   LS_WEBHOOK_SECRET: string
   /** Ed25519 private key, hex-encoded (set via `wrangler secret put ED25519_PRIVATE_KEY`). */
   ED25519_PRIVATE_KEY: string
-  /** Resend API key for delivering the license email (`wrangler secret put RESEND_API_KEY`). */
-  RESEND_API_KEY: string
-  /** From address on a Resend-verified domain (wrangler.toml [vars]). */
+  /** Cloudflare Email Service binding for delivering the license email. */
+  EMAIL: EmailSender
+  /** From address on a domain onboarded to Email Sending (wrangler.toml [vars]). */
   LICENSE_FROM_EMAIL: string
   /** KV namespace holding signed licenses keyed by download token. */
   LICENSES: KVNamespace

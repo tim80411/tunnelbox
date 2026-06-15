@@ -38,9 +38,10 @@ wrangler kv namespace create LICENSES
 oci os object get --bucket-name tunnelbox-secrets \
   --name license-signer/ed25519-private-v1.hex --file - | wrangler secret put ED25519_PRIVATE_KEY
 wrangler secret put LS_WEBHOOK_SECRET    # LemonSqueezy store webhook signing secret
-wrangler secret put RESEND_API_KEY       # Resend API key (verify your sending domain first)
 
-# 3. Set LICENSE_FROM_EMAIL in wrangler.toml [vars] to a Resend-verified address.
+# 3. Onboard the sending domain for Cloudflare Email Service (no API key), and make
+#    LICENSE_FROM_EMAIL in wrangler.toml [vars] an address on that domain:
+wrangler email sending enable tunnelboxapp.com
 
 wrangler deploy
 ```
@@ -66,8 +67,9 @@ unguessable token, and emails the buyer a download link (`src/delivery.ts`,
   email send fails the KV entry is rolled back so the next retry redelivers.
 - **Download** — `GET /license/:token` returns the signed license as a `license.json`
   attachment (matches the app's import filter + Downloads scan).
-- **Email** — sent via [Resend](https://resend.com); swap providers by editing only
-  `src/email.ts`. Requires `RESEND_API_KEY` and a verified sender domain.
+- **Email** — sent via the Cloudflare Email Service `send_email` binding (no API key);
+  swap providers by editing only `src/email.ts`. The from-domain must be onboarded
+  with `wrangler email sending enable <domain>`.
 
 `founder_tier` is still `null` (the first-100 counter is deferred — see
 `lemonsqueezy.ts`); Founder badges won't be awarded until that durable counter
