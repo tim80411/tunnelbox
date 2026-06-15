@@ -231,80 +231,62 @@ function TunnelControls({
 
   return (
     <>
-      <div className="site-item-url-row">
-        <span className={`status-light status-light--${lightColor}`} />
-        <span className="sharing-badge sharing-badge--wan">WAN</span>
-        <span className={`provider-badge provider-badge--${isBore ? 'bore' : isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
+      <div className={`dlane dlane--wan${wanUrl ? '' : ' off'}`}>
+        <div className="dlane-key">
+          <span className={`ic ${wanUrl ? 'wan' : 'dim'}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+            </svg>
+          </span>
+          <div className="kt"><b>WAN</b><span>公開網路</span></div>
+        </div>
 
-        {wanUrl ? (
-          <>
-            {lightColor === 'orange' ? (
-              <span className="site-item-url site-item-url--pending" title={wanUrl}>
-                {wanUrl}
-              </span>
+        <div className="dlane-body">
+          {wanUrl ? (
+            lightColor === 'orange' ? (
+              <div className="u" title={wanUrl}>{wanUrl}</div>
             ) : (
-              <a className="site-item-url" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>
-                {wanUrl}
-              </a>
+              <a className="u" href={wanUrl} target="_blank" rel="noopener noreferrer" title={wanUrl}>{wanUrl}</a>
+            )
+          ) : (
+            <div className="u ph">{placeholderText}</div>
+          )}
+          <div className="sub">
+            <span className={`provider-badge provider-badge--${isBore ? 'bore' : isFrp ? 'frp' : 'cf'}`}>{providerBadge}</span>
+            {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying') && (
+              <span className="cloudflared-spinner" />
             )}
+            <span>
+              {wanUrl
+                ? (isNamed ? '固定網域' : 'Quick Tunnel')
+                : '透過 Tunnel 對外公開'}
+            </span>
             {tunnel?.warningMessage && (
-              <span className="btn-icon btn-icon--warning" data-tooltip={tunnel.warningMessage}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--warning-color, #f59e0b)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span className="dlane-wan-warn" data-tooltip={tunnel.warningMessage}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </span>
             )}
-          </>
-        ) : (
-          <span className="site-item-url site-item-url--placeholder">
-            {placeholderText}
+          </div>
+        </div>
+
+        <div className="dlane-act">
+          <span className="btn btn-icon btn-icon--info" data-tooltip={infoTooltip}>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           </span>
-        )}
-
-        <CopyButton
-          text={wanUrl || ''}
-          tooltip="複製公開網址"
-          disabled={!wanUrl}
-          variant="inline"
-        />
-
-        {(tunnel?.status === 'starting' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying') && (
-          <span className="cloudflared-spinner" />
-        )}
-
-        <div className="url-row-actions">
-          {/* Info */}
-          <span className="btn-icon btn-icon--info" data-tooltip={infoTooltip}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </span>
-
-          {/* Play / Stop */}
-          <button
-            className="btn-icon"
-            onClick={handlePlay}
-            disabled={!canPlay}
-            data-tooltip={playTooltip}
-          >
+          {wanUrl && (
+            <CopyButton text={wanUrl} tooltip="複製公開網址" variant="icon" />
+          )}
+          <button className="btn btn-icon" onClick={handlePlay} disabled={!canPlay} data-tooltip={playTooltip}>
             <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
           </button>
-          <button
-            className="btn-icon"
-            onClick={handleStop}
-            disabled={!canStop}
-            data-tooltip={isNamed ? '暫停公開' : '停止公開'}
-          >
+          <button className="btn btn-icon" onClick={handleStop} disabled={!canStop} data-tooltip={isNamed ? '暫停公開' : '停止公開'}>
             <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
           </button>
-
-          {/* QR / Refresh */}
           <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
-          <button className="btn-icon" disabled data-tooltip="重新偵測">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-          </button>
-
-          {/* Overflow menu (three dots) — shown when site is available */}
           {isAvailable && (
             <div className="overflow-menu-wrapper" ref={overflowRef}>
               <button
-                className="btn-icon"
+                className="btn btn-icon"
                 onClick={() => setShowOverflowMenu(!showOverflowMenu)}
                 data-tooltip="更多選項"
               >

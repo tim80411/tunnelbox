@@ -2572,6 +2572,7 @@ html, body, #root {
 .dlane-key .ic svg { width: 15px; height: 15px; }
 .ic.local { background: var(--bg-muted); color: var(--text-secondary); }
 .ic.lan { background: var(--info-bg); color: var(--info-text); }
+.ic.wan { background: var(--accent-dim); color: var(--accent); }
 .ic.dim { background: var(--bg-muted); color: var(--text-tertiary); }
 .dlane-key .kt { display: flex; flex-direction: column; }
 .dlane-key .kt b { font-size: 12px; font-weight: 700; }
@@ -2579,7 +2580,8 @@ html, body, #root {
 .dlane-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .dlane-body .u { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dlane-body .u.ph { color: var(--text-tertiary); }
-.dlane-body .sub { font-size: 11px; color: var(--text-secondary); }
+.dlane-body .sub { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+.dlane-wan-warn { color: var(--warning-color, #f59e0b); display: inline-flex; align-items: center; }
 .dlane-act { display: flex; gap: 5px; flex-shrink: 0; align-items: center; }
 
 .md-statepill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 5px 12px 5px 10px; border-radius: 100px; white-space: nowrap; border: 1px solid; }
