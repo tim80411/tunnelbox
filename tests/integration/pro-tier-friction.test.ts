@@ -76,7 +76,6 @@ vi.mock('../../src/main/cloudflared/detector', () => ({
 // Settings mock
 // ---------------------------------------------------------------------------
 const settingsData = vi.hoisted(() => ({
-  betaChannel: false,
   launchAtStartup: false,
   autoStartServers: false,
   defaultServeMode: 'static' as const,
@@ -127,7 +126,6 @@ describe('Cross-friction integration — Free tier', () => {
   beforeEach(() => {
     vi.resetModules()
     tierState.isPro = false
-    settingsData.betaChannel = false
     storedAccounts = { accounts: [], activeAccountId: null }
     fsState.existingPaths.clear()
   })
@@ -214,25 +212,9 @@ describe('Cross-friction integration — Free tier', () => {
     })
   })
 
-  // ── Friction 4: beta channel ─────────────────────────────────────────────
-  describe('Beta channel', () => {
-    it('Free user stays on stable channel (betaChannel remains false)', async () => {
-      const { getSettings } = await import('../../src/main/settings-store')
-      expect(getSettings().betaChannel).toBe(false)
-    })
-
-    it('Free user cannot enable betaChannel (update is a no-op without Pro)', async () => {
-      // The UI disables the toggle; the setting write itself is gated in the UI layer.
-      // We verify that tier is free and betaChannel is false.
-      expect(tierState.isPro).toBe(false)
-      const { getSettings } = await import('../../src/main/settings-store')
-      expect(getSettings().betaChannel).toBe(false)
-    })
-  })
-
-  // ── All simultaneously: 2 shares + 1 CF account + stable channel ────────
-  describe('Free simultaneously: 2 shares + 1 CF account + stable channel — no errors', () => {
-    it('all three work together without conflicts', async () => {
+  // ── All simultaneously: 2 shares + 1 CF account ────────
+  describe('Free simultaneously: 2 shares + 1 CF account — no errors', () => {
+    it('both work together without conflicts', async () => {
       vi.resetModules()
       tierState.isPro = false
 
@@ -244,10 +226,6 @@ describe('Cross-friction integration — Free tier', () => {
 
       // 1 CF account OK
       expect(storedAccounts.accounts).toHaveLength(0)
-
-      // stable channel
-      const { getSettings } = await import('../../src/main/settings-store')
-      expect(getSettings().betaChannel).toBe(false)
     })
   })
 })
@@ -256,7 +234,6 @@ describe('Cross-friction integration — Pro tier', () => {
   beforeEach(() => {
     vi.resetModules()
     tierState.isPro = true
-    settingsData.betaChannel = true
     storedAccounts = {
       accounts: [
         { id: 'acct-1', certPath: '/tmp/cert-1.pem', lastUsedAt: '2024-01-01T00:00:00.000Z' },
@@ -289,11 +266,6 @@ describe('Cross-friction integration — Pro tier', () => {
     const { addAccount } = await import('../../src/main/cloudflared/account-manager')
     const result = await addAccount()
     expect(result.accounts.length).toBeGreaterThanOrEqual(3)
-  })
-
-  it('Pro has betaChannel enabled', async () => {
-    const { getSettings } = await import('../../src/main/settings-store')
-    expect(getSettings().betaChannel).toBe(true)
   })
 
   it('Pro window close hides without dialog', async () => {

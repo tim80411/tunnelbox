@@ -241,7 +241,6 @@ export interface AppSettings {
   remoteConsoleEnabled: boolean
   requestLogMaxEntries: number
   launchAtStartup: boolean
-  betaChannel: boolean
   /** major.minor the soft-lock renew banner was last dismissed for (Story 107). */
   dismissedRenewBannerVersion: string
 }
@@ -253,7 +252,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   remoteConsoleEnabled: false,
   requestLogMaxEntries: 200,
   launchAtStartup: false,
-  betaChannel: false,
   dismissedRenewBannerVersion: ''
 }
 

@@ -1154,7 +1154,7 @@ function App(): React.ReactElement {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Upgrade to Pro</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
-              Pro is for 24/7 share mode, multi-client parallel workflows, early-access beta channel, and more.
+              Pro is for 24/7 share mode, multi-client parallel workflows, and more.
             </p>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowUpgradePro(false)}>Maybe later</button>

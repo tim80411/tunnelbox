@@ -1,6 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { tierGate } from './tier-gate'
-import { updateSettings } from '../settings-store'
 import type { TierState } from '../../shared/license-types'
 
 export function registerTierGateIpc(): void {
@@ -26,15 +25,6 @@ export function registerTierGateIpc(): void {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send('tier-gate:changed', state)
-      }
-    }
-    // Downgrade invariant: revert beta channel to stable when Pro license is lost
-    if (!state.isPro) {
-      const updated = updateSettings({ betaChannel: false })
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) {
-          win.webContents.send('settings-changed', updated)
-        }
       }
     }
   })
