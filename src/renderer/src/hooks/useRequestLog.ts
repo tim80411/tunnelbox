@@ -20,6 +20,8 @@ export function useRequestLog(siteId: string | null) {
 
   useEffect(() => {
     refresh()
+    // Switching sites must drop any open request-detail selection from the previous site.
+    setSelectedEntry(null)
 
     const unsub = window.electron.onRequestLogEntry((entry) => {
       if (entry.siteId === siteId) {

@@ -550,13 +550,23 @@ function App(): React.ReactElement {
   const counts = useMemo(() => summarizeSites(sites), [sites])
   const filteredSites = useMemo(() => filterSites(sites, searchQuery, filter), [sites, searchQuery, filter])
   // When the selected site is filtered out, fall back to the first visible site.
-  const effectiveSelectedId = (selectedSite && filteredSites.some((s) => s.id === selectedSite.id))
-    ? selectedSite.id
-    : (filteredSites[0]?.id ?? null)
+  const effectiveSelectedId = useMemo(
+    () => (selectedSite && filteredSites.some((s) => s.id === selectedSite.id))
+      ? selectedSite.id
+      : (filteredSites[0]?.id ?? null),
+    [selectedSite, filteredSites]
+  )
   const detailSite = useMemo(
     () => sites.find((s) => s.id === effectiveSelectedId) ?? null,
     [sites, effectiveSelectedId]
   )
+
+  // Drop a pending inline-rename if the detail pane stops showing that exact running site
+  // (e.g. the site is stopped, or the filter fallback switches the detail to another site).
+  useEffect(() => {
+    const renamingVisible = !!detailSite && detailSite.status !== 'stopped' && detailSite.id === renamingId
+    if (renamingId && !renamingVisible) setRenamingId(null)
+  }, [detailSite, renamingId])
 
   // Request log follows the site actually shown in the detail pane (not just selectedSiteId)
   const selectedProxySiteId = detailSite?.serveMode === 'proxy' ? detailSite.id : null
