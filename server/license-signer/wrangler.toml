@@ -7,19 +7,13 @@ compatibility_date = "2026-06-09"
 #   ED25519_PRIVATE_KEY — hex Ed25519 private key. Pull from OCI without it touching disk:
 #       oci os object get --bucket-name tunnelbox-secrets \
 #         --name license-signer/ed25519-private-v1.hex --file - | wrangler secret put ED25519_PRIVATE_KEY
+#   RESEND_API_KEY      — Resend API key used to email the buyer the download link
 #
-# Email is sent via the Cloudflare Email Service `send_email` binding below (no API key);
-# the LICENSE_FROM_EMAIL domain must be onboarded: `wrangler email sending enable <domain>`.
 # The matching public key is embedded in the app as key_v1 (src/main/license/verifier.ts).
 
 [vars]
-# From address for the license email — domain must be onboarded to Email Sending.
+# From address for the license email — must be on a Resend-verified domain.
 LICENSE_FROM_EMAIL = "TunnelBox <license@tunnelboxapp.com>"
-
-# Cloudflare Email Service binding (no API key). Onboard the from-domain once:
-#   wrangler email sending enable tunnelboxapp.com
-[[send_email]]
-name = "EMAIL"
 
 # Signed-license download store. Create the namespace first, then paste its id:
 #   wrangler kv namespace create LICENSES
