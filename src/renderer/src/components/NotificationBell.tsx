@@ -64,7 +64,12 @@ function NotificationBell(): React.ReactElement {
       {open && (
         <div ref={panelRef} className="notif-panel">
           <div className="notif-panel-header">
-            <span className="notif-panel-title">Notifications</span>
+            <span className="notif-panel-title">
+              Notifications
+              {unreadCount > 0 && (
+                <span className="notif-count">{unreadCount > 99 ? '99+' : unreadCount} new</span>
+              )}
+            </span>
             {unreadCount > 0 && (
               <button
                 className="notif-mark-all-btn"
@@ -79,7 +84,16 @@ function NotificationBell(): React.ReactElement {
 
           <div className="notif-panel-list">
             {notifications.length === 0 ? (
-              <div className="notif-empty">No visitor notifications yet</div>
+              <div className="notif-empty">
+                <div className="notif-empty-ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                  </svg>
+                </div>
+                <p className="notif-empty-title">No notifications</p>
+                <p className="notif-empty-desc">Visitor activity on your public URLs will show up here.</p>
+              </div>
             ) : (
               notifications.map((item) => (
                 <div
@@ -91,11 +105,17 @@ function NotificationBell(): React.ReactElement {
                     }
                   }}
                 >
+                  <span className="notif-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </span>
                   <div className="notif-item-content">
-                    <div className="notif-item-site">{item.siteName}</div>
-                    <div className="notif-item-ip">{item.visitorIp}</div>
+                    <div className="notif-item-site">New visitor · {item.siteName}</div>
+                    <div className="notif-item-ip">Visitor {item.visitorIp}</div>
+                    <div className="notif-item-time">{formatRelativeTime(item.timestamp)}</div>
                   </div>
-                  <div className="notif-item-time">{formatRelativeTime(item.timestamp)}</div>
                 </div>
               ))
             )}
