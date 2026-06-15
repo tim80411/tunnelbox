@@ -2607,3 +2607,6 @@ html, body, #root {
 .md-empty .eic { width: 54px; height: 54px; border-radius: 14px; background: var(--bg-muted); display: grid; place-items: center; color: var(--text-tertiary); margin-bottom: 10px; font-size: 26px; }
 .md-empty .et { font-size: 15px; font-weight: 700; color: var(--text-secondary); }
 .md-empty .ed { font-size: 12.5px; max-width: 320px; line-height: 1.6; }
+
+.qr-inline { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 13px 15px; }
+.qr-inline-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
