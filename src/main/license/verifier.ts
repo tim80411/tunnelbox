@@ -7,10 +7,17 @@ import { createLogger } from '../logger'
 const log = createLogger('LicenseVerifier')
 
 // Public key embedded in the app binary (key_v1).
-// The matching private key lives on the signer side only—never shipped with the app.
+// A public verification key is NOT a secret, so it is hardcoded here — this is the
+// only path that survives bundling into a packaged app (a runtime process.env read
+// would be empty on the user's machine). The matching PRIVATE key lives only on the
+// signer side (OCI bucket `tunnelbox-secrets` → Cloudflare Workers secret
+// ED25519_PRIVATE_KEY) and is never shipped with the app.
+// The env override exists so tests/dev can inject a throwaway key.
 // To rotate: add 'key_v2' here and branch on payload.key_version.
 export const EMBEDDED_PUBLIC_KEY_HEX: Record<string, string> = {
-  key_v1: process.env['TUNNELBOX_LICENSE_PUBKEY_V1'] ?? ''
+  key_v1:
+    process.env['TUNNELBOX_LICENSE_PUBKEY_V1'] ??
+    'd97d6edc0bcacdba462dcc73d2c734ab82cdea62eaf1db1de75224fe3d09e0c0'
 }
 
 export function getLicensePath(): string {
