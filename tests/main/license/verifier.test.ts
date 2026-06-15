@@ -9,7 +9,12 @@ vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/tunnelbox-test' }
 }))
 
-import { verifyLicense, EMBEDDED_PUBLIC_KEY_HEX } from '../../../src/main/license/verifier'
+import {
+  verifyLicense,
+  EMBEDDED_PUBLIC_KEY_HEX,
+  isSoftLocked,
+  BUILD_DATE
+} from '../../../src/main/license/verifier'
 import type { LicenseFile, LicensePayload } from '../../../src/shared/license-types'
 
 // Test keypair — generated once for all tests in this file
@@ -86,32 +91,29 @@ describe('verifyLicense — ES-111 acceptance scenarios', () => {
     }
   })
 
-  it('scenario 5: expired license where build_date > expires_at → soft_locked', async () => {
-    vi.stubEnv('TUNNELBOX_BUILD_DATE', '2028-01-01')
+  it('scenario 5: build_date > expires_at → soft_locked', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-lic-'))
     const licFile = await makeLicenseFile({ ...basePayload, expires_at: '2027-05-28' })
     const licPath = writeLicense(tmpDir, licFile)
 
-    const result = await verifyLicense(licPath)
+    // Build date is injected (mirrors the build-time `define`), not read from env.
+    const result = await verifyLicense(licPath, { buildDate: '2028-01-01' })
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.soft_locked).toBe(true)
     }
-    vi.unstubAllEnvs()
   })
 
-  it('scenario 4: expired license but build_date <= expires_at → NOT soft_locked', async () => {
-    vi.stubEnv('TUNNELBOX_BUILD_DATE', '2027-01-01')
+  it('scenario 4: build_date <= expires_at → NOT soft_locked', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-lic-'))
     const licFile = await makeLicenseFile({ ...basePayload, expires_at: '2027-05-28' })
     const licPath = writeLicense(tmpDir, licFile)
 
-    const result = await verifyLicense(licPath)
+    const result = await verifyLicense(licPath, { buildDate: '2027-01-01' })
     expect(result.valid).toBe(true)
     if (result.valid) {
       expect(result.soft_locked).toBe(false)
     }
-    vi.unstubAllEnvs()
   })
 
   it('scenario 3: tampered payload → invalid_signature', async () => {
@@ -195,5 +197,47 @@ describe('verifyLicense — ES-111 acceptance scenarios', () => {
     if (result.valid) {
       expect(result.founder_tier).toBeNull()
     }
+  })
+})
+
+describe('isSoftLocked — soft-lock boundary (Story 107 / TIM-211)', () => {
+  it('build cut after the updates window lapsed → soft-locked', () => {
+    expect(isSoftLocked('2027-05-28', '2028-01-01')).toBe(true)
+  })
+
+  it('build cut before the updates window lapsed → not soft-locked', () => {
+    expect(isSoftLocked('2027-05-28', '2027-01-01')).toBe(false)
+  })
+
+  it('build cut exactly on the expiry date → not soft-locked (user keeps the build they own)', () => {
+    expect(isSoftLocked('2027-05-28', '2027-05-28')).toBe(false)
+  })
+
+  it('defaults to the build-time BUILD_DATE when no override is given', () => {
+    // BUILD_DATE falls back to today in dev/test (no vite `define`); a far-future
+    // expiry must never be soft-locked against it.
+    expect(isSoftLocked('2099-12-31')).toBe(false)
+    // The fallback is a YYYY-MM-DD date string.
+    expect(BUILD_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('verifyLicense — soft-lock ignores runtime env (the TIM-211 packaging bug)', () => {
+  it('does NOT read process.env.TUNNELBOX_BUILD_DATE at runtime', async () => {
+    // In a packaged app this env var is unset; honoring it would let the soft-lock
+    // boundary drift to the user's clock. Setting it here must have no effect — the
+    // boundary comes from the build-time constant (today, in test) instead.
+    vi.stubEnv('TUNNELBOX_BUILD_DATE', '3000-01-01')
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-lic-'))
+    const licFile = await makeLicenseFile({ ...basePayload, expires_at: '2099-12-31' })
+    const licPath = writeLicense(tmpDir, licFile)
+
+    const result = await verifyLicense(licPath)
+    expect(result.valid).toBe(true)
+    if (result.valid) {
+      // Old buggy code read env (3000) and reported soft_locked = true.
+      expect(result.soft_locked).toBe(false)
+    }
+    vi.unstubAllEnvs()
   })
 })
