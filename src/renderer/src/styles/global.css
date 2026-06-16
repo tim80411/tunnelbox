@@ -30,16 +30,25 @@
   --accent: #7c6bce;
   --accent-hover: #6554b5;
   --accent-dim: #f0edf9;
+  --accent-line: #d4ccf0;
 
   /* Semantic */
   --success: #2d2926;
   --success-bg: #eef7f0;
+  --success-text: #2d8659;
+  --success-bd: #c3e6cb;
   --danger: #c9553e;
   --danger-bg: #fdf0ed;
+  --danger-bd: #f0c4bc;
   --warning-bg: #fdf6e8;
   --warning-text: #8a6b2e;
+  --warning-bd: #edd9a3;
   --info-bg: #edf2fb;
   --info-text: #3d5a99;
+  --info-bd: #b8cfe6;
+  --cf-bg: #fff3e0;
+  --cf-text: #e65100;
+  --cf-bd: #ffcc80;
 
   /* Typography */
   --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -56,6 +65,12 @@
 
   /* Radii — almost none, razor sharp */
   --radius: 2px;
+  /* Direction B floating panels use softer, elevated corners */
+  --radius-lg: 6px;
+  --radius-sheet: 11px;
+
+  /* Elevation — deep, warm shadow for floating "sheet" panels */
+  --shadow-sheet: 0 24px 60px -18px rgba(45, 41, 38, 0.4), 0 8px 24px -12px rgba(45, 41, 38, 0.18);
 
   /* Transitions */
   --duration: 120ms;
@@ -1295,6 +1310,8 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-sheet);
 }
 
 .modal--settings { width: 640px; }
@@ -1833,6 +1850,8 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-sheet);
 }
 
 .share-bar {
@@ -1913,7 +1932,8 @@ html, body, #root {
 }
 
 .share-row--live {
-  background: var(--accent-dim);
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, #fbfaff, #f8f5fd);
 }
 
 .share-provider-badge {
@@ -1926,13 +1946,15 @@ html, body, #root {
   border-radius: 100px;
   background: var(--bg-muted);
   color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .share-provider-badge--cloudflare {
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: var(--cf-bg);
+  color: var(--cf-text);
+  border-color: var(--cf-bd);
 }
 
 .share-main {
@@ -1965,29 +1987,34 @@ html, body, #root {
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: 100px;
+  border: 1px solid transparent;
   white-space: nowrap;
 }
 
 .share-status--live {
   background: var(--success-bg);
-  color: var(--success);
+  color: var(--success-text);
+  border-color: var(--success-bd);
 }
 
 .share-status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--success);
+  background: var(--success-text);
+  box-shadow: 0 0 0 2px rgba(45, 134, 89, 0.18);
 }
 
 .share-status--ended {
   background: var(--bg-muted);
   color: var(--text-tertiary);
+  border-color: var(--border-subtle);
 }
 
 .share-status--warning {
   background: var(--danger-bg);
   color: var(--danger);
+  border-color: var(--danger-bd);
 }
 
 .share-url {
@@ -2181,8 +2208,8 @@ html, body, #root {
   max-height: 400px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(45, 41, 38, 0.16);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sheet);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -2214,6 +2241,7 @@ html, body, #root {
   letter-spacing: 0.03em;
   color: var(--accent);
   background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
   border-radius: 100px;
   padding: 1px 7px;
 }

@@ -139,14 +139,18 @@ function SettingsPanel({
                 <span className="settings-item-label">Default serve mode</span>
                 <span className="settings-item-desc">新增站點時的預設模式</span>
               </div>
-              <select
-                className="settings-select"
-                value={settings.defaultServeMode}
-                onChange={(e) => onUpdate({ defaultServeMode: e.target.value as ServeMode })}
-              >
-                <option value="static">Static</option>
-                <option value="proxy">Proxy</option>
-              </select>
+              <div className="seg">
+                {(['static', 'proxy'] as ServeMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`seg-btn${settings.defaultServeMode === mode ? ' active' : ''}`}
+                    onClick={() => onUpdate({ defaultServeMode: mode })}
+                  >
+                    {mode === 'static' ? 'Static' : 'Proxy'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="settings-item">
