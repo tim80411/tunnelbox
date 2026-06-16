@@ -574,7 +574,7 @@ html, body, #root {
   padding: 6px 14px;
   border: 1px solid var(--border-hard);
   border-radius: var(--radius);
-  background: var(--bg-root);
+  background: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
   font-family: var(--font-sans);
@@ -1317,7 +1317,7 @@ html, body, #root {
   box-shadow: var(--shadow-sheet);
 }
 
-.modal--settings { width: 640px; }
+.modal--settings { width: 660px; }
 .modal--add { width: 560px; }
 
 .modal-head {
@@ -1416,13 +1416,17 @@ html, body, #root {
 }
 
 .panel-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 17px;
   color: var(--text-tertiary);
   cursor: pointer;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 0;
   border-radius: var(--radius);
   transition: all var(--duration);
 }
@@ -1437,7 +1441,7 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-3) 0;
+  padding: 13px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2444,60 +2448,72 @@ html, body, #root {
 
 .tag-editor {
   margin-top: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: var(--sp-1);
+  gap: 6px;
+  align-items: center;
 }
 
+/* Direction B .tagchip — full pill, light border, mono-ish meta size */
 .tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 2px 9px;
+  border-radius: 100px;
+  font-size: 10.5px;
+  font-family: var(--font-sans);
   background: var(--bg-muted);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
+/* dashed "+ 標籤" affordance (.tagchip.add) */
+.tag-chip.add {
+  color: var(--text-tertiary);
+  border-style: dashed;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tag-chip.add:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+/* remove control stays hidden until the chip is hovered (keeps the clean pill look) */
 .tag-remove {
   all: unset;
+  display: none;
   cursor: pointer;
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
+  font-size: 12px;
   line-height: 1;
+  color: var(--text-tertiary);
+}
+
+.tag-chip:hover .tag-remove {
+  display: inline;
 }
 
 .tag-remove:hover {
-  color: var(--text-primary);
+  color: var(--danger);
 }
 
-.tag-input-row {
-  display: flex;
-  gap: var(--sp-1);
-  align-items: center;
-}
-
+/* inline add input, sized to sit in the chip row */
 .tag-input {
-  flex: 1;
-  padding: 3px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  background: var(--bg-root);
+  width: 120px;
+  padding: 2px 9px;
+  border: 1px solid var(--accent);
+  border-radius: 100px;
+  background: var(--bg-card);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 10.5px;
   font-family: var(--font-sans);
-}
-
-.tag-input:focus {
   outline: none;
-  border-color: var(--accent);
 }
 
 /* ── Request Log Panel ─────────────────────────────────────────── */

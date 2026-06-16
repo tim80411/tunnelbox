@@ -6,29 +6,22 @@ interface TagEditorProps {
 }
 
 function TagEditor({ siteId, tags }: TagEditorProps): React.ReactElement {
+  const [adding, setAdding] = useState(false)
   const [newTag, setNewTag] = useState('')
 
-  const handleAdd = useCallback(async () => {
+  // Commit the pending tag. Clears the input but stays in "adding" mode so the
+  // user can type several in a row (Enter); blur/Escape exits the mode.
+  const commit = useCallback(async () => {
     const trimmed = newTag.trim()
-    if (!trimmed) return
-    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
-      setNewTag('')
-      return
-    }
-    await window.electron.updateSiteTags(siteId, [...tags, trimmed])
     setNewTag('')
+    if (!trimmed) return
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return
+    await window.electron.updateSiteTags(siteId, [...tags, trimmed])
   }, [siteId, tags, newTag])
 
   const handleRemove = useCallback(async (tag: string) => {
     await window.electron.updateSiteTags(siteId, tags.filter((t) => t !== tag))
   }, [siteId, tags])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAdd()
-    }
-  }, [handleAdd])
 
   return (
     <div className="tag-editor">
@@ -36,21 +29,30 @@ function TagEditor({ siteId, tags }: TagEditorProps): React.ReactElement {
         {tags.map((tag) => (
           <span key={tag} className="tag-chip">
             {tag}
-            <button className="tag-remove" onClick={() => handleRemove(tag)}>x</button>
+            <button className="tag-remove" onClick={() => handleRemove(tag)} aria-label={`移除標籤 ${tag}`}>×</button>
           </span>
         ))}
-      </div>
-      <div className="tag-input-row">
-        <input
-          className="tag-input"
-          placeholder="Add tag..."
-          value={newTag}
-          onChange={(e) => setNewTag(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <button className="btn btn-sm" onClick={handleAdd} disabled={!newTag.trim()}>
-          Add
-        </button>
+        {adding ? (
+          <input
+            className="tag-input"
+            placeholder="標籤名稱…"
+            value={newTag}
+            autoFocus
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commit()
+              } else if (e.key === 'Escape') {
+                setNewTag('')
+                setAdding(false)
+              }
+            }}
+            onBlur={() => { commit(); setAdding(false) }}
+          />
+        ) : (
+          <button className="tag-chip add" onClick={() => setAdding(true)}>+ 標籤</button>
+        )}
       </div>
     </div>
   )
