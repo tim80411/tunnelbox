@@ -5,6 +5,7 @@ import TunnelControls from './TunnelControls'
 import RequestLogPanel from './RequestLogPanel'
 import TagEditor from './TagEditor'
 import QrButton from './QrButton'
+import ShareCtaCard from './ShareCtaCard'
 
 interface Props {
   site: SiteInfo
@@ -82,6 +83,11 @@ function SiteDetail(props: Props): React.ReactElement {
   const state = siteState(site)
   const wanUrl = site.tunnel?.publicUrl
   const isProxy = site.serveMode === 'proxy'
+  // CTA gate: mirror the WAN lane's Quick Tunnel share availability so the button is never a dead control.
+  // onShare → startQuickTunnel (Cloudflare-only), so restrict to the Cloudflare provider; frp/bore share via the WAN lane.
+  const isCloudflareProvider = (site.providerType ?? 'cloudflare') === 'cloudflare'
+  const tunnelInactive = !site.tunnel || site.tunnel.status === 'stopped' || site.tunnel.status === 'error'
+  const canShareToWan = site.status === 'running' && isCloudflareProvider && props.cloudflaredAvailable && tunnelInactive
 
   return (
     <div className="detail">
@@ -175,6 +181,11 @@ function SiteDetail(props: Props): React.ReactElement {
                 <QrButton url={wanUrl} title="公開網址 QR" subtitle="掃描即可在手機開啟" />
                 <span className="qr-inline-hint">掃描 QR 直接造訪公開網址</span>
               </div>
+            </div>
+          ) : canShareToWan ? (
+            <div className="col-side">
+              <div className="section-label">分享到公開網路</div>
+              <ShareCtaCard onShare={() => { void props.onShare(site.id) }} />
             </div>
           ) : null}
         </div>
