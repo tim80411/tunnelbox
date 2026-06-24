@@ -20,7 +20,9 @@ export function getSettings(): AppSettings {
       requestLogMaxEntries: store.get('requestLogMaxEntries') ?? DEFAULT_SETTINGS.requestLogMaxEntries,
       launchAtStartup: store.get('launchAtStartup') ?? DEFAULT_SETTINGS.launchAtStartup,
       dismissedRenewBannerVersion:
-        store.get('dismissedRenewBannerVersion') ?? DEFAULT_SETTINGS.dismissedRenewBannerVersion
+        store.get('dismissedRenewBannerVersion') ?? DEFAULT_SETTINGS.dismissedRenewBannerVersion,
+      confirmedSensitivePorts:
+        store.get('confirmedSensitivePorts') ?? DEFAULT_SETTINGS.confirmedSensitivePorts
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
@@ -50,6 +52,9 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     }
     if (patch.dismissedRenewBannerVersion !== undefined) {
       store.set('dismissedRenewBannerVersion', patch.dismissedRenewBannerVersion)
+    }
+    if (patch.confirmedSensitivePorts !== undefined) {
+      store.set('confirmedSensitivePorts', patch.confirmedSensitivePorts)
     }
     return getSettings()
   } catch (err) {

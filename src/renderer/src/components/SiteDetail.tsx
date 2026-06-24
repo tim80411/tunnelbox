@@ -6,6 +6,7 @@ import RequestLogPanel from './RequestLogPanel'
 import TagEditor from './TagEditor'
 import QrButton from './QrButton'
 import ShareCtaCard from './ShareCtaCard'
+import DomainBinding from './DomainBinding'
 
 interface Props {
   site: SiteInfo
@@ -80,12 +81,23 @@ function pathText(site: SiteInfo): string {
   return site.folderPath
 }
 
+function safeHost(url: string): string | null {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
 function SiteDetail(props: Props): React.ReactElement {
   const { site } = props
   const mode = siteMode(site)
   const state = siteState(site)
   const wanUrl = site.tunnel?.publicUrl
   const isProxy = site.serveMode === 'proxy'
+  // TIM-227: show the custom-domain CNAME card when a named tunnel is bound.
+  const namedDomain =
+    site.tunnel?.type === 'named' && site.tunnel.publicUrl ? safeHost(site.tunnel.publicUrl) : null
   // CTA gate: mirror the WAN lane's Quick Tunnel share availability so the button is never a dead control.
   // onShare → startQuickTunnel (Cloudflare-only), so restrict to the Cloudflare provider; frp/bore share via the WAN lane.
   const isCloudflareProvider = (site.providerType ?? 'cloudflare') === 'cloudflare'
@@ -200,6 +212,14 @@ function SiteDetail(props: Props): React.ReactElement {
             </div>
           ) : null}
         </div>
+
+        {namedDomain && site.tunnel?.tunnelId && (
+          <DomainBinding
+            domain={namedDomain}
+            tunnelId={site.tunnel.tunnelId}
+            tunnelError={site.tunnel.errorMessage}
+          />
+        )}
 
         {isProxy && (
           <div>

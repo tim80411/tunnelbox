@@ -75,6 +75,17 @@ export interface TunnelInfo {
   warningMessage?: string
 }
 
+// --- Custom Domain DNS Verification (TIM-227) ---
+
+export type DnsVerifyResult =
+  | { verified: true; found: string[] }
+  | {
+      verified: false
+      found: string[]
+      reason: 'not_found' | 'mismatch' | 'lookup_error'
+      message: string
+    }
+
 // --- Cloudflare Auth ---
 
 export type AuthStatus = 'logged_out' | 'logging_in' | 'logged_in' | 'expired'
@@ -245,6 +256,8 @@ export interface AppSettings {
   launchAtStartup: boolean
   /** major.minor the soft-lock renew banner was last dismissed for (Story 107). */
   dismissedRenewBannerVersion: string
+  /** Sensitive ports the user chose to stop being warned about before sharing (TIM-226). */
+  confirmedSensitivePorts: number[]
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -254,7 +267,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   remoteConsoleEnabled: false,
   requestLogMaxEntries: 200,
   launchAtStartup: false,
-  dismissedRenewBannerVersion: ''
+  dismissedRenewBannerVersion: '',
+  confirmedSensitivePorts: []
 }
 
 // --- Add Site Params (IPC) ---
@@ -341,6 +355,8 @@ export interface ElectronAPI {
   // --- Fixed Domain (Named Tunnel + DNS) ---
   bindFixedDomain: (siteId: string, domain: string) => Promise<string>
   unbindFixedDomain: (siteId: string) => Promise<void>
+  // TIM-227: verify a custom domain's CNAME resolves to the tunnel target
+  verifyDomainDns: (domain: string, tunnelId: string) => Promise<DnsVerifyResult>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
 

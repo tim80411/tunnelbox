@@ -17,6 +17,7 @@ import { getAllLanIps, isVpnInterface } from '../core/lan-ip'
 import { getFrpConfig, saveFrpConfig, type FrpServerConfig } from './providers/frp/frp-config-store'
 import { getBoreConfig, saveBoreConfig, type BoreServerConfig } from './providers/bore/bore-config-store'
 import { checkShareGate } from './concurrent-share-gate'
+import { verifyCname, cfargoTarget } from './cloudflared/dns-verifier'
 
 let serverManager: ServerManager
 
@@ -272,6 +273,11 @@ export function registerIpcHandlers(
   // TIM-224: manual watcher restart (renderer-driven recovery).
   ipcMain.handle('restart-watcher', async (_event, siteId: string) => {
     return serverManager.restartWatcher(siteId)
+  })
+
+  // TIM-227: verify a custom domain's CNAME points at the tunnel target.
+  ipcMain.handle('verify-domain-dns', async (_event, domain: string, tunnelId: string) => {
+    return verifyCname(domain, cfargoTarget(tunnelId))
   })
 
   ipcMain.handle('get-sites', async () => {

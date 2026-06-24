@@ -327,6 +327,16 @@ function SettingsPanel({
               </div>
             </div>
 
+            {/* TIM-263: Pro license attribution */}
+            {isPro && tierState?.purchaserEmail && (
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <span className="settings-item-label">Licensed to</span>
+                  <span className="settings-item-desc">{tierState.purchaserEmail}</span>
+                </div>
+              </div>
+            )}
+
             <div className="settings-item">
               <div className="settings-item-info">
                 <span className="settings-item-label">Updates</span>

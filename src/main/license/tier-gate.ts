@@ -21,7 +21,8 @@ function resultToState(result: VerifyResult): TierState {
     isPro: true,
     tier: 'pro',
     softLocked: result.soft_locked,
-    founderTier: result.founder_tier
+    founderTier: result.founder_tier,
+    purchaserEmail: result.purchaser_email // TIM-263
   }
 }
 
@@ -59,7 +60,8 @@ class TierGateImpl implements TierGate {
     const changed =
       next.isPro !== this.state.isPro ||
       next.softLocked !== this.state.softLocked ||
-      next.founderTier !== this.state.founderTier
+      next.founderTier !== this.state.founderTier ||
+      next.purchaserEmail !== this.state.purchaserEmail
 
     this.state = next
 

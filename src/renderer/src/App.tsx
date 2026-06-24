@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import type { SiteInfo, CloudflareAuth, ServeMode, CloudflareAccountsState } from '../../shared/types'
 import ConcurrentSharesDialog from './components/ConcurrentSharesDialog'
+import SensitivePortDialog from './components/SensitivePortDialog'
+import { sensitivePortName } from '../../shared/sensitive-ports'
+import { extractPort } from '../../shared/proxy-utils'
 import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
@@ -52,6 +55,14 @@ function App(): React.ReactElement {
     targetSite: SiteInfo
     activeIds: string[]
     startFn: () => Promise<unknown>
+  } | null>(null)
+
+  // Sensitive-port confirmation dialog state (TIM-226)
+  const [sensitivePortDialog, setSensitivePortDialog] = useState<{
+    siteName: string
+    port: number
+    serviceName: string
+    proceed: () => void
   } | null>(null)
 
   // Panel state
@@ -316,11 +327,44 @@ function App(): React.ReactElement {
   const handleShareSite = useCallback(async (siteId: string) => {
     try {
       setError(null)
-      await withShareGate(siteId, () => window.electron.startQuickTunnel(siteId))
+      const site = sites.find((s) => s.id === siteId)
+      // TIM-226: the effective downstream port differs by mode — passthrough
+      // exposes its target port directly, proxy forwards to the target's port,
+      // static only ever serves an allocated HTTP port.
+      const exposedPort =
+        site && site.serveMode === 'proxy'
+          ? site.passthrough
+            ? site.passthroughPort
+            : extractPort(site.proxyTarget)
+          : site?.port
+      const serviceName = sensitivePortName(exposedPort)
+      const startShare = (): Promise<unknown> =>
+        withShareGate(siteId, () => window.electron.startQuickTunnel(siteId))
+
+      // Confirm before exposing a known sensitive port (unless the user opted out).
+      if (
+        site &&
+        serviceName != null &&
+        exposedPort != null &&
+        !(settings.confirmedSensitivePorts ?? []).includes(exposedPort)
+      ) {
+        setSensitivePortDialog({
+          siteName: site.name,
+          port: exposedPort,
+          serviceName,
+          proceed: () => {
+            void startShare().catch((err) =>
+              setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
+            )
+          }
+        })
+        return
+      }
+      await startShare()
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
     }
-  }, [withShareGate])
+  }, [withShareGate, sites, settings.confirmedSensitivePorts])
 
   const handleStopSharing = useCallback(async (siteId: string) => {
     try {
@@ -539,7 +583,7 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog || !!proActivated || !!pendingLicenseReplace || !!downloadsLicensePrompt
+  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog || !!sensitivePortDialog || !!proActivated || !!pendingLicenseReplace || !!downloadsLicensePrompt
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
@@ -846,6 +890,27 @@ function App(): React.ReactElement {
             setShareGateDialog(null)
           }}
           onCancel={() => setShareGateDialog(null)}
+        />
+      )}
+
+      {/* Sensitive-port confirmation (TIM-226) */}
+      {sensitivePortDialog && (
+        <SensitivePortDialog
+          siteName={sensitivePortDialog.siteName}
+          port={sensitivePortDialog.port}
+          serviceName={sensitivePortDialog.serviceName}
+          onConfirm={(remember) => {
+            const { port, proceed } = sensitivePortDialog
+            setSensitivePortDialog(null)
+            if (remember) {
+              const current = settings.confirmedSensitivePorts ?? []
+              if (!current.includes(port)) {
+                void updateSettings({ confirmedSensitivePorts: [...current, port] })
+              }
+            }
+            proceed()
+          }}
+          onCancel={() => setSensitivePortDialog(null)}
         />
       )}
 

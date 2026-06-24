@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState, DnsVerifyResult } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 import type { TierState, ImportResult } from '../shared/license-types'
 
@@ -299,6 +299,10 @@ const electronAPI: ElectronAPI = {
 
   unbindFixedDomain: (siteId: string): Promise<void> => {
     return ipcRenderer.invoke('unbind-fixed-domain', siteId)
+  },
+
+  verifyDomainDns: (domain: string, tunnelId: string): Promise<DnsVerifyResult> => {
+    return ipcRenderer.invoke('verify-domain-dns', domain, tunnelId)
   },
 
   startNamedTunnel: (siteId: string): Promise<void> => {
