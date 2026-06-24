@@ -74,11 +74,13 @@ export function registerIpcHandlers(
       providerType,
       ...(tunnel && { tunnel }),
       ...(storedSite?.defaultDomain && { defaultDomain: storedSite.defaultDomain }),
-      tags: storedSite?.tags || []
+      tags: storedSite?.tags || [],
+      lanMode: storedSite?.lanMode === true // TIM-225: secure default is off
     }
 
-    // LAN URL — always computed for running sites
-    if (server.status === 'running') {
+    // LAN URL — only when LAN sharing is on (TIM-225). With it off the site is
+    // bound to localhost only, so there is no reachable区網 address to show.
+    if (server.status === 'running' && storedSite?.lanMode === true) {
       const ips = lanIps ?? getAllLanIps()
       if (ips.length > 0) {
         ;(base as any).lanUrl = `http://${ips[0].ip}:${server.port}`
@@ -267,6 +269,15 @@ export function registerIpcHandlers(
     const clean = [...new Set((ignore || []).map((g: string) => g.trim()).filter((g: string) => g.length > 0))]
     siteStore.setSiteIgnore(siteId, clean)
     serverManager.restartWatcher(siteId, clean)
+    broadcastSiteUpdate()
+  })
+
+  // TIM-225: toggle per-site LAN sharing. Persist the flag, then rebind the
+  // running server on the same port (no-op if stopped) so an active tunnel is
+  // not orphaned, and broadcast so the renderer refreshes lanMode + lanUrl.
+  ipcMain.handle('set-site-lan-mode', async (_event, siteId: string, enabled: boolean) => {
+    siteStore.updateSite(siteId, { lanMode: enabled })
+    await serverManager.setSiteLanMode(siteId, enabled)
     broadcastSiteUpdate()
   })
 

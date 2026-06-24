@@ -98,6 +98,16 @@ export function lanLane(site: SiteInfo): LaneVM {
   if (site.status !== 'running') {
     return { state: 'off', placeholder: '啟動站點後可使用' }
   }
+  // TIM-225: LAN sharing is off by default (server bound to localhost only).
+  // Checked before lanUrl — with LAN off there is no reachable區網 address,
+  // so "未偵測到區網介面" would be misleading. Toggle on to bind 0.0.0.0.
+  if (site.lanMode !== true) {
+    return {
+      state: 'off',
+      placeholder: '區網分享已關閉',
+      sub: '預設關閉以保護安全 · 開啟後同網段裝置可存取'
+    }
+  }
   if (!site.lanUrl) {
     return {
       state: 'placeholder',

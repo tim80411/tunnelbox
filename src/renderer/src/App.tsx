@@ -324,6 +324,18 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  // TIM-225: toggle per-site LAN sharing. The main process persists the flag
+  // and rebinds the running server, then broadcasts site-updated — so the UI
+  // refreshes via onSiteUpdated and needs no local state here.
+  const handleSetLanMode = useCallback(async (siteId: string, enabled: boolean) => {
+    try {
+      setError(null)
+      await window.electron.setSiteLanMode(siteId, enabled)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '設定區網分享失敗')
+    }
+  }, [])
+
   const handleShareSite = useCallback(async (siteId: string) => {
     try {
       setError(null)
@@ -832,6 +844,7 @@ function App(): React.ReactElement {
                 onOpenFolder={handleOpenFolder}
                 onRemove={setConfirmRemove}
                 onRefreshLan={handleRefreshLan}
+                onSetLanMode={handleSetLanMode}
                 renamingId={renamingId}
                 renameValue={renameValue}
                 onRenameValueChange={setRenameValue}

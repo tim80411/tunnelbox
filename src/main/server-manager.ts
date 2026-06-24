@@ -33,6 +33,13 @@ interface BaseSiteServer {
   status: 'running' | 'stopped' | 'error'
   httpServer?: http.Server
   wsServer?: WebSocketServer
+  /**
+   * TIM-225: per-site LAN sharing. true → bound to 0.0.0.0 (LAN-reachable),
+   * false/undefined → bound to 127.0.0.1 (localhost-only, the secure default).
+   * Held in memory so the Host guard can consult it per-request without a
+   * disk read, and so setSiteLanMode can rebind on the same port.
+   */
+  lanMode?: boolean
 }
 
 export interface StaticSiteServer extends BaseSiteServer {
@@ -252,7 +259,7 @@ export class ServerManager {
 
   // ---------- Private: Static Server ----------
 
-  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean; ignore?: string[] }): Promise<StaticSiteServer> {
+  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean; ignore?: string[]; lanMode?: boolean }): Promise<StaticSiteServer> {
     // Validate folder exists and is readable
     try {
       const stat = fs.statSync(site.folderPath)
@@ -272,10 +279,14 @@ export class ServerManager {
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
     const httpServer = http.createServer((req, res) => {
       // TIM-225: DNS-rebinding guard. Reject requests whose Host header is not
-      // one we expect to serve (localhost / LAN IP / a registered tunnel host).
+      // one we expect to serve (localhost / a registered tunnel host, plus LAN
+      // IPs only when LAN sharing is on). Read lanMode live from the server
+      // entry so a setSiteLanMode rebind is reflected immediately.
+      const lanEnabled = this.servers.get(site.id)?.lanMode ?? site.lanMode === true
       if (!isHostAllowed(req.headers.host, {
         localIps: this.getLocalIps(),
-        tunnelHosts: this.allowedTunnelHosts.get(site.id) ?? new Set()
+        tunnelHosts: this.allowedTunnelHosts.get(site.id) ?? new Set(),
+        lanEnabled
       })) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
         res.end('Forbidden: unrecognized Host header')
@@ -427,8 +438,10 @@ export class ServerManager {
     // Attach WebSocket server on the same port via upgrade handling
     const wsServer = this.attachWebSocket(httpServer, site.id)
 
-    // Start listening on all interfaces (0.0.0.0) so LAN devices can access
-    await this.listenOnPort(httpServer, port)
+    // TIM-225: bind to LAN (0.0.0.0) only when this site opted in; otherwise
+    // localhost-only (127.0.0.1), the secure default.
+    const lanMode = site.lanMode === true
+    await this.listenOnPort(httpServer, port, lanMode)
 
     // Start file watcher
     const watcher = this.createWatcher(site.id, site.folderPath, site.ignore)
@@ -443,7 +456,8 @@ export class ServerManager {
       httpServer,
       wsServer,
       watcher,
-      ignore: site.ignore
+      ignore: site.ignore,
+      lanMode
     }
 
     this.servers.set(site.id, siteServer)
@@ -456,7 +470,7 @@ export class ServerManager {
 
   // ---------- Private: Proxy Server ----------
 
-  private async startProxyServer(site: { id: string; name: string; serveMode: 'proxy'; proxyTarget: string }): Promise<ProxySiteServer> {
+  private async startProxyServer(site: { id: string; name: string; serveMode: 'proxy'; proxyTarget: string; lanMode?: boolean }): Promise<ProxySiteServer> {
     const port = await this.allocatePort()
 
     const httpServer = createProxyServer(site.proxyTarget)
@@ -504,8 +518,9 @@ export class ServerManager {
       }
     })
 
-    // Start listening
-    await this.listenOnPort(httpServer, port)
+    // Start listening — TIM-225: localhost-only unless LAN sharing opted in.
+    const lanMode = site.lanMode === true
+    await this.listenOnPort(httpServer, port, lanMode)
 
     const siteServer: ProxySiteServer = {
       id: site.id,
@@ -514,7 +529,8 @@ export class ServerManager {
       proxyTarget: site.proxyTarget,
       port,
       status: 'running',
-      httpServer
+      httpServer,
+      lanMode
     }
 
     this.servers.set(site.id, siteServer)
@@ -748,6 +764,54 @@ export class ServerManager {
   }
 
   /**
+   * TIM-225: toggle a site's LAN sharing at runtime. Rebinds the *same*
+   * httpServer on the *same* port to a new interface (127.0.0.1 ↔ 0.0.0.0),
+   * so an active tunnel — which dials 127.0.0.1:port — is never orphaned, and
+   * updates server.lanMode so the Host guard reflects the new policy on the
+   * next request. Static + proxy servers both rebind; passthrough has no
+   * server of ours to bind, so only the flag is recorded.
+   */
+  async setSiteLanMode(siteId: string, enabled: boolean): Promise<void> {
+    const server = this.servers.get(siteId)
+    if (!server) return
+    // Record the desired policy regardless of running state (a later start
+    // reads lanMode from the store, but keeping the in-memory entry in sync
+    // avoids a stale Host-guard read if the server is mid-lifecycle).
+    server.lanMode = enabled
+
+    // Passthrough points the tunnel straight at the user's port — we never
+    // bound a socket, so there's nothing to rebind.
+    if (server.serveMode === 'proxy' && server.passthrough) return
+    if (server.status !== 'running' || !server.httpServer) return
+
+    const httpServer = server.httpServer
+    const port = server.port
+
+    // Release the listening socket promptly: drop hot-reload WS clients and
+    // force-close lingering keep-alive connections so close() can complete
+    // (otherwise idle connections keep the old bind alive and re-listen on the
+    // same port would EADDRINUSE).
+    const clients = this.wsClients.get(siteId)
+    if (clients) {
+      for (const ws of clients) ws.close()
+    }
+    await new Promise<void>((resolve) => {
+      httpServer.close(() => resolve())
+      ;(httpServer as http.Server & { closeAllConnections?: () => void }).closeAllConnections?.()
+      // Safety net mirroring stopServer(): never hang the toggle.
+      setTimeout(() => resolve(), 2000)
+    })
+
+    // Re-listen on the SAME port with the new interface. The request/upgrade
+    // handlers stay attached to this httpServer instance, so hot reload and the
+    // Host guard keep working; clients reconnect via their built-in retry.
+    await this.listenOnPort(httpServer, port, enabled)
+    log.info(
+      `Site "${server.name}" LAN sharing ${enabled ? 'enabled (bind 0.0.0.0)' : 'disabled (bind 127.0.0.1)'}, rebound on port ${port}`
+    )
+  }
+
+  /**
    * TIM-224: manually restart a static site's file watcher (renderer-driven
    * recovery). No-op for non-static or stopped sites.
    */
@@ -795,13 +859,20 @@ export class ServerManager {
     return port
   }
 
-  private async listenOnPort(httpServer: http.Server, port: number): Promise<void> {
+  /**
+   * Bind an HTTP server to a port. TIM-225: the interface depends on the site's
+   * LAN mode — `0.0.0.0` (all interfaces, LAN-reachable) only when LAN sharing
+   * is on; otherwise `127.0.0.1` (loopback-only). Tunnels are unaffected either
+   * way since cloudflared dials `127.0.0.1:port`, which loopback always serves.
+   */
+  private async listenOnPort(httpServer: http.Server, port: number, lanMode: boolean): Promise<void> {
+    const host = lanMode ? '0.0.0.0' : '127.0.0.1'
     await new Promise<void>((resolve, reject) => {
       const onError = (err: Error): void => {
         reject(new Error(`伺服器啟動失敗（Port ${port}）：${err.message}`))
       }
       httpServer.once('error', onError)
-      httpServer.listen(port, '0.0.0.0', () => {
+      httpServer.listen(port, host, () => {
         httpServer.removeListener('error', onError)
         resolve()
       })

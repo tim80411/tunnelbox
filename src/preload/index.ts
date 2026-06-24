@@ -453,6 +453,12 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('set-site-ignore', siteId, ignore)
   },
 
+  // --- LAN sharing toggle (TIM-225) ---
+
+  setSiteLanMode: (siteId: string, enabled: boolean): Promise<void> => {
+    return ipcRenderer.invoke('set-site-lan-mode', siteId, enabled)
+  },
+
   // --- Watcher health (TIM-224) ---
 
   restartWatcher: (siteId: string): Promise<boolean> => {

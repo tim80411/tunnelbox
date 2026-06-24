@@ -2914,6 +2914,9 @@ html, body, #root {
 .watcher-warn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: var(--warning-text); background: var(--warning-bg); border: 1px solid var(--warning-bd); border-radius: var(--radius); }
 .watcher-warn span { flex: 1; }
 
+/* TIM-225: LAN-sharing exposure notice inside the LAN reach lane */
+.lan-expose-warn { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 3px 8px; font-size: 11px; color: var(--warning-text); background: var(--warning-bg); border: 1px solid var(--warning-bd); border-radius: var(--radius); }
+
 /* TIM-227: custom-domain CNAME card */
 .domain-binding { margin-top: 18px; }
 .db-card { padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); }

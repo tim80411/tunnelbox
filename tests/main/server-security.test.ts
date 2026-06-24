@@ -39,7 +39,10 @@ describe('resolveWithinRoot (path traversal guard)', () => {
 })
 
 describe('isHostAllowed (DNS rebinding guard)', () => {
-  const local = { localIps: new Set<string>(['192.168.1.50', '10.0.0.7']), tunnelHosts: new Set<string>() }
+  // lanEnabled: true mirrors a site with LAN sharing turned on — LAN IPs allowed.
+  const local = { localIps: new Set<string>(['192.168.1.50', '10.0.0.7']), tunnelHosts: new Set<string>(), lanEnabled: true }
+  // lanEnabled: false is the secure default (TIM-225) — LAN IPs rejected.
+  const lanOff = { localIps: new Set<string>(['192.168.1.50', '10.0.0.7']), tunnelHosts: new Set<string>(), lanEnabled: false }
 
   it('allows localhost (with port)', () => {
     expect(isHostAllowed('localhost:3001', local)).toBe(true)
@@ -61,12 +64,30 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
     expect(isHostAllowed('app.localhost', local)).toBe(true)
   })
 
-  it('allows a detected LAN IP', () => {
+  it('allows a detected LAN IP when lanEnabled is true', () => {
     expect(isHostAllowed('192.168.1.50:3001', local)).toBe(true)
   })
 
+  it('rejects a detected LAN IP when lanEnabled is false (secure default)', () => {
+    expect(isHostAllowed('192.168.1.50:3001', lanOff)).toBe(false)
+    expect(isHostAllowed('10.0.0.7', lanOff)).toBe(false)
+  })
+
+  it('still allows localhost / loopback when lanEnabled is false', () => {
+    // LAN gating must never break local access or tunnels (cloudflared dials 127.0.0.1).
+    expect(isHostAllowed('localhost:3001', lanOff)).toBe(true)
+    expect(isHostAllowed('127.0.0.1:3001', lanOff)).toBe(true)
+    expect(isHostAllowed('[::1]:3001', lanOff)).toBe(true)
+    expect(isHostAllowed('app.localhost', lanOff)).toBe(true)
+  })
+
+  it('still allows a registered tunnel host when lanEnabled is false', () => {
+    const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['myapp.trycloudflare.com']), lanEnabled: false }
+    expect(isHostAllowed('myapp.trycloudflare.com', opts)).toBe(true)
+  })
+
   it('allows a registered tunnel host', () => {
-    const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['myapp.trycloudflare.com']) }
+    const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['myapp.trycloudflare.com']), lanEnabled: true }
     expect(isHostAllowed('myapp.trycloudflare.com', opts)).toBe(true)
   })
 
@@ -88,7 +109,7 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
   })
 
   it('is case-insensitive on the hostname', () => {
-    const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['MyApp.TryCloudflare.com'.toLowerCase()]) }
+    const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['MyApp.TryCloudflare.com'.toLowerCase()]), lanEnabled: true }
     expect(isHostAllowed('MYAPP.trycloudflare.COM', opts)).toBe(true)
   })
 })

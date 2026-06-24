@@ -10,6 +10,10 @@ interface Props {
   icon: ReactNode
   vm: LaneVM
   onRefresh?: () => void   // lan only
+  // TIM-225: per-site LAN sharing toggle (lan kind only).
+  lanMode?: boolean                          // whether LAN sharing is currently on
+  running?: boolean                          // site running — toggle only meaningful then
+  onToggleLanMode?: (enabled: boolean) => void
 }
 
 const RefreshIcon = (
@@ -23,8 +27,12 @@ const OpenIcon = (
   </svg>
 )
 
-function ReachLane({ kind, title, subtitle, icon, vm, onRefresh }: Props): React.ReactElement {
+function ReachLane({ kind, title, subtitle, icon, vm, onRefresh, lanMode, running, onToggleLanMode }: Props): React.ReactElement {
   const off = vm.state !== 'active'
+  // TIM-225: the LAN toggle is only actionable on a running site (binding an
+  // interface requires a live socket). Stopped sites just show the placeholder.
+  const canToggleLan = kind === 'lan' && running === true && !!onToggleLanMode
+  const lanOn = lanMode === true
   return (
     <div className={`dlane${off ? ' off' : ''}`}>
       <div className="dlane-key">
@@ -38,6 +46,11 @@ function ReachLane({ kind, title, subtitle, icon, vm, onRefresh }: Props): React
           <div className="u ph">{vm.placeholder}</div>
         )}
         {vm.sub && <div className="sub">{vm.sub}</div>}
+        {canToggleLan && lanOn && (
+          <div className="lan-expose-warn" role="note">
+            <span aria-hidden="true">⚠</span> 區網內任何人都能存取此站點
+          </div>
+        )}
       </div>
       <div className="dlane-act">
         {vm.state === 'active' && vm.url && (
@@ -49,8 +62,17 @@ function ReachLane({ kind, title, subtitle, icon, vm, onRefresh }: Props): React
             )}
           </>
         )}
-        {kind === 'lan' && onRefresh && (
-          <button className="btn btn-icon" title="重新偵測區網 IP" onClick={onRefresh}>{RefreshIcon}</button>
+        {canToggleLan && (
+          lanOn ? (
+            <>
+              {onRefresh && (
+                <button className="btn btn-icon" title="重新偵測區網 IP" onClick={onRefresh}>{RefreshIcon}</button>
+              )}
+              <button className="btn btn-sm" onClick={() => onToggleLanMode!(false)}>關閉分享</button>
+            </>
+          ) : (
+            <button className="btn btn-sm btn-primary" onClick={() => onToggleLanMode!(true)}>開啟分享</button>
+          )
         )}
       </div>
     </div>

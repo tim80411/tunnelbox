@@ -20,6 +20,7 @@ interface BaseSiteInfo {
   providerType?: string // 'cloudflare' | 'frp' | 'bore' — for UI badge
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
+  lanMode?: boolean // TIM-225: LAN sharing on (bind 0.0.0.0). undefined/false = localhost-only
 }
 
 export interface StaticSiteInfo extends BaseSiteInfo {
@@ -141,6 +142,7 @@ export interface StoredStaticSite {
   tags?: string[]
   cloudflareAccountId?: string | null
   ignore?: string[] // TIM-229: per-site custom watch-ignore globs (added to the defaults)
+  lanMode?: boolean // TIM-225: LAN sharing on (bind 0.0.0.0). undefined/false = localhost-only
 }
 
 export interface StoredProxySite {
@@ -154,6 +156,7 @@ export interface StoredProxySite {
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
   cloudflareAccountId?: string | null
+  lanMode?: boolean // TIM-225: LAN sharing on (bind 0.0.0.0). undefined/false = localhost-only
 }
 
 export type StoredSite = StoredStaticSite | StoredProxySite
@@ -439,6 +442,9 @@ export interface ElectronAPI {
 
   // Per-site watch ignore (TIM-229)
   setSiteIgnore: (siteId: string, ignore: string[]) => Promise<void>
+
+  // Per-site LAN sharing toggle (TIM-225) — on = bind 0.0.0.0, off = localhost-only
+  setSiteLanMode: (siteId: string, enabled: boolean) => Promise<void>
 
   // Watcher health (TIM-224)
   restartWatcher: (siteId: string) => Promise<boolean>

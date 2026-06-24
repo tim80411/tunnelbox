@@ -17,6 +17,8 @@ interface Props {
   onOpenFolder: (path: string) => void
   onRemove: (site: SiteInfo) => void
   onRefreshLan: () => void
+  // TIM-225: toggle per-site LAN sharing (bind 0.0.0.0 ↔ 127.0.0.1)
+  onSetLanMode: (id: string, enabled: boolean) => void
   // inline rename (double-click the detail title)
   renamingId: string | null
   renameValue: string
@@ -163,7 +165,17 @@ function SiteDetail(props: Props): React.ReactElement {
           <div className="section-label">觸達通道 · Reach</div>
           <div className="dreach">
             <ReachLane kind="local" title="Local" subtitle="本機" icon={LocalIcon} vm={localLane(site)} />
-            <ReachLane kind="lan" title="LAN" subtitle="區域網路" icon={LanIcon} vm={lanLane(site)} onRefresh={props.onRefreshLan} />
+            <ReachLane
+              kind="lan"
+              title="LAN"
+              subtitle="區域網路"
+              icon={LanIcon}
+              vm={lanLane(site)}
+              onRefresh={props.onRefreshLan}
+              lanMode={site.lanMode === true}
+              running={site.status === 'running'}
+              onToggleLanMode={(enabled) => props.onSetLanMode(site.id, enabled)}
+            />
             {/* WAN — reuse the full tunnel state machine */}
             <TunnelControls
               site={site}

@@ -35,15 +35,24 @@ export interface HostAllowOptions {
   localIps: Set<string>
   /** Public hostnames currently bound to this site via a tunnel, lowercased. */
   tunnelHosts: Set<string>
+  /**
+   * Whether this site has LAN sharing enabled (TIM-225). When false (the
+   * secure default), the machine's LAN IPs are NOT accepted as a Host — only
+   * loopback / *.localhost / registered tunnel hosts are. When true, LAN IPs
+   * are also accepted so same-network devices can reach the site.
+   */
+  lanEnabled: boolean
 }
 
 /**
  * DNS-rebinding guard for the static server. Decides whether a request's
  * `Host` header is one we expect to serve.
  *
- * Allowed: localhost / *.localhost, the loopback range (127.x, ::1), the
- * machine's own LAN IPs, and any tunnel hostname registered for this site.
- * Everything else (e.g. `attacker.com` rebinding 127.0.0.1) is rejected.
+ * Allowed: localhost / *.localhost, the loopback range (127.x, ::1), and any
+ * tunnel hostname registered for this site. The machine's own LAN IPs are
+ * accepted only when `opts.lanEnabled` is true (per-site LAN sharing on);
+ * with the secure default off, a LAN-IP Host is rejected. Everything else
+ * (e.g. `attacker.com` rebinding 127.0.0.1) is always rejected.
  *
  * This is robust regardless of whether cloudflared forwards the original
  * public Host or rewrites it to localhost: the localhost case hits the
@@ -71,7 +80,8 @@ export function isHostAllowed(hostHeader: string | undefined, opts: HostAllowOpt
   if (hostname === 'localhost' || hostname.endsWith('.localhost')) return true
   if (hostname === '::1' || hostname === '0.0.0.0') return true
   if (hostname.startsWith('127.')) return true
-  if (opts.localIps.has(hostname)) return true
+  // LAN IPs only when this site opted into LAN sharing (TIM-225 secure default).
+  if (opts.lanEnabled && opts.localIps.has(hostname)) return true
   if (opts.tunnelHosts.has(hostname)) return true
   return false
 }
