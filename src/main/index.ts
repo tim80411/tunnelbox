@@ -27,6 +27,7 @@ import { registerLicenseImportIpc } from './license/import-ipc'
 import { tierGate } from './license/tier-gate'
 import { FREE_SHARE_LIMIT } from './concurrent-share-gate'
 import { attachCloseHandler, watchTierForDowngrade } from './window-close-handler'
+import { startRendererSleepTracking, wakeRenderer } from './renderer-sleep-manager'
 import { getSettings } from './settings-store'
 
 const log = createLogger('Main')
@@ -172,11 +173,19 @@ app.whenReady().then(async () => {
     createWindow()
     setAppMenu()
 
+    // TIM-228: release renderer RAM while the app sleeps in the tray.
+    startRendererSleepTracking({ getWindow: () => mainWindow })
+
     // Create system tray (Story 52: Menu Bar integration)
     createTray(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show()
-        mainWindow.focus()
+        // Wake from tray-only sleep (rehydrates the renderer if it was released)
+        // then show + focus. Falls through to plain show/focus when not asleep.
+        wakeRenderer(() => mainWindow).catch((err) => {
+          log.error('wakeRenderer failed:', err)
+          mainWindow?.show()
+          mainWindow?.focus()
+        })
       } else {
         createWindow()
       }
@@ -221,7 +230,11 @@ app.whenReady().then(async () => {
       createWindow()
       return
     }
+    // TIM-228: route the main window through wakeRenderer so a dock-click also
+    // rehydrates a slept renderer. Other windows just get shown/focused.
+    wakeRenderer(() => mainWindow).catch((err) => log.error('wakeRenderer (activate) failed:', err))
     for (const win of windows) {
+      if (win === mainWindow) continue
       if (!win.isVisible()) win.show()
       win.focus()
     }
