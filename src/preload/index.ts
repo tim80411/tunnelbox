@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState } from '../shared/types'
+import type { SiteInfo, CloudflaredEnv, CloudflareAuth, TunnelInfo, UrlAddResult, LanInfo, ElectronAPI, AddSiteParams, AppSettings, FrpServerConfig, BoreServerConfig, ShareRecord, VisitorEvent, RemoteConsoleEntry, NotificationItem, RequestLogEntry, CloudflareAccountsState, DnsVerifyResult } from '../shared/types'
 import type { UpdateState, ForceUpdateCheckResult } from '../shared/update-types'
 import type { TierState, ImportResult } from '../shared/license-types'
 
@@ -301,6 +301,10 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('unbind-fixed-domain', siteId)
   },
 
+  verifyDomainDns: (domain: string, tunnelId: string): Promise<DnsVerifyResult> => {
+    return ipcRenderer.invoke('verify-domain-dns', domain, tunnelId)
+  },
+
   startNamedTunnel: (siteId: string): Promise<void> => {
     return ipcRenderer.invoke('start-named-tunnel', siteId)
   },
@@ -441,6 +445,28 @@ const electronAPI: ElectronAPI = {
 
   updateSiteTags: (siteId: string, tags: string[]): Promise<void> => {
     return ipcRenderer.invoke('update-site-tags', siteId, tags)
+  },
+
+  // --- Watch ignore (TIM-229) ---
+
+  setSiteIgnore: (siteId: string, ignore: string[]): Promise<void> => {
+    return ipcRenderer.invoke('set-site-ignore', siteId, ignore)
+  },
+
+  // --- Watcher health (TIM-224) ---
+
+  restartWatcher: (siteId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('restart-watcher', siteId)
+  },
+
+  onWatcherUnhealthy: (callback: (siteId: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, siteId: string): void => {
+      callback(siteId)
+    }
+    ipcRenderer.on('watcher-unhealthy', handler)
+    return () => {
+      ipcRenderer.removeListener('watcher-unhealthy', handler)
+    }
   },
 
   // --- Dashboard ---

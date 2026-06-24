@@ -72,6 +72,20 @@ export function updateSite(id: string, patch: Partial<Pick<StoredSite, 'name' | 
   saveSites(sites)
 }
 
+/**
+ * TIM-229: set the per-site custom watch-ignore globs. Static sites only
+ * (proxy sites have no file watcher).
+ */
+export function setSiteIgnore(id: string, ignore: string[]): void {
+  const sites = getSites()
+  const idx = sites.findIndex((s) => s.id === id)
+  if (idx === -1) return
+  const site = sites[idx]
+  if (site.serveMode !== 'static') return
+  site.ignore = ignore
+  saveSites(sites)
+}
+
 // --- Auth ---
 
 export function getAuth(): StoredAuth | null {

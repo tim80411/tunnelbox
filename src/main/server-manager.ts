@@ -1,6 +1,7 @@
 import http from 'node:http'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import handler from 'serve-handler'
 import { watch, type FSWatcher } from 'chokidar'
 import { WebSocketServer, type WebSocket } from 'ws'
@@ -14,6 +15,7 @@ import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
 import { addEntry, clearEntries } from './request-logger'
+import { resolveWithinRoot, isHostAllowed, DEFAULT_WATCH_IGNORES } from './server-security'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -37,6 +39,8 @@ export interface StaticSiteServer extends BaseSiteServer {
   serveMode: 'static'
   folderPath: string
   watcher?: FSWatcher
+  /** Per-site custom watch-ignore globs (in addition to the defaults). TIM-229 */
+  ignore?: string[]
 }
 
 export interface ProxySiteServer extends BaseSiteServer {
@@ -153,6 +157,12 @@ export class ServerManager {
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
   private proxyErrorStart: Map<string, number> = new Map() // siteId -> first error timestamp
   private wsClients: Map<string, Set<WebSocket>> = new Map() // siteId -> connected clients
+  // TIM-225: per-site public hostnames allowed past the Host-header guard.
+  private allowedTunnelHosts: Map<string, Set<string>> = new Map() // siteId -> hostnames (lowercased)
+  private localIpsCache: { ips: Set<string>; at: number } | null = null
+  // TIM-224: watcher health monitoring.
+  private watcherHealthTimer?: ReturnType<typeof setInterval>
+  private watcherUnhealthyCallbacks: Set<(siteId: string) => void> = new Set()
 
   /**
    * Attach a WebSocket server to an HTTP server for hot reload and console forwarding.
@@ -242,7 +252,7 @@ export class ServerManager {
 
   // ---------- Private: Static Server ----------
 
-  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean }): Promise<StaticSiteServer> {
+  private async startStaticServer(site: { id: string; name: string; serveMode: 'static'; folderPath: string; directoryListing?: boolean; ignore?: string[] }): Promise<StaticSiteServer> {
     // Validate folder exists and is readable
     try {
       const stat = fs.statSync(site.folderPath)
@@ -261,6 +271,17 @@ export class ServerManager {
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
     const httpServer = http.createServer((req, res) => {
+      // TIM-225: DNS-rebinding guard. Reject requests whose Host header is not
+      // one we expect to serve (localhost / LAN IP / a registered tunnel host).
+      if (!isHostAllowed(req.headers.host, {
+        localIps: this.getLocalIps(),
+        tunnelHosts: this.allowedTunnelHosts.get(site.id) ?? new Set()
+      })) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Forbidden: unrecognized Host header')
+        return
+      }
+
       // Prevent browser caching — different sites may reuse the same port
       res.setHeader('Cache-Control', 'no-store')
 
@@ -367,11 +388,32 @@ export class ServerManager {
       if (req.url) {
         const decoded = decodeURIComponent(req.url.split('?')[0])
         if (decoded.endsWith('.html')) {
-          const filePath = path.join(site.folderPath, decoded)
-          if (fs.existsSync(filePath)) {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-            fs.createReadStream(filePath).pipe(res)
+          // TIM-225: this custom fast-path bypasses serve-handler's own
+          // traversal protection, so resolve safely within the site root.
+          const filePath = resolveWithinRoot(site.folderPath, decoded)
+          if (filePath === null) {
+            res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+            res.end('Forbidden: path traversal')
             return
+          }
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            // resolveWithinRoot is purely string-based, so a symlink inside the
+            // folder could still point outside it. Resolve real paths and
+            // re-check containment before streaming. (TIM-225, symlink escape)
+            try {
+              const realFile = fs.realpathSync(filePath)
+              const realRoot = fs.realpathSync(site.folderPath)
+              if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) {
+                res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+                res.end('Forbidden: path traversal')
+                return
+              }
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+              fs.createReadStream(realFile).pipe(res)
+              return
+            } catch {
+              // realpath failed (race / vanished) — fall through to serve-handler
+            }
           }
         }
       }
@@ -389,7 +431,7 @@ export class ServerManager {
     await this.listenOnPort(httpServer, port)
 
     // Start file watcher
-    const watcher = this.createWatcher(site.id, site.folderPath)
+    const watcher = this.createWatcher(site.id, site.folderPath, site.ignore)
 
     const siteServer: StaticSiteServer = {
       id: site.id,
@@ -400,10 +442,13 @@ export class ServerManager {
       status: 'running',
       httpServer,
       wsServer,
-      watcher
+      watcher,
+      ignore: site.ignore
     }
 
     this.servers.set(site.id, siteServer)
+    // TIM-224: ensure the watcher health monitor is running.
+    this.startWatcherHealthMonitor()
     log.info(`Static server for "${site.name}" started on http://localhost:${port}`)
 
     return siteServer
@@ -597,6 +642,7 @@ export class ServerManager {
    * Stop all servers and clean up.
    */
   async stopAll(): Promise<void> {
+    this.stopWatcherHealthMonitor()
     const stopPromises = Array.from(this.servers.keys()).map((id) => this.stopServer(id))
     await Promise.allSettled(stopPromises)
     log.info('All servers stopped')
@@ -669,6 +715,54 @@ export class ServerManager {
   }
 
   /**
+   * TIM-224: register a callback fired when a static site's file watcher is
+   * detected unhealthy and restarted (so the renderer can surface "live reload
+   * stopped" + a manual-restart affordance).
+   */
+  onWatcherUnhealthy(callback: (siteId: string) => void): () => void {
+    this.watcherUnhealthyCallbacks.add(callback)
+    return () => {
+      this.watcherUnhealthyCallbacks.delete(callback)
+    }
+  }
+
+  /**
+   * TIM-225: register a public hostname (e.g. a tunnel's trycloudflare /
+   * custom domain) as allowed past the Host-header guard for this site.
+   * Called when a tunnel starts; cleared on stop.
+   */
+  registerTunnelHost(siteId: string, hostname: string): void {
+    if (!hostname) return
+    const host = hostname.toLowerCase()
+    let set = this.allowedTunnelHosts.get(siteId)
+    if (!set) {
+      set = new Set<string>()
+      this.allowedTunnelHosts.set(siteId, set)
+    }
+    set.add(host)
+  }
+
+  /** TIM-225: drop all registered tunnel hostnames for a site (tunnel stopped). */
+  unregisterTunnelHost(siteId: string): void {
+    this.allowedTunnelHosts.delete(siteId)
+  }
+
+  /**
+   * TIM-224: manually restart a static site's file watcher (renderer-driven
+   * recovery). No-op for non-static or stopped sites.
+   */
+  restartWatcher(siteId: string, ignore?: string[]): boolean {
+    const server = this.servers.get(siteId)
+    if (!server || server.serveMode !== 'static' || server.status !== 'running') return false
+    if (!fs.existsSync(server.folderPath)) return false
+    if (ignore !== undefined) server.ignore = ignore
+    void server.watcher?.close().catch(() => {})
+    server.watcher = this.createWatcher(server.id, server.folderPath, server.ignore)
+    log.info(`Watcher for "${server.name}" restarted`)
+    return true
+  }
+
+  /**
    * Generate a unique site id.
    */
   generateId(): string {
@@ -714,11 +808,14 @@ export class ServerManager {
     })
   }
 
-  private createWatcher(siteId: string, folderPath: string): FSWatcher {
+  private createWatcher(siteId: string, folderPath: string, ignore?: string[]): FSWatcher {
     const watcher = watch(folderPath, {
       persistent: true,
       ignoreInitial: true,
-      depth: undefined // recursive: watch all subdirectories
+      depth: undefined, // recursive: watch all subdirectories
+      // TIM-229: skip dev folders that would thrash the watcher, plus any
+      // per-site custom ignore globs.
+      ignored: [...DEFAULT_WATCH_IGNORES, ...(ignore ?? [])]
     })
 
     const handleChange = (): void => {
@@ -750,9 +847,85 @@ export class ServerManager {
       if (server && server.serveMode === 'static') {
         server.watcher = undefined
       }
+      // TIM-224: surface immediately; the heartbeat will restart it within one
+      // interval (the cadence doubles as natural backoff against error loops).
+      this.notifyWatcherUnhealthy(siteId)
     })
 
     return watcher
+  }
+
+  /**
+   * The machine's own IP addresses (loopback + LAN), lowercased. Cached for
+   * 30s since it's consulted on every static request (TIM-225 Host guard).
+   */
+  private getLocalIps(): Set<string> {
+    const now = Date.now()
+    if (this.localIpsCache && now - this.localIpsCache.at < 30_000) {
+      return this.localIpsCache.ips
+    }
+    const ips = new Set<string>()
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const ni of list ?? []) {
+        ips.add(ni.address.toLowerCase())
+      }
+    }
+    this.localIpsCache = { ips, at: now }
+    return ips
+  }
+
+  // ---------- TIM-224: Watcher Health Monitor ----------
+
+  private static readonly WATCHER_HEARTBEAT_MS = 60_000
+
+  private startWatcherHealthMonitor(): void {
+    if (this.watcherHealthTimer) return
+    this.watcherHealthTimer = setInterval(() => {
+      this.checkWatcherHealth()
+    }, ServerManager.WATCHER_HEARTBEAT_MS)
+    // Don't keep the event loop alive solely for the heartbeat.
+    this.watcherHealthTimer.unref?.()
+  }
+
+  private stopWatcherHealthMonitor(): void {
+    if (this.watcherHealthTimer) {
+      clearInterval(this.watcherHealthTimer)
+      this.watcherHealthTimer = undefined
+    }
+  }
+
+  /**
+   * Detect silently-dead watchers (chokidar emitted 'error' and we nulled it,
+   * or its handle closed) for running static sites whose folder still exists,
+   * then restart + notify. This reliably catches the error→null path and
+   * explicit close; it cannot guarantee detection of every conceivable
+   * OS-level silent death, but covers the documented "no recovery after
+   * watcher error" gap.
+   */
+  private checkWatcherHealth(): void {
+    for (const server of this.servers.values()) {
+      if (server.serveMode !== 'static' || server.status !== 'running') continue
+      // A vanished folder is a separate failure mode — skip (don't thrash).
+      if (!fs.existsSync(server.folderPath)) continue
+      const w = server.watcher
+      const dead = !w || (w as unknown as { closed?: boolean }).closed === true
+      if (dead) {
+        log.warn(`Watcher for "${server.name}" detected unhealthy by heartbeat; restarting`)
+        void w?.close().catch(() => {})
+        server.watcher = this.createWatcher(server.id, server.folderPath, server.ignore)
+        this.notifyWatcherUnhealthy(server.id)
+      }
+    }
+  }
+
+  private notifyWatcherUnhealthy(siteId: string): void {
+    for (const cb of this.watcherUnhealthyCallbacks) {
+      try {
+        cb(siteId)
+      } catch (err) {
+        log.error('Watcher-unhealthy callback error:', err)
+      }
+    }
   }
 
   private notifyStatusChange(siteId: string, status: 'running' | 'error'): void {

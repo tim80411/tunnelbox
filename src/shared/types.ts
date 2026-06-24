@@ -25,6 +25,7 @@ interface BaseSiteInfo {
 export interface StaticSiteInfo extends BaseSiteInfo {
   serveMode: 'static'
   folderPath: string
+  ignore?: string[] // TIM-229: per-site custom watch-ignore globs
 }
 
 export interface ProxySiteInfo extends BaseSiteInfo {
@@ -73,6 +74,17 @@ export interface TunnelInfo {
   errorMessage?: string
   warningMessage?: string
 }
+
+// --- Custom Domain DNS Verification (TIM-227) ---
+
+export type DnsVerifyResult =
+  | { verified: true; found: string[] }
+  | {
+      verified: false
+      found: string[]
+      reason: 'not_found' | 'mismatch' | 'lookup_error'
+      message: string
+    }
 
 // --- Cloudflare Auth ---
 
@@ -128,6 +140,7 @@ export interface StoredStaticSite {
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
   cloudflareAccountId?: string | null
+  ignore?: string[] // TIM-229: per-site custom watch-ignore globs (added to the defaults)
 }
 
 export interface StoredProxySite {
@@ -243,6 +256,8 @@ export interface AppSettings {
   launchAtStartup: boolean
   /** major.minor the soft-lock renew banner was last dismissed for (Story 107). */
   dismissedRenewBannerVersion: string
+  /** Sensitive ports the user chose to stop being warned about before sharing (TIM-226). */
+  confirmedSensitivePorts: number[]
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -252,7 +267,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   remoteConsoleEnabled: false,
   requestLogMaxEntries: 200,
   launchAtStartup: false,
-  dismissedRenewBannerVersion: ''
+  dismissedRenewBannerVersion: '',
+  confirmedSensitivePorts: []
 }
 
 // --- Add Site Params (IPC) ---
@@ -339,6 +355,8 @@ export interface ElectronAPI {
   // --- Fixed Domain (Named Tunnel + DNS) ---
   bindFixedDomain: (siteId: string, domain: string) => Promise<string>
   unbindFixedDomain: (siteId: string) => Promise<void>
+  // TIM-227: verify a custom domain's CNAME resolves to the tunnel target
+  verifyDomainDns: (domain: string, tunnelId: string) => Promise<DnsVerifyResult>
   startNamedTunnel: (siteId: string) => Promise<void>
   stopNamedTunnel: (siteId: string) => Promise<void>
 
@@ -418,6 +436,13 @@ export interface ElectronAPI {
 
   // Site Tags
   updateSiteTags: (siteId: string, tags: string[]) => Promise<void>
+
+  // Per-site watch ignore (TIM-229)
+  setSiteIgnore: (siteId: string, ignore: string[]) => Promise<void>
+
+  // Watcher health (TIM-224)
+  restartWatcher: (siteId: string) => Promise<boolean>
+  onWatcherUnhealthy: (callback: (siteId: string) => void) => () => void
 
   // Dashboard
   generateDashboard: () => Promise<{ siteId: string } | null>

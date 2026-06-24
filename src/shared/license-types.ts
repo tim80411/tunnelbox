@@ -34,6 +34,8 @@ export type TierState = {
   tier: 'free' | 'pro'
   softLocked: boolean
   founderTier: number | null
+  /** Email the Pro license is registered to (TIM-263). Absent in Free mode. */
+  purchaserEmail?: string
 }
 
 // Result of importing a license file (Story 105 / TIM-209)

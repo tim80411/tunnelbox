@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "placeholder": true,
+  "note": "PLACEHOLDER — no real numbers captured yet. The CI guard SKIPS the comparison while placeholder=true. To populate: on a dev machine, build the app with `pnpm pack` (or `pnpm dist:<platform>`), then run `pnpm measure:ram -- --out .project/baselines/idle-ram-baseline.json --idle 60`, set placeholder=false, and commit the result. Real runtime RSS capture requires the actual Electron app running with a display, which may not be possible in every environment (see TIM-223 handback).",
+  "capturedAt": null,
+  "env": {
+    "platform": null,
+    "arch": null,
+    "nodeVersion": null,
+    "cpuModel": null,
+    "totalMemMB": null
+  },
+  "idleSeconds": 60,
+  "rootPid": null,
+  "totalRssMB": null,
+  "processCount": null,
+  "byType": {
+    "main": { "count": null, "rssMB": null },
+    "renderer": { "count": null, "rssMB": null },
+    "gpu-process": { "count": null, "rssMB": null },
+    "utility": { "count": null, "rssMB": null }
+  }
+}
