@@ -1,0 +1,120 @@
+name: Idle RAM Guard
+
+# TIM-223 — Idle RAM measurement baseline + CI guard.
+#
+# Builds the app, samples idle RSS of the Electron process tree, and compares
+# against the committed baseline (.project/baselines/idle-ram-baseline.json).
+# Warns / comments on the PR when total RSS grows more than the threshold.
+#
+# HANDBACK (push-validation): this workflow can only be truly validated by
+# pushing it and observing a real run. macOS GitHub runners are headless, so a
+# real RSS capture also needs the app to launch under a virtual display or an
+# offscreen-capable harness; until a real baseline is captured (placeholder=true
+# in the baseline JSON) the measurement step is best-effort and the guard
+# SKIPS the comparison rather than failing the build.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'electron.vite.config.ts'
+      - 'package.json'
+      - 'scripts/measure-idle-ram.mjs'
+      - '.project/baselines/idle-ram-baseline.json'
+      - '.github/workflows/idle-ram-guard.yml'
+  workflow_dispatch:
+
+# Allow the job to post a comment back on the PR.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  idle-ram:
+    # macOS runner so the sampler exercises the real macOS process-tree layout.
+    runs-on: macos-latest
+    # Never block merges on this guard — it warns, it does not gate.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Package unpacked app (for measurement)
+        run: pnpm pack
+
+      - name: Measure idle RAM and compare to baseline
+        id: measure
+        shell: bash
+        # The sampler exits 2 when growth exceeds the threshold and 1 on a
+        # measurement failure. We capture the code instead of letting it abort
+        # the step so we can surface a friendly PR comment either way.
+        run: |
+          set +e
+          # Shorter idle on CI to keep the job snappy; bump locally for accuracy.
+          node scripts/measure-idle-ram.mjs \
+            --idle 30 \
+            --compare \
+            --threshold 20 \
+            --out idle-ram-result.json \
+            > measure-stdout.txt 2> measure-stderr.txt
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          echo "----- measure stderr -----"
+          cat measure-stderr.txt || true
+          echo "----- measure result -----"
+          cat idle-ram-result.json || true
+
+      - name: Comment on PR (RSS growth exceeded threshold)
+        if: ${{ github.event_name == 'pull_request' && steps.measure.outputs.exit_code == '2' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '⚠️ **Idle RAM guard (TIM-223): RSS growth exceeded the 20% threshold.**\n\n';
+            try {
+              const stderr = fs.readFileSync('measure-stderr.txt', 'utf8');
+              const line = stderr.split('\n').find((l) => l.includes('[compare] FAIL'));
+              if (line) body += '```\n' + line.trim() + '\n```\n';
+            } catch (e) { /* best effort */ }
+            try {
+              const result = fs.readFileSync('idle-ram-result.json', 'utf8');
+              body += '\n<details><summary>Full measurement</summary>\n\n```json\n' + result + '\n```\n</details>\n';
+            } catch (e) { /* best effort */ }
+            body += '\nThis check is advisory and does not block the merge. If the growth is expected, recapture the baseline (`pnpm measure:ram -- --out .project/baselines/idle-ram-baseline.json`) and commit it.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Note measurement failure (non-blocking)
+        if: ${{ steps.measure.outputs.exit_code == '1' }}
+        shell: bash
+        run: |
+          echo "::warning title=Idle RAM guard::Measurement could not run (likely the app could not launch headlessly on the runner). This is a known handback item until a real baseline is captured."
+
+      - name: Upload measurement artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: idle-ram-result
+          path: |
+            idle-ram-result.json
+            measure-stderr.txt
+            measure-stdout.txt
+          if-no-files-found: ignore

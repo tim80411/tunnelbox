@@ -32,6 +32,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:icons": "node scripts/build-icons.mjs",
+    "measure:ram": "node scripts/measure-idle-ram.mjs",
     "prepare": "husky"
   },
   "build": {
