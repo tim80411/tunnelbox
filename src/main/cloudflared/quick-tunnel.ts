@@ -4,6 +4,7 @@ import { findBinary } from './detector'
 import { createLogger } from '../logger'
 import type { TunnelInfo } from '../../shared/types'
 import { waitForTunnelReady } from './tunnel-readiness'
+import { translateCloudflaredError } from './error-translator'
 
 const log = createLogger('QuickTunnel')
 
@@ -24,16 +25,6 @@ const BACKOFF_BASE_MS = 2000
 
 /** Regex to match the quick tunnel URL from cloudflared stderr */
 const TUNNEL_URL_REGEX = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/
-
-/** Map cloudflared error patterns to user-friendly Chinese messages */
-const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
-  { pattern: /connection refused/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
-  { pattern: /no such host/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
-  { pattern: /timeout/i, message: '連線逾時，請檢查網路連線' },
-  { pattern: /failed to connect to edge/i, message: 'Cloudflare 服務暫時不可用，請稍後重試' },
-  { pattern: /connection reset/i, message: '連線中斷，請檢查網路連線' },
-  { pattern: /i\/o timeout/i, message: '連線逾時，請檢查網路連線' }
-]
 
 let processManager: ProcessManager
 
@@ -75,14 +66,10 @@ export function initQuickTunnel(pm: ProcessManager): void {
   })
 }
 
-/** Parse cloudflared stderr for known error patterns */
+/** Parse cloudflared stderr for known error patterns, returning a friendly message. */
 function parseErrorMessage(stderrData: string): string | null {
-  for (const { pattern, message } of ERROR_PATTERNS) {
-    if (pattern.test(stderrData)) {
-      return message
-    }
-  }
-  return null
+  const translated = translateCloudflaredError(stderrData)
+  return translated.matched ? translated.human : null
 }
 
 /** Attempt to reconnect a tunnel with exponential backoff */

@@ -10,6 +10,7 @@ import { createLogger } from '../logger'
 import * as siteStore from '../store'
 import type { TunnelInfo, StoredTunnel } from '../../shared/types'
 import { waitForTunnelReady } from './tunnel-readiness'
+import { translateCloudflaredError, type TranslatedError } from './error-translator'
 
 const log = createLogger('NamedTunnel')
 
@@ -67,21 +68,8 @@ function parseDnsError(output: string): string | null {
   return null
 }
 
-/** Error patterns for named tunnel operations */
-const NAMED_TUNNEL_ERRORS: Array<{ pattern: RegExp; message: string }> = [
-  { pattern: /certificate.*expired/i, message: '認證已過期，請重新登入' },
-  { pattern: /auth.*expired/i, message: '認證已過期，請重新登入' },
-  { pattern: /unauthorized/i, message: '認證已過期，請重新登入' },
-  { pattern: /tunnel limit/i, message: '已達 Tunnel 數量上限' },
-  { pattern: /quota/i, message: '已達 Tunnel 數量上限' },
-  { pattern: /connection refused/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
-  { pattern: /no such host/i, message: '無法連線至 Cloudflare，請檢查網路連線' },
-  { pattern: /failed to connect to edge/i, message: 'Cloudflare 服務暫時不可用，請稍後重試' },
-  { pattern: /timeout/i, message: '連線逾時，請檢查網路連線' }
-]
-
 let processManager: ProcessManager
-const lastStderrError: Map<string, string> = new Map()
+const lastStderrError: Map<string, TranslatedError> = new Map()
 
 /** Track readiness probe abort controllers */
 const readinessAbortControllers: Map<string, AbortController> = new Map()
@@ -92,9 +80,9 @@ export function initNamedTunnel(pm: ProcessManager): void {
   // Capture stderr errors for diagnostics
   pm.on('stderr', (id: string, data: string) => {
     if (!id.startsWith('named-tunnel-')) return
-    const errorMsg = parseNamedTunnelError(data)
-    if (errorMsg) {
-      lastStderrError.set(id, errorMsg)
+    const translated = translateCloudflaredError(data)
+    if (translated.matched) {
+      lastStderrError.set(id, translated)
     }
   })
 
@@ -111,18 +99,20 @@ export function initNamedTunnel(pm: ProcessManager): void {
     // If explicitly stopped, don't reconnect
     if (tunnel.status === 'stopped') return
 
-    // Check for auth-related errors (no reconnect, prompt re-login)
-    const stderrMsg = lastStderrError.get(id)
+    // Check for auth / quota errors (no reconnect, prompt re-login).
+    // Categories come from the central error-translator, so this no longer
+    // relies on fragile substring matching of the localized message.
+    const stderrError = lastStderrError.get(id)
     lastStderrError.delete(id)
 
-    if (stderrMsg && (stderrMsg.includes('認證已過期') || stderrMsg.includes('數量上限'))) {
+    if (stderrError && (stderrError.category === 'auth' || stderrError.category === 'quota')) {
       tunnel.status = 'error'
-      tunnel.errorMessage = stderrMsg
+      tunnel.errorMessage = stderrError.human
       reconnectAttempts.delete(siteId)
       broadcastTunnelStatus(siteId, tunnel)
 
       // Broadcast auth expired if applicable
-      if (stderrMsg.includes('認證已過期')) {
+      if (stderrError.category === 'auth') {
         broadcastAuthExpired()
       }
       return
@@ -147,10 +137,8 @@ export function initNamedTunnel(pm: ProcessManager): void {
 }
 
 function parseNamedTunnelError(data: string): string | null {
-  for (const { pattern, message } of NAMED_TUNNEL_ERRORS) {
-    if (pattern.test(data)) return message
-  }
-  return null
+  const translated = translateCloudflaredError(data)
+  return translated.matched ? translated.human : null
 }
 
 async function attemptReconnect(siteId: string): Promise<void> {
