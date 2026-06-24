@@ -82,6 +82,11 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
     expect(isHostAllowed(undefined, local)).toBe(true)
   })
 
+  it('rejects a malformed bracketed host (unclosed bracket)', () => {
+    expect(isHostAllowed('[', local)).toBe(false)
+    expect(isHostAllowed('[evil.com', local)).toBe(false)
+  })
+
   it('is case-insensitive on the hostname', () => {
     const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['MyApp.TryCloudflare.com'.toLowerCase()]) }
     expect(isHostAllowed('MYAPP.trycloudflare.COM', opts)).toBe(true)

@@ -46,6 +46,9 @@ interface SleepManagerOptions {
 }
 
 let asleep = false
+// True from the moment a wake begins (asleep flipped false) until the window is
+// shown — guards against a scheduled sleep racing an in-flight wake loadURL.
+let waking = false
 let sleepTimer: NodeJS.Timeout | null = null
 let started = false
 
@@ -69,7 +72,7 @@ export function isAsleep(): boolean {
  * heap. Safe to call repeatedly. No-op if already asleep or a window is visible.
  */
 function sleepRenderer(getWindow: () => BrowserWindow | null): void {
-  if (asleep) return
+  if (asleep || waking) return
   const win = getWindow()
   if (!win || win.isDestroyed()) return
   // Guard: only sleep when nothing is actually visible.
@@ -117,6 +120,7 @@ export async function wakeRenderer(getWindow: () => BrowserWindow | null): Promi
   log.info('Waking renderer — reloading entry and rehydrating from main state')
   const start = Date.now()
   asleep = false
+  waking = true // hold off any scheduled sleep until this wake's loadURL + show finish
 
   await new Promise<void>((resolve) => {
     let settled = false
@@ -150,6 +154,7 @@ export async function wakeRenderer(getWindow: () => BrowserWindow | null): Promi
     win.show()
     win.focus()
   }
+  waking = false
 }
 
 /**

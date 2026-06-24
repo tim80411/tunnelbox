@@ -61,7 +61,8 @@ export function isHostAllowed(hostHeader: string | undefined, opts: HostAllowOpt
   if (hostname.startsWith('[')) {
     // Bracketed IPv6: "[::1]" or "[::1]:3000"
     const end = hostname.indexOf(']')
-    hostname = end > 0 ? hostname.slice(1, end) : hostname.slice(1)
+    if (end <= 0) return false // malformed bracketed host — reject rather than fall through to allow
+    hostname = hostname.slice(1, end)
   } else {
     // Strip a trailing ":port"
     hostname = hostname.replace(/:\d+$/, '')

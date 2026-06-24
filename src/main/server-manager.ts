@@ -1,4 +1,5 @@
 import http from 'node:http'
+import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
 import handler from 'serve-handler'
@@ -396,9 +397,23 @@ export class ServerManager {
             return
           }
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-            fs.createReadStream(filePath).pipe(res)
-            return
+            // resolveWithinRoot is purely string-based, so a symlink inside the
+            // folder could still point outside it. Resolve real paths and
+            // re-check containment before streaming. (TIM-225, symlink escape)
+            try {
+              const realFile = fs.realpathSync(filePath)
+              const realRoot = fs.realpathSync(site.folderPath)
+              if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) {
+                res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+                res.end('Forbidden: path traversal')
+                return
+              }
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+              fs.createReadStream(realFile).pipe(res)
+              return
+            } catch {
+              // realpath failed (race / vanished) — fall through to serve-handler
+            }
           }
         }
       }
