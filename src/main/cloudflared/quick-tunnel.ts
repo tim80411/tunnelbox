@@ -5,6 +5,8 @@ import { createLogger } from '../logger'
 import type { TunnelInfo } from '../../shared/types'
 import { waitForTunnelReady } from './tunnel-readiness'
 import { translateCloudflaredError } from './error-translator'
+import { ReconnectWindow } from './reconnect-window'
+import { StderrRingBuffer } from './stderr-ring-buffer'
 
 const log = createLogger('QuickTunnel')
 
@@ -14,22 +16,130 @@ const activeTunnels: Map<string, TunnelInfo> = new Map()
 /** Track port per site for reconnect */
 const sitePorts: Map<string, number> = new Map()
 
-/** Track reconnect attempts per site */
-const reconnectAttempts: Map<string, number> = new Map()
+/** Sliding-window reconnect limiter per site (TIM-222) */
+const reconnectWindows: Map<string, ReconnectWindow> = new Map()
+
+/** Ring buffer of recent stderr lines per site, for diagnostics (TIM-222) */
+const stderrBuffers: Map<string, StderrRingBuffer> = new Map()
+
+/** Timestamp (ms) of the most recent translated stderr error per running site (TIM-222) */
+const lastStderrErrorAt: Map<string, number> = new Map()
+
+/** Stuck-detection timers per site (TIM-222) */
+const stuckTimers: Map<string, ReturnType<typeof setInterval>> = new Map()
 
 /** Track readiness probe abort controllers */
 const readinessAbortControllers: Map<string, AbortController> = new Map()
 
-const MAX_RECONNECT_ATTEMPTS = 3
+/** Bounded retries for the initial start handshake (distinct from the runtime watchdog). */
+const MAX_START_RETRIES = 3
 const BACKOFF_BASE_MS = 2000
+
+/** Sliding-window watchdog config: 5 reconnects within 60s trips a 60s cooldown. */
+const MAX_RECONNECT_ATTEMPTS = 5
+const RECONNECT_WINDOW_MS = 60_000
+const RECONNECT_COOLDOWN_MS = 60_000
+
+/**
+ * Stuck detection: if cloudflared keeps logging errors for this long while the
+ * tunnel is supposed to be up (without the process exiting), we proactively
+ * recycle it to force a clean reconnect.
+ */
+const STUCK_ERROR_THRESHOLD_MS = 30_000
+const STUCK_CHECK_INTERVAL_MS = 5_000
 
 /** Regex to match the quick tunnel URL from cloudflared stderr */
 const TUNNEL_URL_REGEX = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/
 
 let processManager: ProcessManager
 
+/** Get (or lazily create) the sliding-window reconnect limiter for a site. */
+function getWindow(siteId: string): ReconnectWindow {
+  let w = reconnectWindows.get(siteId)
+  if (!w) {
+    w = new ReconnectWindow({
+      maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      windowMs: RECONNECT_WINDOW_MS,
+      cooldownMs: RECONNECT_COOLDOWN_MS,
+      backoffBaseMs: BACKOFF_BASE_MS,
+    })
+    reconnectWindows.set(siteId, w)
+  }
+  return w
+}
+
+/** Get (or lazily create) the stderr ring buffer for a site. */
+function getStderrBuffer(siteId: string): StderrRingBuffer {
+  let b = stderrBuffers.get(siteId)
+  if (!b) {
+    b = new StderrRingBuffer(50)
+    stderrBuffers.set(siteId, b)
+  }
+  return b
+}
+
+/**
+ * Snapshot of the last ~50 stderr lines for a site, for surfacing in
+ * diagnostics / logs (TIM-222). Returns an empty string if nothing buffered.
+ */
+export function getStderrSnapshot(siteId: string): string {
+  return stderrBuffers.get(siteId)?.snapshot() ?? ''
+}
+
+/** Stop the stuck-detection watchdog timer for a site. */
+function clearStuckTimer(siteId: string): void {
+  const t = stuckTimers.get(siteId)
+  if (t) {
+    clearInterval(t)
+    stuckTimers.delete(siteId)
+  }
+  lastStderrErrorAt.delete(siteId)
+}
+
+/**
+ * Start a stuck-detection watchdog: while the tunnel is supposed to be up but
+ * cloudflared keeps emitting errors without exiting for STUCK_ERROR_THRESHOLD_MS,
+ * proactively recycle the process to force a clean reconnect.
+ */
+function startStuckWatchdog(siteId: string): void {
+  clearStuckTimer(siteId)
+  const timer = setInterval(() => {
+    const tunnel = activeTunnels.get(siteId)
+    if (!tunnel || (tunnel.status !== 'running' && tunnel.status !== 'verifying')) return
+
+    const lastErr = lastStderrErrorAt.get(siteId)
+    if (lastErr === undefined) return
+
+    if (Date.now() - lastErr >= STUCK_ERROR_THRESHOLD_MS) {
+      log.warn(`Quick tunnel ${siteId} appears stuck (prolonged stderr errors, no exit) — recycling`)
+      lastStderrErrorAt.delete(siteId)
+      // Killing the process triggers the exit handler, which routes to reconnect.
+      processManager.kill(`quick-tunnel-${siteId}`)
+    }
+  }, STUCK_CHECK_INTERVAL_MS)
+  stuckTimers.set(siteId, timer)
+}
+
 export function initQuickTunnel(pm: ProcessManager): void {
   processManager = pm
+
+  // Capture stderr into the ring buffer and track prolonged-error timing.
+  pm.on('stderr', (id: string, data: string) => {
+    if (!id.startsWith('quick-tunnel-')) return
+    const siteId = id.replace('quick-tunnel-', '')
+    getStderrBuffer(siteId).push(data)
+
+    // Track timing of recognised errors so the stuck watchdog can fire.
+    if (translateCloudflaredError(data).matched) {
+      const tunnel = activeTunnels.get(siteId)
+      if (tunnel && (tunnel.status === 'running' || tunnel.status === 'verifying')) {
+        if (!lastStderrErrorAt.has(siteId)) lastStderrErrorAt.set(siteId, Date.now())
+      }
+    } else if (data.match(TUNNEL_URL_REGEX) || data.includes('Registered tunnel connection')) {
+      // Healthy signal — clear any pending stuck timer state.
+      lastStderrErrorAt.delete(siteId)
+    }
+  })
 
   // Listen for process exits to handle reconnect or update state
   pm.on('exit', (id: string, code: number | null) => {
@@ -41,6 +151,7 @@ export function initQuickTunnel(pm: ProcessManager): void {
     // Cancel any in-flight readiness probe
     readinessAbortControllers.get(siteId)?.abort()
     readinessAbortControllers.delete(siteId)
+    lastStderrErrorAt.delete(siteId)
 
     // If explicitly stopped, don't reconnect
     if (tunnel.status === 'stopped') return
@@ -48,17 +159,29 @@ export function initQuickTunnel(pm: ProcessManager): void {
     // Still in initial start phase — let startQuickTunnel's handler deal with it
     if (tunnel.status === 'starting') return
 
-    // Unexpected exit with non-zero code -> attempt reconnect
+    // Unexpected exit with non-zero code -> attempt reconnect (sliding window)
     if (code !== 0 && code !== null) {
-      const attempts = reconnectAttempts.get(siteId) || 0
-      if (attempts < MAX_RECONNECT_ATTEMPTS) {
-        attemptReconnect(siteId)
-      } else {
+      const win = getWindow(siteId)
+      const now = Date.now()
+
+      // Still cooling down from a previous trip — stay in error, don't retry yet.
+      if (win.isInCooldown(now)) {
         tunnel.status = 'error'
-        tunnel.errorMessage = 'Tunnel 已斷線，請手動重新啟動'
-        reconnectAttempts.delete(siteId)
+        tunnel.errorMessage = 'Tunnel 連續斷線過於頻繁，已暫停自動重連，請稍後手動重新啟動'
         broadcastTunnelStatus(siteId, tunnel)
+        return
       }
+
+      // Too many reconnects inside the window -> trip to error + start cooldown.
+      if (win.shouldTrip(now)) {
+        win.startCooldown(now)
+        tunnel.status = 'error'
+        tunnel.errorMessage = 'Tunnel 連續斷線過於頻繁，已暫停自動重連，請稍後手動重新啟動'
+        broadcastTunnelStatus(siteId, tunnel)
+        return
+      }
+
+      attemptReconnect(siteId)
     } else {
       tunnel.status = 'stopped'
       broadcastTunnelStatus(siteId, tunnel)
@@ -72,13 +195,16 @@ function parseErrorMessage(stderrData: string): string | null {
   return translated.matched ? translated.human : null
 }
 
-/** Attempt to reconnect a tunnel with exponential backoff */
+/** Attempt to reconnect a tunnel with exponential backoff (sliding-window limited) */
 async function attemptReconnect(siteId: string): Promise<void> {
   const port = sitePorts.get(siteId)
   if (!port) return
 
-  const attempts = (reconnectAttempts.get(siteId) || 0) + 1
-  reconnectAttempts.set(siteId, attempts)
+  const win = getWindow(siteId)
+  const now = Date.now()
+  const delay = win.backoffDelay(now)
+  win.recordAttempt(now)
+  const attempts = win.attemptCount(now)
 
   const tunnel = activeTunnels.get(siteId)
   if (tunnel) {
@@ -87,8 +213,7 @@ async function attemptReconnect(siteId: string): Promise<void> {
     broadcastTunnelStatus(siteId, tunnel)
   }
 
-  const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
-  log.info(`Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
+  log.info(`Reconnecting ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS} in window) in ${delay}ms`)
 
   await new Promise((resolve) => setTimeout(resolve, delay))
 
@@ -118,7 +243,8 @@ function startReadinessProbe(siteId: string, url: string): void {
       if (current && current.status === 'verifying') {
         current.status = 'running'
         current.warningMessage = undefined
-        reconnectAttempts.delete(siteId)
+        getWindow(siteId).reset()
+        startStuckWatchdog(siteId)
         broadcastTunnelStatus(siteId, current)
       }
     })
@@ -128,7 +254,8 @@ function startReadinessProbe(siteId: string, url: string): void {
       if (current && current.status === 'verifying') {
         current.status = 'running' // Fall through to running even if probe times out
         current.warningMessage = '本機 DNS 可能有快取問題，若無法開啟網址，請清除 DNS 快取後重試'
-        reconnectAttempts.delete(siteId)
+        getWindow(siteId).reset()
+        startStuckWatchdog(siteId)
         broadcastTunnelStatus(siteId, current)
       }
     })
@@ -193,7 +320,8 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
   }
   activeTunnels.set(siteId, tunnelInfo)
   sitePorts.set(siteId, port)
-  reconnectAttempts.delete(siteId)
+  getWindow(siteId).reset()
+  getStderrBuffer(siteId).clear()
   broadcastTunnelStatus(siteId, tunnelInfo)
 
   return new Promise<string>((resolve, reject) => {
@@ -240,11 +368,11 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
     const onExit = (id: string, code: number | null): void => {
       if (id !== processId) return
 
-      // Transient failure — retry with backoff
-      if (code !== 0 && code !== null && attempts < MAX_RECONNECT_ATTEMPTS) {
+      // Transient failure during the initial start handshake — retry with backoff
+      if (code !== 0 && code !== null && attempts < MAX_START_RETRIES) {
         attempts++
         const delay = BACKOFF_BASE_MS * Math.pow(2, attempts - 1)
-        log.info(`Start failed, retrying ${siteId} (attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS}) in ${delay}ms`)
+        log.info(`Start failed, retrying ${siteId} (attempt ${attempts}/${MAX_START_RETRIES}) in ${delay}ms`)
         tunnelInfo.status = 'starting'
         tunnelInfo.errorMessage = undefined
         broadcastTunnelStatus(siteId, tunnelInfo)
@@ -317,6 +445,9 @@ export function stopQuickTunnel(siteId: string): void {
   readinessAbortControllers.get(siteId)?.abort()
   readinessAbortControllers.delete(siteId)
 
+  // Stop the stuck-detection watchdog for this site.
+  clearStuckTimer(siteId)
+
   const processId = `quick-tunnel-${siteId}`
   const tunnel = activeTunnels.get(siteId)
 
@@ -327,7 +458,8 @@ export function stopQuickTunnel(siteId: string): void {
   processManager.kill(processId)
   activeTunnels.delete(siteId)
   sitePorts.delete(siteId)
-  reconnectAttempts.delete(siteId)
+  reconnectWindows.delete(siteId)
+  stderrBuffers.delete(siteId)
   broadcastTunnelStatus(siteId, null)
 }
 
