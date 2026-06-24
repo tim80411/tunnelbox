@@ -52,13 +52,28 @@ jobs:
         run: pnpm build
 
       - name: Build & Publish to GitHub Releases
+        id: publish
         shell: bash
+        # TIM-219: conditional macOS signing.
+        # Default behaviour for the mac matrix leg is now to SIGN + NOTARIZE
+        # (package.json already sets hardenedRuntime:true, notarize:true). We only
+        # fall back to the unsigned path when the signing secrets are MISSING,
+        # instead of the previous always-degrade behaviour.
         run: |
           EXTRA_ARGS=""
-          if [ "${{ matrix.platform }}" = "mac" ] && [ -z "$CSC_LINK" ]; then
-            echo "No macOS signing credentials found — building unsigned artifacts."
-            EXTRA_ARGS="-c.mac.identity=null -c.mac.notarize=false -c.mac.hardenedRuntime=false"
-            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            if [ -n "$CSC_LINK" ] && [ -n "$CSC_KEY_PASSWORD" ] && \
+               [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+              echo "macOS signing credentials present — building SIGNED + NOTARIZED artifacts."
+              # Let electron-builder auto-discover the imported identity from CSC_LINK.
+              export CSC_IDENTITY_AUTO_DISCOVERY=true
+              echo "signed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "macOS signing credentials missing — falling back to UNSIGNED artifacts."
+              EXTRA_ARGS="-c.mac.identity=null -c.mac.notarize=false -c.mac.hardenedRuntime=false"
+              export CSC_IDENTITY_AUTO_DISCOVERY=false
+              echo "signed=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
           pnpm dist:${{ matrix.platform }} --publish always $EXTRA_ARGS
         env:
@@ -70,3 +85,38 @@ jobs:
           APPLE_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_ID || '' }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_TEAM_ID || '' }}
+
+      # TIM-219: staple verification + best-effort DMG staple.
+      #
+      # electron-builder (via @electron/notarize) staples the notarization ticket
+      # to the .app DURING packaging, BEFORE the .dmg is assembled — so the app
+      # inside every distributed .dmg is already stapled. That is what Gatekeeper
+      # checks when the user launches the app, so the critical staple is handled.
+      #
+      # This step (a) VALIDATES that auto-staple actually happened (a clear signal
+      # that notarization succeeded), and (b) additionally staples the local .dmg
+      # container for completeness. NOTE: `--publish always` above already uploaded
+      # the assets, so a post-publish DMG staple does NOT modify the released file
+      # — it only proves the local build is staple-clean. To ship a staple-on-the-
+      # container .dmg you would split build (no publish) → staple → publish; the
+      # app-level staple makes that unnecessary in practice. Non-fatal by design.
+      - name: Verify/staple notarization ticket (macOS, signed builds only)
+        if: ${{ matrix.platform == 'mac' && steps.publish.outputs.signed == 'true' }}
+        shell: bash
+        run: |
+          set +e
+          shopt -s nullglob
+          # Validate the auto-stapled .app (this is the staple that matters).
+          for appBundle in dist/mac*/TunnelBox.app; do
+            echo "Validating staple on $appBundle"
+            xcrun stapler validate "$appBundle" \
+              || echo "::warning title=Stapler::$appBundle is not stapled — check notarization logs."
+          done
+          # Best-effort staple of the local .dmg container (does not alter the
+          # already-published asset; see step comment).
+          for dmg in dist/*.dmg; do
+            echo "Stapling $dmg (best-effort)"
+            xcrun stapler staple "$dmg" \
+              && xcrun stapler validate "$dmg" \
+              || echo "::warning title=Stapler::Could not staple $dmg (this is non-fatal)."
+          done
