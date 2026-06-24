@@ -122,6 +122,13 @@ export function registerIpcHandlers(
   }
 
   function recordTunnelStart(server: SiteServer, tunnelUrl: string, providerType: string): void {
+    // TIM-225: allow this tunnel's public hostname past the static Host guard.
+    try {
+      const host = new URL(tunnelUrl).hostname
+      if (host) serverManager.registerTunnelHost(server.id, host)
+    } catch {
+      // tunnelUrl isn't a parseable absolute URL — nothing to register.
+    }
     shareHistoryStore.startRecord(
       { id: server.id, name: server.name, sitePath: getSitePath(server) },
       tunnelUrl,
@@ -131,6 +138,7 @@ export function registerIpcHandlers(
   }
 
   function recordTunnelEnd(siteId: string): void {
+    serverManager.unregisterTunnelHost(siteId) // TIM-225
     shareHistoryStore.endRecord(siteId)
     broadcastShareHistoryChanged()
   }
@@ -251,6 +259,19 @@ export function registerIpcHandlers(
     const cleanTags = [...new Set(tags.map((t: string) => t.trim()).filter((t: string) => t.length > 0))]
     siteStore.updateSite(siteId, { tags: cleanTags })
     broadcastSiteUpdate()
+  })
+
+  // TIM-229: set per-site custom watch-ignore globs (applied live if running).
+  ipcMain.handle('set-site-ignore', async (_event, siteId: string, ignore: string[]) => {
+    const clean = [...new Set((ignore || []).map((g: string) => g.trim()).filter((g: string) => g.length > 0))]
+    siteStore.setSiteIgnore(siteId, clean)
+    serverManager.restartWatcher(siteId, clean)
+    broadcastSiteUpdate()
+  })
+
+  // TIM-224: manual watcher restart (renderer-driven recovery).
+  ipcMain.handle('restart-watcher', async (_event, siteId: string) => {
+    return serverManager.restartWatcher(siteId)
   })
 
   ipcMain.handle('get-sites', async () => {
@@ -795,6 +816,14 @@ export function registerIpcHandlers(
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       win.webContents.send('file-changed', siteId)
+    }
+  })
+
+  // --- Watcher Health Forwarding (TIM-224) ---
+
+  serverManager.onWatcherUnhealthy((siteId) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('watcher-unhealthy', siteId)
     }
   })
 

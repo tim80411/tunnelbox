@@ -443,6 +443,28 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('update-site-tags', siteId, tags)
   },
 
+  // --- Watch ignore (TIM-229) ---
+
+  setSiteIgnore: (siteId: string, ignore: string[]): Promise<void> => {
+    return ipcRenderer.invoke('set-site-ignore', siteId, ignore)
+  },
+
+  // --- Watcher health (TIM-224) ---
+
+  restartWatcher: (siteId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('restart-watcher', siteId)
+  },
+
+  onWatcherUnhealthy: (callback: (siteId: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, siteId: string): void => {
+      callback(siteId)
+    }
+    ipcRenderer.on('watcher-unhealthy', handler)
+    return () => {
+      ipcRenderer.removeListener('watcher-unhealthy', handler)
+    }
+  },
+
   // --- Dashboard ---
 
   generateDashboard: (): Promise<{ siteId: string } | null> => {

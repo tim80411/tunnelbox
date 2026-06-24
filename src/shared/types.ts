@@ -25,6 +25,7 @@ interface BaseSiteInfo {
 export interface StaticSiteInfo extends BaseSiteInfo {
   serveMode: 'static'
   folderPath: string
+  ignore?: string[] // TIM-229: per-site custom watch-ignore globs
 }
 
 export interface ProxySiteInfo extends BaseSiteInfo {
@@ -128,6 +129,7 @@ export interface StoredStaticSite {
   defaultDomain?: string // pre-configured domain for one-click named tunnel
   tags?: string[]
   cloudflareAccountId?: string | null
+  ignore?: string[] // TIM-229: per-site custom watch-ignore globs (added to the defaults)
 }
 
 export interface StoredProxySite {
@@ -418,6 +420,13 @@ export interface ElectronAPI {
 
   // Site Tags
   updateSiteTags: (siteId: string, tags: string[]) => Promise<void>
+
+  // Per-site watch ignore (TIM-229)
+  setSiteIgnore: (siteId: string, ignore: string[]) => Promise<void>
+
+  // Watcher health (TIM-224)
+  restartWatcher: (siteId: string) => Promise<boolean>
+  onWatcherUnhealthy: (callback: (siteId: string) => void) => () => void
 
   // Dashboard
   generateDashboard: () => Promise<{ siteId: string } | null>

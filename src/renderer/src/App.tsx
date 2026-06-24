@@ -56,6 +56,8 @@ function App(): React.ReactElement {
 
   // Panel state
   const [showSettings, setShowSettings] = useState(false)
+  // TIM-224: static sites whose file watcher was detected unhealthy (live reload paused).
+  const [unhealthyWatchers, setUnhealthyWatchers] = useState<Set<string>>(() => new Set())
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showShareHistory, setShowShareHistory] = useState(false)
   const [consoleForSiteId, setConsoleForSiteId] = useState<string | null>(null)
@@ -104,8 +106,20 @@ function App(): React.ReactElement {
       setSites(updatedSites)
     })
 
-    const unsubFiles = window.electron.onFileChanged(() => {
+    const unsubFiles = window.electron.onFileChanged((siteId) => {
       // File change events are handled by WebSocket hot reload on the browser side.
+      // A delivered event also proves the watcher is alive again — clear any
+      // stale "unhealthy" flag for this site (TIM-224).
+      setUnhealthyWatchers((prev) => {
+        if (!prev.has(siteId)) return prev
+        const next = new Set(prev)
+        next.delete(siteId)
+        return next
+      })
+    })
+
+    const unsubWatcher = window.electron.onWatcherUnhealthy?.((siteId) => {
+      setUnhealthyWatchers((prev) => new Set(prev).add(siteId))
     })
 
     const unsubTunnel = window.electron.onTunnelStatusChanged?.((siteId, tunnel) => {
@@ -128,11 +142,25 @@ function App(): React.ReactElement {
     return () => {
       unsubSites()
       unsubFiles()
+      unsubWatcher?.()
       unsubTunnel?.()
       unsubAuth?.()
       unsubCfAccounts?.()
     }
   }, [loadSites])
+
+  const handleRestartWatcher = useCallback(async (siteId: string) => {
+    try {
+      await window.electron.restartWatcher?.(siteId)
+    } finally {
+      setUnhealthyWatchers((prev) => {
+        if (!prev.has(siteId)) return prev
+        const next = new Set(prev)
+        next.delete(siteId)
+        return next
+      })
+    }
+  }, [])
 
   const openAddModal = useCallback(() => {
     setNewSiteName('')
@@ -786,6 +814,8 @@ function App(): React.ReactElement {
                 selectedRequestEntry={selectedRequestEntry}
                 onSelectRequestEntry={setSelectedRequestEntry}
                 onClearRequestLog={clearRequestLog}
+                watcherUnhealthy={unhealthyWatchers.has(detailSite.id)}
+                onRestartWatcher={() => handleRestartWatcher(detailSite.id)}
               />
             ) : detailSite ? (
               <SiteDetailEmpty variant="stopped" siteName={detailSite.name} onStart={() => handleStartServer(detailSite.id)} />

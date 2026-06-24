@@ -46,6 +46,9 @@ interface Props {
   selectedRequestEntry: RequestLogEntry | null
   onSelectRequestEntry: (e: RequestLogEntry | null) => void
   onClearRequestLog: () => void
+  // watcher health (static sites) — TIM-224
+  watcherUnhealthy?: boolean
+  onRestartWatcher?: () => void
 }
 
 const CopyMini = (
@@ -136,6 +139,14 @@ function SiteDetail(props: Props): React.ReactElement {
       </div>
 
       <div className="detail-body">
+        {site.serveMode === 'static' && props.watcherUnhealthy && (
+          <div className="watcher-warn" role="status">
+            <span>即時重新載入已停止（檔案監看中斷，已嘗試自動恢復）。</span>
+            {props.onRestartWatcher && (
+              <button className="btn btn-sm" onClick={props.onRestartWatcher}>重新啟動監看</button>
+            )}
+          </div>
+        )}
         <div>
           <div className="section-label">觸達通道 · Reach</div>
           <div className="dreach">
