@@ -99,8 +99,19 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
     expect(isHostAllowed('evil.example.com:3001', local)).toBe(false)
   })
 
-  it('allows a missing Host header (HTTP/1.0 / non-rebinding clients)', () => {
-    expect(isHostAllowed(undefined, local)).toBe(true)
+  it('allows a missing Host header only when LAN sharing is OFF (TIM-318 / F28)', () => {
+    // localhost-only: HTTP/1.0 / curl without a Host is fine (not a rebinding vector).
+    expect(isHostAllowed(undefined, lanOff)).toBe(true)
+    expect(isHostAllowed('', lanOff)).toBe(true)
+    // LAN mode on: a Host-less raw client could reach the LAN-exposed server, so
+    // reject it (browsers always send Host, so legit access is unaffected).
+    expect(isHostAllowed(undefined, local)).toBe(false)
+    expect(isHostAllowed('', local)).toBe(false)
+  })
+
+  it('no longer allows 0.0.0.0 as a Host (TIM-318 / F33)', () => {
+    expect(isHostAllowed('0.0.0.0', local)).toBe(false)
+    expect(isHostAllowed('0.0.0.0:3001', lanOff)).toBe(false)
   })
 
   it('rejects a malformed bracketed host (unclosed bracket)', () => {

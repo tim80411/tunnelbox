@@ -21,6 +21,7 @@ import { initRequestLogger } from './request-logger'
 import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import { isAllowedExternalUrl, isInternalUrl } from './navigation-policy'
+import { SECURE_WEB_PREFERENCES } from './window-config'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
 import { registerTierGateIpc } from './license/tier-gate-ipc'
@@ -53,7 +54,9 @@ function createWindow(): void {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: true
+      // TIM-318 (F31): declare the isolation flags explicitly rather than
+      // relying on Electron's secure defaults, so an upgrade/edit can't weaken them.
+      ...SECURE_WEB_PREFERENCES
     }
   })
 

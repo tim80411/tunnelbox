@@ -61,11 +61,14 @@ export interface HostAllowOptions {
  */
 export function isHostAllowed(hostHeader: string | undefined, opts: HostAllowOptions): boolean {
   // HTTP/1.0 and some tooling omit Host entirely; that is not the rebinding
-  // vector (rebinding always carries a forged Host), so don't break them.
-  if (!hostHeader) return true
+  // vector (rebinding always carries a forged Host), so don't break them when
+  // bound to localhost only. In LAN mode the server is reachable by other
+  // hosts, so a Host-less raw client is refused — browsers always send Host,
+  // so legitimate access is unaffected. (TIM-318, F28)
+  if (!hostHeader) return !opts.lanEnabled
 
   let hostname = hostHeader.trim().toLowerCase()
-  if (!hostname) return true
+  if (!hostname) return !opts.lanEnabled
 
   if (hostname.startsWith('[')) {
     // Bracketed IPv6: "[::1]" or "[::1]:3000"
@@ -78,7 +81,10 @@ export function isHostAllowed(hostHeader: string | undefined, opts: HostAllowOpt
   }
 
   if (hostname === 'localhost' || hostname.endsWith('.localhost')) return true
-  if (hostname === '::1' || hostname === '0.0.0.0') return true
+  // Note: 0.0.0.0 is deliberately NOT allowed as a Host — it is a bind wildcard,
+  // never a legitimate request Host, and some stacks resolve it to loopback
+  // ("0.0.0.0-day"). (TIM-318, F33)
+  if (hostname === '::1') return true
   if (hostname.startsWith('127.')) return true
   // LAN IPs only when this site opted into LAN sharing (TIM-225 secure default).
   if (opts.lanEnabled && opts.localIps.has(hostname)) return true
