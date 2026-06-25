@@ -3,7 +3,7 @@ import https from 'node:https'
 import net from 'node:net'
 import tls from 'node:tls'
 import { createLogger } from './logger'
-import { acquireConnection, releaseConnection } from './rate-limiter'
+import { acquireConnection, releaseConnection, acquireGlobalConnection, releaseGlobalConnection } from './rate-limiter'
 
 const log = createLogger('ProxyServer')
 
@@ -118,6 +118,9 @@ function isValidWebSocketUpgrade(req: http.IncomingMessage): boolean {
 /** Maximum concurrent connections per proxy target. */
 const MAX_CONNECTIONS_PER_TARGET = 100
 
+/** Default cap on concurrent connections across ALL proxy targets (DoS guard, TIM-315 F17). */
+const MAX_GLOBAL_CONNECTIONS = 500
+
 export interface ProxyServerOptions {
   /**
    * DNS-rebinding Host guard (TIM-315). Receives the request's `Host` header;
@@ -127,6 +130,11 @@ export interface ProxyServerOptions {
    * brings the proxy path to parity (it was previously unguarded).
    */
   isHostAllowed?: (hostHeader: string | undefined) => boolean
+  /**
+   * Cap on concurrent connections across ALL proxy targets (TIM-315 F17).
+   * Defaults to MAX_GLOBAL_CONNECTIONS. Mainly an injection point for tests.
+   */
+  maxGlobalConnections?: number
 }
 
 /**
@@ -163,6 +171,7 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
   }
 
   const connectionKey = `proxy:${target}`
+  const maxGlobal = serverOptions.maxGlobalConnections ?? MAX_GLOBAL_CONNECTIONS
 
   function error503(res: http.ServerResponse): void {
     if (!res.headersSent) {
@@ -190,15 +199,28 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
       return
     }
 
-    // Enforce concurrent connection limit per proxy target
+    // TIM-315 (F17): cap concurrent connections globally (across all targets)
+    // first, then per-target; roll back the global slot if the per-target cap
+    // rejects. Release both exactly once (guarded) when the response ends.
+    if (!acquireGlobalConnection(maxGlobal)) {
+      log.warn(`Global proxy connection limit (${maxGlobal}) reached`)
+      error503(clientRes)
+      return
+    }
     if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
+      releaseGlobalConnection()
       log.warn(`Connection limit reached for proxy target ${target}`)
       error503(clientRes)
       return
     }
 
-    // Release the connection slot when the response finishes or errors
-    const release = (): void => { releaseConnection(connectionKey) }
+    let released = false
+    const release = (): void => {
+      if (released) return
+      released = true
+      releaseConnection(connectionKey)
+      releaseGlobalConnection()
+    }
     clientRes.on('close', release)
     clientRes.on('error', release)
 
@@ -281,8 +303,16 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
       return
     }
 
-    // Enforce concurrent connection limit for WS upgrades too
+    // TIM-315 (F17): global cap first, then per-target, for WS upgrades too.
+    if (!acquireGlobalConnection(maxGlobal)) {
+      log.warn(`Global proxy connection limit (${maxGlobal}) reached (WS upgrade)`)
+      const sock = clientSocket as net.Socket
+      sock.write('HTTP/1.1 503 Service Unavailable\r\n\r\n')
+      sock.destroy()
+      return
+    }
     if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
+      releaseGlobalConnection()
       log.warn(`Connection limit reached (WS upgrade) for proxy target ${target}`)
       const sock = clientSocket as net.Socket
       sock.write('HTTP/1.1 503 Service Unavailable\r\n\r\n')
@@ -290,7 +320,13 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
       return
     }
 
-    const releaseWs = (): void => { releaseConnection(connectionKey) }
+    let wsReleased = false
+    const releaseWs = (): void => {
+      if (wsReleased) return
+      wsReleased = true
+      releaseConnection(connectionKey)
+      releaseGlobalConnection()
+    }
     ;(clientSocket as net.Socket).on('close', releaseWs)
 
     const targetPath = targetBasePath + (clientReq.url || '/')

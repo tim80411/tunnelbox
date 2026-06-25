@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 vi.mock('electron', () => ({ app: { isPackaged: true } }))
 
 import { createProxyServer } from '@/main/proxy-server'
+import { getGlobalConnectionCount } from '@/main/rate-limiter'
 
 function listen(server: http.Server): Promise<number> {
   return new Promise((resolve) => {
@@ -104,6 +105,38 @@ describe('createProxyServer https upstream (TIM-318 / F16)', () => {
     const { status, body } = await get(proxyPort, '127.0.0.1')
     expect(status).toBe(200)
     expect(body).toBe('secure-ok')
+  })
+})
+
+describe('createProxyServer global connection cap (TIM-315 / F17)', () => {
+  const closers: Array<() => void> = []
+  afterEach(() => { closers.forEach((c) => c()); closers.length = 0 })
+
+  it('rejects with 503 once the global connection cap is reached', async () => {
+    const held: http.ServerResponse[] = []
+    let resolveHit!: () => void
+    const hit = new Promise<void>((r) => { resolveHit = r })
+    const upstream = http.createServer((_req, res) => {
+      held.push(res) // hold the response open (occupies the global slot)
+      resolveHit()
+    })
+    closers.push(() => { held.forEach((r) => { try { r.end() } catch { /* noop */ } }); upstream.close() })
+    const upPort = await listen(upstream)
+
+    // Base the cap on the live global count so the test is robust to cross-test drift.
+    const limit = getGlobalConnectionCount() + 1
+    const proxy = createProxyServer(`http://127.0.0.1:${upPort}`, { isHostAllowed: () => true, maxGlobalConnections: limit })
+    closers.push(() => proxy.close())
+    const proxyPort = await listen(proxy)
+
+    const conn1 = get(proxyPort, '127.0.0.1') // occupies the last global slot; upstream holds it open
+    await hit // upstream received conn1 → global slot is now held
+
+    const { status } = await get(proxyPort, '127.0.0.1')
+    expect(status).toBe(503)
+
+    held.forEach((r) => r.end('ok')) // release conn1
+    await conn1
   })
 })
 
