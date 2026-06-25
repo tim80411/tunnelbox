@@ -5,6 +5,7 @@ import {
   extractPort,
   isPrivilegedPort,
   getProxyTargetWarnings,
+  classifyProxyHost,
   PORT_MIN,
   PORT_MAX,
   PRIVILEGED_PORT_THRESHOLD,
@@ -149,5 +150,53 @@ describe('getProxyTargetWarnings', () => {
 
   it('returns no warnings for invalid URLs', () => {
     expect(getProxyTargetWarnings('not-a-url')).toHaveLength(0)
+  })
+
+  it('warns about cloud-metadata / link-local targets (SSRF — TIM-312)', () => {
+    const warnings = getProxyTargetWarnings('http://169.254.169.254')
+    expect(warnings.some((w) => w.includes('metadata') || w.includes('link-local'))).toBe(true)
+  })
+
+  it('warns about RFC1918 private targets (SSRF — TIM-312)', () => {
+    expect(getProxyTargetWarnings('http://192.168.1.1:8080').some((w) => w.includes('內網'))).toBe(true)
+    expect(getProxyTargetWarnings('http://10.0.0.5:3000').some((w) => w.includes('內網'))).toBe(true)
+  })
+
+  it('does NOT add an SSRF warning for loopback (localhost proxying is the core use case)', () => {
+    // localhost:3000 must stay warning-free; 127.0.0.1:3000 likewise.
+    expect(getProxyTargetWarnings('http://localhost:3000')).toHaveLength(0)
+    expect(getProxyTargetWarnings('http://127.0.0.1:3000')).toHaveLength(0)
+  })
+})
+
+describe('classifyProxyHost (SSRF host classification — TIM-312)', () => {
+  it('classifies loopback', () => {
+    expect(classifyProxyHost('localhost')).toBe('loopback')
+    expect(classifyProxyHost('app.localhost')).toBe('loopback')
+    expect(classifyProxyHost('127.0.0.1')).toBe('loopback')
+    expect(classifyProxyHost('127.0.0.53')).toBe('loopback')
+    expect(classifyProxyHost('::1')).toBe('loopback')
+  })
+
+  it('classifies cloud-metadata / link-local', () => {
+    expect(classifyProxyHost('169.254.169.254')).toBe('link-local')
+    expect(classifyProxyHost('169.254.0.1')).toBe('link-local')
+    expect(classifyProxyHost('metadata.google.internal')).toBe('link-local')
+    expect(classifyProxyHost('fe80::1')).toBe('link-local')
+  })
+
+  it('classifies RFC1918 / ULA private', () => {
+    expect(classifyProxyHost('10.0.0.1')).toBe('private')
+    expect(classifyProxyHost('192.168.1.1')).toBe('private')
+    expect(classifyProxyHost('172.16.0.1')).toBe('private')
+    expect(classifyProxyHost('172.31.255.255')).toBe('private')
+    expect(classifyProxyHost('fd00::1')).toBe('private')
+  })
+
+  it('does not misclassify public-range neighbours of the private blocks', () => {
+    expect(classifyProxyHost('172.15.0.1')).toBe('public')
+    expect(classifyProxyHost('172.32.0.1')).toBe('public')
+    expect(classifyProxyHost('11.0.0.1')).toBe('public')
+    expect(classifyProxyHost('example.com')).toBe('public')
   })
 })
