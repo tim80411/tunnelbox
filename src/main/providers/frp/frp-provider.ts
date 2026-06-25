@@ -15,6 +15,7 @@ import { detectFrpc } from './detector'
 import { installFrpc } from './installer'
 import { getFrpConfig } from './frp-config-store'
 import { findBinary } from './detector'
+import { tomlBasicString } from './toml'
 import { createLogger } from '../../logger'
 
 const log = createLogger('FrpProvider')
@@ -248,7 +249,9 @@ export class FrpProvider implements TunnelProvider {
     remotePort?: number
   ): string {
     const lines: string[] = [
-      `serverAddr = "${serverAddr}"`,
+      // TIM-317 (F21): escape user-controlled values so they cannot break out
+      // of the quoted string and inject extra TOML keys / proxy tables.
+      `serverAddr = ${tomlBasicString(serverAddr)}`,
       `serverPort = ${serverPort}`,
     ]
 
@@ -256,7 +259,7 @@ export class FrpProvider implements TunnelProvider {
       lines.push('')
       lines.push('[auth]')
       lines.push(`method = "token"`)
-      lines.push(`token = "${authToken}"`)
+      lines.push(`token = ${tomlBasicString(authToken)}`)
     }
 
     lines.push('')
