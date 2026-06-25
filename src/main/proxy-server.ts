@@ -112,6 +112,17 @@ function isValidWebSocketUpgrade(req: http.IncomingMessage): boolean {
 /** Maximum concurrent connections per proxy target. */
 const MAX_CONNECTIONS_PER_TARGET = 100
 
+export interface ProxyServerOptions {
+  /**
+   * DNS-rebinding Host guard (TIM-315). Receives the request's `Host` header;
+   * return false to reject the request (403 for HTTP, socket destroy for WS)
+   * before any proxying happens. When omitted, no Host check is applied.
+   * The static server already guards its HTTP path via isHostAllowed; this
+   * brings the proxy path to parity (it was previously unguarded).
+   */
+  isHostAllowed?: (hostHeader: string | undefined) => boolean
+}
+
 /**
  * Create an HTTP server that reverse-proxies all requests (including WebSocket
  * upgrade) to the given target URL.
@@ -119,7 +130,7 @@ const MAX_CONNECTIONS_PER_TARGET = 100
  * Uses only Node.js built-in modules — no external proxy library.
  * The server is NOT started; the caller must call listen().
  */
-export function createProxyServer(target: string): http.Server {
+export function createProxyServer(target: string, serverOptions: ProxyServerOptions = {}): http.Server {
   const targetUrl = new URL(target)
   const isHttps = targetUrl.protocol === 'https:'
   const targetPort = targetUrl.port
@@ -163,6 +174,15 @@ export function createProxyServer(target: string): http.Server {
 
   const httpServer = http.createServer((clientReq, clientRes) => {
     const startTime = Date.now()
+
+    // TIM-315: DNS-rebinding guard on the proxy path (parity with the static
+    // server's HTTP guard). Reject unrecognized Host headers before proxying.
+    if (serverOptions.isHostAllowed && !serverOptions.isHostAllowed(clientReq.headers.host)) {
+      log.warn(`Proxy request rejected: unrecognized Host header "${clientReq.headers.host ?? '(none)'}"`)
+      clientRes.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+      clientRes.end('Forbidden: unrecognized Host header')
+      return
+    }
 
     // Enforce concurrent connection limit per proxy target
     if (!acquireConnection(connectionKey, MAX_CONNECTIONS_PER_TARGET)) {
@@ -237,6 +257,13 @@ export function createProxyServer(target: string): http.Server {
 
   // WebSocket upgrade handling
   httpServer.on('upgrade', (clientReq, clientSocket, head) => {
+    // TIM-315: same DNS-rebinding Host guard on the WS upgrade path.
+    if (serverOptions.isHostAllowed && !serverOptions.isHostAllowed(clientReq.headers.host)) {
+      log.warn(`Proxy WS upgrade rejected: unrecognized Host header "${clientReq.headers.host ?? '(none)'}"`)
+      try { (clientSocket as net.Socket).destroy() } catch { /* already destroyed */ }
+      return
+    }
+
     // TIM-80: Validate the request is actually a WebSocket upgrade
     if (!isValidWebSocketUpgrade(clientReq)) {
       log.error('Rejected non-WebSocket upgrade request')

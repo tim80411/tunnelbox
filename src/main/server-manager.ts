@@ -497,7 +497,16 @@ export class ServerManager {
   private async startProxyServer(site: { id: string; name: string; serveMode: 'proxy'; proxyTarget: string; lanMode?: boolean }): Promise<ProxySiteServer> {
     const port = await this.allocatePort()
 
-    const httpServer = createProxyServer(site.proxyTarget)
+    // TIM-315: guard the proxy path with the same DNS-rebinding allowlist as
+    // the static server. lanMode is read live so a setSiteLanMode rebind applies.
+    const httpServer = createProxyServer(site.proxyTarget, {
+      isHostAllowed: (host) =>
+        isHostAllowed(host, {
+          localIps: this.getLocalIps(),
+          tunnelHosts: this.allowedTunnelHosts.get(site.id) ?? new Set(),
+          lanEnabled: this.servers.get(site.id)?.lanMode ?? site.lanMode === true
+        })
+    })
 
     // Track visitor if request comes through tunnel
     httpServer.on('request', (req: http.IncomingMessage) => {
