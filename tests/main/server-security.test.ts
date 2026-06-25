@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import path from 'node:path'
-import { resolveWithinRoot, isHostAllowed } from '../../src/main/server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed } from '../../src/main/server-security'
 
 describe('resolveWithinRoot (path traversal guard)', () => {
   const root = path.resolve('/srv/site')
@@ -111,5 +111,49 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
   it('is case-insensitive on the hostname', () => {
     const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['MyApp.TryCloudflare.com'.toLowerCase()]), lanEnabled: true }
     expect(isHostAllowed('MYAPP.trycloudflare.COM', opts)).toBe(true)
+  })
+})
+
+describe('isWsUpgradeAllowed (WebSocket DNS-rebinding / CSWSH guard — TIM-311)', () => {
+  const lanOn = { localIps: new Set<string>(['192.168.1.50']), tunnelHosts: new Set<string>(), lanEnabled: true }
+  const lanOff = { localIps: new Set<string>(['192.168.1.50']), tunnelHosts: new Set<string>(), lanEnabled: false }
+  const tunnel = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['myapp.trycloudflare.com']), lanEnabled: false }
+
+  it('allows a same-origin loopback upgrade (Host allowed, Origin matches)', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'http://127.0.0.1:3001' }, lanOn)).toBe(true)
+  })
+
+  it('allows a same-origin tunnel upgrade', () => {
+    expect(
+      isWsUpgradeAllowed({ host: 'myapp.trycloudflare.com', origin: 'https://myapp.trycloudflare.com' }, tunnel)
+    ).toBe(true)
+  })
+
+  it('rejects an upgrade whose Host is not in the allowlist (DNS rebinding)', () => {
+    // attacker.com rebinds to 127.0.0.1; the Host header still carries attacker.com.
+    expect(isWsUpgradeAllowed({ host: 'attacker.com', origin: 'http://attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('rejects a cross-origin upgrade even when the Host is allowed (CSWSH)', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'http://attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('allows a Host-allowed upgrade with no Origin (non-browser client)', () => {
+    // Mirrors isHostAllowed: the Host gate still applies; absent Origin does not bypass it.
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001' }, lanOn)).toBe(true)
+  })
+
+  it('still requires the Host gate when Origin is absent', () => {
+    expect(isWsUpgradeAllowed({ host: 'attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('rejects a malformed / opaque Origin (e.g. "null") even when Host is allowed', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'null' }, lanOn)).toBe(false)
+  })
+
+  it('mirrors the LAN gate: LAN-IP upgrade allowed only when lanEnabled is true', () => {
+    const lanReq = { host: '192.168.1.50:3001', origin: 'http://192.168.1.50:3001' }
+    expect(isWsUpgradeAllowed(lanReq, lanOn)).toBe(true)
+    expect(isWsUpgradeAllowed(lanReq, lanOff)).toBe(false)
   })
 })

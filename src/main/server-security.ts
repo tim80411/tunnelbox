@@ -86,6 +86,41 @@ export function isHostAllowed(hostHeader: string | undefined, opts: HostAllowOpt
   return false
 }
 
+/**
+ * DNS-rebinding / cross-site-WebSocket-hijacking (CSWSH) guard for the WS
+ * upgrade path. The HTTP handler already runs `isHostAllowed`, but the
+ * `upgrade` handler shared the same port with no guard — a forged-Host or
+ * cross-origin `new WebSocket()` could connect where an HTTP GET is 403'd. (TIM-311)
+ *
+ * Decision:
+ * - The `Host` header must pass `isHostAllowed` (same trust boundary as HTTP).
+ * - When an `Origin` is present (browsers always send one for WS), its host
+ *   must ALSO pass `isHostAllowed`, so a cross-origin attacker page is rejected
+ *   even if it targets an allowed Host. A malformed/opaque Origin (e.g. "null")
+ *   is rejected. An absent Origin (non-browser clients) does not bypass the
+ *   Host gate — consistent with `isHostAllowed`'s missing-Host behaviour.
+ */
+export function isWsUpgradeAllowed(
+  headers: { host?: string; origin?: string },
+  opts: HostAllowOptions
+): boolean {
+  if (!isHostAllowed(headers.host, opts)) return false
+
+  const origin = headers.origin
+  if (origin) {
+    let originHost: string
+    try {
+      // URL.host keeps any ":port"; isHostAllowed strips it before matching.
+      originHost = new URL(origin).host
+    } catch {
+      return false // malformed / opaque Origin (e.g. "null") — reject
+    }
+    if (!isHostAllowed(originHost, opts)) return false
+  }
+
+  return true
+}
+
 /** Default watch-ignore globs for dev folders (TIM-229). */
 export const DEFAULT_WATCH_IGNORES: readonly string[] = [
   '**/node_modules/**',

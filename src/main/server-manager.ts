@@ -15,7 +15,7 @@ import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
 import { addEntry, clearEntries } from './request-logger'
-import { resolveWithinRoot, isHostAllowed, DEFAULT_WATCH_IGNORES } from './server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, DEFAULT_WATCH_IGNORES } from './server-security'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -182,6 +182,30 @@ export class ServerManager {
       // Only handle our custom path
       const url = new URL(req.url || '/', `http://localhost`)
       if (url.pathname !== '/__tb_ws') {
+        socket.destroy()
+        return
+      }
+
+      // TIM-311: apply the same DNS-rebinding guard as the HTTP path, plus
+      // Origin validation (CSWSH). The WS upgrade shared this port with no
+      // guard, so a forged-Host / cross-origin upgrade could connect where an
+      // equivalent HTTP GET is 403'd. Read lanMode live from the server entry
+      // so a setSiteLanMode rebind is reflected immediately (mirrors the HTTP
+      // handler in startStaticServer).
+      const lanEnabled = this.servers.get(siteId)?.lanMode ?? false
+      if (
+        !isWsUpgradeAllowed(
+          { host: req.headers.host, origin: req.headers.origin },
+          {
+            localIps: this.getLocalIps(),
+            tunnelHosts: this.allowedTunnelHosts.get(siteId) ?? new Set(),
+            lanEnabled
+          }
+        )
+      ) {
+        log.warn(
+          `WS upgrade rejected for site "${siteId}": host=${req.headers.host ?? '(none)'} origin=${req.headers.origin ?? '(none)'}`
+        )
         socket.destroy()
         return
       }
