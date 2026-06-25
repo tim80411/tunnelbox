@@ -8,6 +8,7 @@ import { loginCloudflare, logoutCloudflare, getAuthStatus } from './cloudflared'
 import { bindFixedDomain, unbindFixedDomain } from './cloudflared'
 import { installCloudflared, detectCloudflared } from './cloudflared'
 import { checkRateLimit, startCleanup, stopCleanup } from './rate-limiter'
+import { getClientIp } from './client-ip'
 import type { ServerManager } from './server-manager'
 import { checkShareGate } from './concurrent-share-gate'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
@@ -26,16 +27,6 @@ const TUNNEL_OP_PATHS = new Set([
   '/domain/bind',
   '/domain/unbind'
 ])
-
-/** Extract client IP from an incoming request. */
-function getClientIp(req: http.IncomingMessage): string {
-  // Behind a reverse-proxy the real IP may be in X-Forwarded-For
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim()
-  }
-  return req.socket.remoteAddress || 'unknown'
-}
 
 /**
  * Rate-limit middleware.  Returns `true` if the request is allowed to proceed,
