@@ -20,6 +20,7 @@ import { initNotificationCenter } from './notification-center'
 import { initRequestLogger } from './request-logger'
 import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
+import { isAllowedExternalUrl, isInternalUrl } from './navigation-policy'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
 import { registerTierGateIpc } from './license/tier-gate-ipc'
@@ -78,10 +79,30 @@ function createWindow(): void {
     }
   })
 
-  // Open external links in default browser instead of new Electron window
+  // TIM-310 (F11/F08): only hand http(s)/mailto URLs to the OS. Blocks file://,
+  // smb://, ms-*:, javascript:, custom protocol handlers, etc. that
+  // shell.openExternal would otherwise pass straight to the OS handler.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (isAllowedExternalUrl(url)) {
+      shell.openExternal(url)
+    } else {
+      log.warn(`Blocked window.open to disallowed scheme: ${url}`)
+    }
     return { action: 'deny' }
+  })
+
+  // TIM-310 (F10): the main window holds the preload bridge and all
+  // window.electron.* IPC. Lock it to its own content so it can't be navigated
+  // to a remote/attacker origin that would inherit those bridges. Allowed
+  // external links are opened in the default browser instead.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isInternalUrl(url, process.env['ELECTRON_RENDERER_URL'])) return
+    event.preventDefault()
+    if (isAllowedExternalUrl(url)) {
+      shell.openExternal(url)
+    } else {
+      log.warn(`Blocked navigation to ${url}`)
+    }
   })
 
   // Load renderer
