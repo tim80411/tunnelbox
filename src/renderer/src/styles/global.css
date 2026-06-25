@@ -2833,6 +2833,11 @@ html, body, #root {
 .rmode.static { color: var(--info-text); background: var(--info-bg); border-color: var(--info-bd, var(--info-text)); }
 .rmode.proxy { color: var(--accent); background: var(--accent-dim); border-color: var(--accent-line, var(--accent)); }
 .rmode.direct { color: var(--success); background: var(--success-bg); border-color: var(--success-bd, var(--success)); }
+/* Per-row quick actions: hidden until hover (or when the row is selected) so the
+   rail stays clean. opacity keeps the slot reserved (no layout shift); pointer-events
+   off while hidden avoids mis-clicks. */
+.railitem .ract { display: flex; align-items: center; gap: 4px; flex-shrink: 0; opacity: 0; pointer-events: none; transition: opacity .12s; }
+.railitem:hover .ract, .railitem.on .ract { opacity: 1; pointer-events: auto; }
 .rail-foot { padding: 10px 12px; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; }
 .rail-foot .btn-primary { flex: 1; justify-content: center; }
 
@@ -2841,6 +2846,7 @@ html, body, #root {
 .dh-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .dh-name { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
 .dh-name h3 { font-size: 21px; font-weight: 700; letter-spacing: -.025em; }
+.dh-url { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); margin-top: 8px; word-break: break-all; }
 .dh-path { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--text-tertiary); }
 .dh-path .p { font-family: var(--font-mono); font-size: 12px; }
 .dh-actions { display: flex; gap: 7px; flex-shrink: 0; }

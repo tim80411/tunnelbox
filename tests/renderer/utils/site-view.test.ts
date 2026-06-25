@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { SiteInfo } from '../../../src/shared/types'
 import {
-  siteMode, siteState, railUrl, summarizeSites, filterSites, localLane, lanLane,
+  siteMode, siteState, railUrl, primaryUrl, summarizeSites, filterSites, localLane, lanLane,
   SITE_STATE_LABEL, RAIL_MODE_LABEL
 } from '../../../src/renderer/src/utils/site-view'
 
@@ -53,6 +53,24 @@ describe('railUrl', () => {
   })
   it('shows stopped hint with port for stopped site', () => {
     expect(railUrl(proxyPassthroughStopped)).toBe('已停止 · Port 8787')
+  })
+})
+
+describe('primaryUrl', () => {
+  it('sharing → full public tunnel url (scheme kept)', () => {
+    expect(primaryUrl(staticRunningShared)).toBe('https://calm-river-8821.trycloudflare.com')
+  })
+  it('running, not shared → full LAN url', () => {
+    expect(primaryUrl(staticRunningLanOnly)).toBe('http://192.168.1.24:3022')
+  })
+  it('running, no LAN url → local url', () => {
+    const localOnly: SiteInfo = {
+      ...staticRunningLanOnly, lanMode: false, lanUrl: undefined, lanInterfaceName: undefined
+    }
+    expect(primaryUrl(localOnly)).toBe('http://localhost:3022')
+  })
+  it('stopped → null (no reachable address)', () => {
+    expect(primaryUrl(proxyPassthroughStopped)).toBeNull()
   })
 })
 

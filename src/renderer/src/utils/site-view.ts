@@ -50,14 +50,24 @@ export function siteState(site: SiteInfo): SiteState {
   return 'stop'
 }
 
-export function railUrl(site: SiteInfo): string {
+/**
+ * The full, scheme-included URL a row actually points at — the single source
+ * of truth for "open" / "copy" actions in the rail and the detail header.
+ * Priority mirrors railUrl: sharing → public tunnel URL, else running LAN URL,
+ * else the local URL. A stopped site has no reachable address → null.
+ */
+export function primaryUrl(site: SiteInfo): string | null {
   const wan = site.tunnel?.publicUrl
-  if (wan) return stripScheme(wan)
-  if (site.status === 'running' && site.lanUrl) return stripScheme(site.lanUrl)
-  if (site.status !== 'running') {
-    return isPassthrough(site) ? `已停止 · Port ${site.port}` : '已停止'
-  }
-  return stripScheme(site.url)
+  if (wan) return wan
+  if (site.status === 'running' && site.lanUrl) return site.lanUrl
+  if (site.status === 'running') return site.url
+  return null
+}
+
+export function railUrl(site: SiteInfo): string {
+  const u = primaryUrl(site)
+  if (u) return stripScheme(u)
+  return isPassthrough(site) ? `已停止 · Port ${site.port}` : '已停止'
 }
 
 export function summarizeSites(sites: SiteInfo[]): SiteCounts {
