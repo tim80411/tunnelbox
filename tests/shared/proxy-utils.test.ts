@@ -6,6 +6,7 @@ import {
   isPrivilegedPort,
   getProxyTargetWarnings,
   classifyProxyHost,
+  proxyTargetSsrfRisk,
   PORT_MIN,
   PORT_MAX,
   PRIVILEGED_PORT_THRESHOLD,
@@ -198,5 +199,27 @@ describe('classifyProxyHost (SSRF host classification — TIM-312)', () => {
     expect(classifyProxyHost('172.32.0.1')).toBe('public')
     expect(classifyProxyHost('11.0.0.1')).toBe('public')
     expect(classifyProxyHost('example.com')).toBe('public')
+  })
+})
+
+describe('proxyTargetSsrfRisk (share-time SSRF gate — TIM-312 / F06)', () => {
+  it('flags link-local / cloud-metadata targets as a risk needing confirmation', () => {
+    expect(proxyTargetSsrfRisk('http://169.254.169.254/latest/meta-data/')).toBe('link-local')
+    expect(proxyTargetSsrfRisk('http://metadata.google.internal')).toBe('link-local')
+  })
+
+  it('flags RFC1918 private targets as a risk needing confirmation', () => {
+    expect(proxyTargetSsrfRisk('http://192.168.1.5:3000')).toBe('private')
+    expect(proxyTargetSsrfRisk('http://10.0.0.7:8080')).toBe('private')
+  })
+
+  it('returns null for loopback and public targets (no confirmation needed)', () => {
+    expect(proxyTargetSsrfRisk('http://localhost:3000')).toBeNull()
+    expect(proxyTargetSsrfRisk('http://127.0.0.1:5173')).toBeNull()
+    expect(proxyTargetSsrfRisk('https://example.com')).toBeNull()
+  })
+
+  it('returns null for a malformed target', () => {
+    expect(proxyTargetSsrfRisk('not a url')).toBeNull()
   })
 })

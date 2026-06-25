@@ -97,6 +97,24 @@ export function classifyProxyHost(hostname: string): ProxyHostClass {
 }
 
 /**
+ * Classify a full proxy target URL for the share-time SSRF gate: returns the
+ * risk class — 'link-local' (cloud-metadata / link-local) or 'private' (RFC1918
+ * / ULA) — that should prompt a confirmation before sharing, or null when the
+ * target is loopback (the normal local-dev case), public, or unparseable.
+ * (TIM-312, F06)
+ */
+export function proxyTargetSsrfRisk(target: string): 'link-local' | 'private' | null {
+  let hostname: string
+  try {
+    hostname = new URL(target).hostname
+  } catch {
+    return null
+  }
+  const cls = classifyProxyHost(hostname)
+  return cls === 'link-local' || cls === 'private' ? cls : null
+}
+
+/**
  * Return an array of warning messages for a normalized proxy target URL.
  * Callers can display these warnings in the UI without blocking the operation.
  *

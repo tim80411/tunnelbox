@@ -274,6 +274,8 @@ export interface AppSettings {
   dismissedRenewBannerVersion: string
   /** Sensitive ports the user chose to stop being warned about before sharing (TIM-226). */
   confirmedSensitivePorts: number[]
+  /** Proxy-target hosts (internal/metadata) the user confirmed to stop being warned about (TIM-312). */
+  confirmedSsrfHosts: string[]
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -284,7 +286,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   requestLogMaxEntries: 200,
   launchAtStartup: false,
   dismissedRenewBannerVersion: '',
-  confirmedSensitivePorts: []
+  confirmedSensitivePorts: [],
+  confirmedSsrfHosts: []
 }
 
 // --- Add Site Params (IPC) ---
