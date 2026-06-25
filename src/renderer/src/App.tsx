@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import type { SiteInfo, CloudflareAuth, ServeMode, CloudflareAccountsState } from '../../shared/types'
 import ConcurrentSharesDialog from './components/ConcurrentSharesDialog'
 import SensitivePortDialog from './components/SensitivePortDialog'
+import SsrfRiskDialog from './components/SsrfRiskDialog'
 import { sensitivePortName } from '../../shared/sensitive-ports'
-import { extractPort } from '../../shared/proxy-utils'
+import { extractPort, proxyTargetSsrfRisk } from '../../shared/proxy-utils'
 import ProviderInstallBar from './components/ProviderInstallBar'
 import SettingsPanel from './components/SettingsPanel'
 import ShortcutsPanel from './components/ShortcutsPanel'
@@ -62,6 +63,14 @@ function App(): React.ReactElement {
     siteName: string
     port: number
     serviceName: string
+    proceed: () => void
+  } | null>(null)
+
+  // SSRF confirmation dialog state (TIM-312 / F06)
+  const [ssrfRiskDialog, setSsrfRiskDialog] = useState<{
+    siteName: string
+    hostname: string
+    risk: 'link-local' | 'private'
     proceed: () => void
   } | null>(null)
 
@@ -350,33 +359,47 @@ function App(): React.ReactElement {
             : extractPort(site.proxyTarget)
           : site?.port
       const serviceName = sensitivePortName(exposedPort)
-      const startShare = (): Promise<unknown> =>
-        withShareGate(siteId, () => window.electron.startQuickTunnel(siteId))
-
-      // Confirm before exposing a known sensitive port (unless the user opted out).
-      if (
-        site &&
-        serviceName != null &&
-        exposedPort != null &&
-        !(settings.confirmedSensitivePorts ?? []).includes(exposedPort)
-      ) {
-        setSensitivePortDialog({
-          siteName: site.name,
-          port: exposedPort,
-          serviceName,
-          proceed: () => {
-            void startShare().catch((err) =>
-              setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
-            )
-          }
-        })
-        return
+      const startShare = (): void => {
+        void withShareGate(siteId, () => window.electron.startQuickTunnel(siteId)).catch((err) =>
+          setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
+        )
       }
-      await startShare()
+
+      // Sensitive-port gate (TIM-226), run after any SSRF gate below.
+      const portGatedShare = (): void => {
+        if (
+          site &&
+          serviceName != null &&
+          exposedPort != null &&
+          !(settings.confirmedSensitivePorts ?? []).includes(exposedPort)
+        ) {
+          setSensitivePortDialog({ siteName: site.name, port: exposedPort, serviceName, proceed: startShare })
+          return
+        }
+        startShare()
+      }
+
+      // TIM-312 (F06): SSRF gate FIRST — confirm before sharing a proxy target
+      // whose host is cloud-metadata/link-local or internal (RFC1918).
+      if (site && site.serveMode === 'proxy') {
+        const risk = proxyTargetSsrfRisk(site.proxyTarget)
+        let hostname = ''
+        try {
+          hostname = new URL(site.proxyTarget).hostname
+        } catch {
+          /* unparseable target — no SSRF gate */
+        }
+        if (risk && hostname && !(settings.confirmedSsrfHosts ?? []).includes(hostname)) {
+          setSsrfRiskDialog({ siteName: site.name, hostname, risk, proceed: portGatedShare })
+          return
+        }
+      }
+
+      portGatedShare()
     } catch (err) {
       setError(err instanceof Error ? err.message : '啟動 Tunnel 失敗')
     }
-  }, [withShareGate, sites, settings.confirmedSensitivePorts])
+  }, [withShareGate, sites, settings.confirmedSensitivePorts, settings.confirmedSsrfHosts])
 
   const handleStopSharing = useCallback(async (siteId: string) => {
     try {
@@ -924,6 +947,27 @@ function App(): React.ReactElement {
             proceed()
           }}
           onCancel={() => setSensitivePortDialog(null)}
+        />
+      )}
+
+      {/* SSRF (internal / metadata target) confirmation (TIM-312 / F06) */}
+      {ssrfRiskDialog && (
+        <SsrfRiskDialog
+          siteName={ssrfRiskDialog.siteName}
+          hostname={ssrfRiskDialog.hostname}
+          risk={ssrfRiskDialog.risk}
+          onConfirm={(remember) => {
+            const { hostname, proceed } = ssrfRiskDialog
+            setSsrfRiskDialog(null)
+            if (remember) {
+              const current = settings.confirmedSsrfHosts ?? []
+              if (!current.includes(hostname)) {
+                void updateSettings({ confirmedSsrfHosts: [...current, hostname] })
+              }
+            }
+            proceed()
+          }}
+          onCancel={() => setSsrfRiskDialog(null)}
         />
       )}
 

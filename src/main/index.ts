@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, session } from 'electron'
 import path from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ServerManager } from './server-manager'
@@ -22,6 +22,7 @@ import { registerRemoteConsoleIpc } from './remote-console'
 import { createLogger } from './logger'
 import { isAllowedExternalUrl, isInternalUrl } from './navigation-policy'
 import { SECURE_WEB_PREFERENCES } from './window-config'
+import { buildCsp } from './csp'
 import * as siteStore from './store'
 import { markAbnormalEnds } from './share-history-store'
 import { registerTierGateIpc } from './license/tier-gate-ipc'
@@ -133,6 +134,18 @@ if (!gotTheLock) {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.tunnelbox')
+
+  // TIM-318 (F14): inject a Content-Security-Policy on the default session (the
+  // app's own renderer; the OAuth window uses a separate partition and is
+  // unaffected). Dev gets a Vite-HMR-compatible policy; prod locks scripts to 'self'.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [buildCsp(is.dev)]
+      }
+    })
+  })
 
   // Default open or close DevTools by F12 in development
   app.on('browser-window-created', (_, window) => {

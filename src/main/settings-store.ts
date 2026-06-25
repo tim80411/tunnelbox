@@ -22,7 +22,8 @@ export function getSettings(): AppSettings {
       dismissedRenewBannerVersion:
         store.get('dismissedRenewBannerVersion') ?? DEFAULT_SETTINGS.dismissedRenewBannerVersion,
       confirmedSensitivePorts:
-        store.get('confirmedSensitivePorts') ?? DEFAULT_SETTINGS.confirmedSensitivePorts
+        store.get('confirmedSensitivePorts') ?? DEFAULT_SETTINGS.confirmedSensitivePorts,
+      confirmedSsrfHosts: store.get('confirmedSsrfHosts') ?? DEFAULT_SETTINGS.confirmedSsrfHosts
     }
   } catch (err) {
     log.error(' Failed to read settings, returning defaults:', err)
