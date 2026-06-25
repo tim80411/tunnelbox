@@ -15,7 +15,7 @@ import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
 import { addEntry, clearEntries } from './request-logger'
-import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, DEFAULT_WATCH_IGNORES } from './server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, DEFAULT_WATCH_IGNORES } from './server-security'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -314,6 +314,15 @@ export class ServerManager {
       })) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
         res.end('Forbidden: unrecognized Host header')
+        return
+      }
+
+      // TIM-314 (F13): serve-handler has no dotfile filter, so block requests
+      // for sensitive dotfiles/dirs (.env, .git, .ssh, .htpasswd, …) before
+      // they reach it — answer 404 so the file's existence isn't revealed.
+      if (isSensitiveServePath(req.url || '/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Not Found')
         return
       }
 

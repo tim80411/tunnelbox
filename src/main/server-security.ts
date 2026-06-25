@@ -121,6 +121,41 @@ export function isWsUpgradeAllowed(
   return true
 }
 
+/**
+ * Path segments the static server must never serve, even though they live
+ * inside the served root. serve-handler has no dotfile filter, so a folder
+ * shared through a tunnel would otherwise expose `.env` (API keys), `.git`
+ * (full source history), `.htpasswd`, SSH keys, etc. We block a targeted set
+ * of credential/VCS dotfiles rather than ALL dotfiles, so legitimate cases
+ * like `.well-known` (ACME / domain verification) keep working. (TIM-314, F13)
+ */
+const SENSITIVE_SERVE_SEGMENTS = new Set<string>([
+  '.git', '.ssh', '.gnupg', '.aws', '.azure', '.kube', '.docker',
+  '.config', '.npmrc', '.htpasswd', '.netrc', '.pgpass'
+])
+
+/**
+ * Decide whether a request URL path targets a sensitive dotfile/dir that the
+ * static server should answer with 404. Decodes percent-encoding and strips
+ * the query string so `/%2egit/config` and `/.git/config?x=1` are caught.
+ */
+export function isSensitiveServePath(urlPath: string): boolean {
+  let p = urlPath.split('?')[0]
+  try {
+    p = decodeURIComponent(p)
+  } catch {
+    // keep the raw path if it isn't valid percent-encoding
+  }
+  for (const raw of p.split(/[/\\]+/)) {
+    if (!raw) continue
+    const seg = raw.toLowerCase()
+    if (seg === '.well-known') continue // explicitly allowed
+    if (SENSITIVE_SERVE_SEGMENTS.has(seg)) return true
+    if (seg === '.env' || seg.startsWith('.env.')) return true
+  }
+  return false
+}
+
 /** Default watch-ignore globs for dev folders (TIM-229). */
 export const DEFAULT_WATCH_IGNORES: readonly string[] = [
   '**/node_modules/**',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import path from 'node:path'
-import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed } from '../../src/main/server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath } from '../../src/main/server-security'
 
 describe('resolveWithinRoot (path traversal guard)', () => {
   const root = path.resolve('/srv/site')
@@ -155,5 +155,35 @@ describe('isWsUpgradeAllowed (WebSocket DNS-rebinding / CSWSH guard — TIM-311)
     const lanReq = { host: '192.168.1.50:3001', origin: 'http://192.168.1.50:3001' }
     expect(isWsUpgradeAllowed(lanReq, lanOn)).toBe(true)
     expect(isWsUpgradeAllowed(lanReq, lanOff)).toBe(false)
+  })
+})
+
+describe('isSensitiveServePath (static-server dotfile blocklist — TIM-314 / F13)', () => {
+  it('blocks credential / VCS dotfiles and dirs', () => {
+    expect(isSensitiveServePath('/.env')).toBe(true)
+    expect(isSensitiveServePath('/.env.local')).toBe(true)
+    expect(isSensitiveServePath('/.env.production')).toBe(true)
+    expect(isSensitiveServePath('/.git/config')).toBe(true)
+    expect(isSensitiveServePath('/.git/HEAD')).toBe(true)
+    expect(isSensitiveServePath('/.ssh/id_rsa')).toBe(true)
+    expect(isSensitiveServePath('/.htpasswd')).toBe(true)
+    expect(isSensitiveServePath('/sub/dir/.aws/credentials')).toBe(true)
+  })
+
+  it('blocks URL-encoded dotfile traversal', () => {
+    expect(isSensitiveServePath('/%2egit/config')).toBe(true) // %2e → "."
+    expect(isSensitiveServePath('/.git/config?x=1')).toBe(true) // query stripped
+  })
+
+  it('is case-insensitive on the segment', () => {
+    expect(isSensitiveServePath('/.GIT/config')).toBe(true)
+  })
+
+  it('allows .well-known (ACME / domain verification) and normal assets', () => {
+    expect(isSensitiveServePath('/.well-known/acme-challenge/token')).toBe(false)
+    expect(isSensitiveServePath('/index.html')).toBe(false)
+    expect(isSensitiveServePath('/assets/app.js')).toBe(false)
+    expect(isSensitiveServePath('/')).toBe(false)
+    expect(isSensitiveServePath('/environment.css')).toBe(false) // not a dotfile
   })
 })
