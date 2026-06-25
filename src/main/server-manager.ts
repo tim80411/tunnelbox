@@ -15,7 +15,7 @@ import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
 import { addEntry, clearEntries } from './request-logger'
-import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, DEFAULT_WATCH_IGNORES } from './server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, containsSensitiveSegment, DEFAULT_WATCH_IGNORES } from './server-security'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -296,6 +296,15 @@ export class ServerManager {
         throw err
       }
       throw new Error(`無法存取資料夾：${site.folderPath}。路徑不存在或權限不足`)
+    }
+
+    // TIM-314 (F12): refuse to serve a sensitive directory (e.g. ~/.ssh, ~/.aws)
+    // even if a compromised renderer requested it over IPC. This is the single
+    // choke point all served static roots pass through (add-site, deep link,
+    // restore-on-launch). The folder picker may legitimately point outside HOME,
+    // so only sensitive path segments are blocked — not out-of-home locations.
+    if (containsSensitiveSegment(site.folderPath)) {
+      throw new Error(`基於安全考量，無法分享敏感目錄：${site.folderPath}`)
     }
 
     const port = await this.allocatePort()

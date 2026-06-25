@@ -156,6 +156,31 @@ export function isSensitiveServePath(urlPath: string): boolean {
   return false
 }
 
+/**
+ * Directory / file names that must never be a served root or opened folder
+ * (credential / key / VCS dirs). Shared with the deep-link validator. (TIM-314)
+ */
+export const SENSITIVE_DIRS: readonly string[] = [
+  '.ssh', '.gnupg', '.aws', '.azure', '.config', '.kube', '.docker', '.npmrc', '.env', '.git'
+]
+
+/**
+ * True if any path segment of `absPath` is a sensitive directory. Used to
+ * reject add-site / open-folder targets that come over IPC from a (possibly
+ * compromised) renderer — e.g. `window.electron.addSite({folderPath: '~/.ssh'})`
+ * turning private keys into a tunnel-served site.
+ *
+ * Unlike the deep-link `validateServePath`, this does NOT require the path to
+ * be inside HOME: the OS folder picker legitimately yields out-of-home folders
+ * (e.g. /Volumes/...), so only sensitive SEGMENTS are blocked. Serving a normal
+ * project that merely *contains* a `.git` stays allowed — `isSensitiveServePath`
+ * blocks those files at request time. (TIM-314, F12)
+ */
+export function containsSensitiveSegment(absPath: string): boolean {
+  const segments = path.resolve(absPath).split(path.sep)
+  return segments.some((s) => SENSITIVE_DIRS.includes(s))
+}
+
 /** Default watch-ignore globs for dev folders (TIM-229). */
 export const DEFAULT_WATCH_IGNORES: readonly string[] = [
   '**/node_modules/**',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import path from 'node:path'
-import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath } from '../../src/main/server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, containsSensitiveSegment } from '../../src/main/server-security'
 
 describe('resolveWithinRoot (path traversal guard)', () => {
   const root = path.resolve('/srv/site')
@@ -185,5 +185,21 @@ describe('isSensitiveServePath (static-server dotfile blocklist — TIM-314 / F1
     expect(isSensitiveServePath('/assets/app.js')).toBe(false)
     expect(isSensitiveServePath('/')).toBe(false)
     expect(isSensitiveServePath('/environment.css')).toBe(false) // not a dotfile
+  })
+})
+
+describe('containsSensitiveSegment (add-site / serve root guard — TIM-314 / F12)', () => {
+  it('blocks a root that IS or is under a sensitive dir (compromised-renderer addSite)', () => {
+    expect(containsSensitiveSegment('/Users/x/.ssh')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.ssh/keys')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.aws/credentials')).toBe(true)
+    expect(containsSensitiveSegment('/home/u/proj/.git')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.config/app')).toBe(true)
+  })
+
+  it('allows normal project folders, including ones that merely CONTAIN a .git (F13 guards the files)', () => {
+    expect(containsSensitiveSegment('/Users/x/projects/myapp')).toBe(false)
+    expect(containsSensitiveSegment('/Volumes/external/site')).toBe(false) // out-of-home is fine (folder picker)
+    expect(containsSensitiveSegment('/opt/srv/www')).toBe(false)
   })
 })
