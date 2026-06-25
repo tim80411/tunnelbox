@@ -1,6 +1,7 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
 import { createLogger } from '../../logger'
+import { isValidServerHost } from '../../../shared/host-validation'
 import type { BoreServerConfig } from '../../../shared/types'
 
 export type { BoreServerConfig }
@@ -53,6 +54,16 @@ export function getBoreConfig(): BoreServerConfig | null {
 }
 
 export function saveBoreConfig(config: BoreServerConfig): void {
+  // TIM-317 (F27): validate serverAddr before it reaches the bore argv
+  // (`--to <serverAddr>:<port>`). Rejecting metachars/whitespace prevents
+  // argument smuggling; the port is range-checked too.
+  if (!isValidServerHost(config.serverAddr)) {
+    throw new Error('bore 伺服器位址格式不正確')
+  }
+  if (!Number.isInteger(config.serverPort) || config.serverPort < 1 || config.serverPort > 65535) {
+    throw new Error('bore 伺服器埠號不正確（須為 1-65535）')
+  }
+
   try {
     let encryptedSecret: string | undefined
     if (config.secret) {

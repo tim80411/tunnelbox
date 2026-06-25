@@ -2,6 +2,7 @@ import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron'
 import { existsSync, statSync } from 'fs'
 import { parseMacOSFilePaths, parseWindowsDropFiles } from '../preload/clipboard-file-paths'
 import { ServerManager } from './server-manager'
+import { containsSensitiveSegment } from './server-security'
 import * as siteStore from './store'
 import * as shareHistoryStore from './share-history-store'
 import type { TunnelProviderManager } from './tunnel-provider-manager'
@@ -355,6 +356,8 @@ export function registerIpcHandlers(
   ipcMain.handle('open-folder', async (_event, folderPath: string) => {
     try {
       if (!folderPath) throw new Error('資料夾路徑為空')
+      // TIM-314 (F12): don't open sensitive dirs from a renderer-supplied path.
+      if (containsSensitiveSegment(folderPath)) throw new Error('基於安全考量，無法開啟敏感目錄')
       if (!existsSync(folderPath)) throw new Error(`資料夾已不存在：${folderPath}`)
       const result = await shell.openPath(folderPath)
       if (result) throw new Error(result)

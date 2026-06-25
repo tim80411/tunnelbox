@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import path from 'node:path'
-import { resolveWithinRoot, isHostAllowed } from '../../src/main/server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, containsSensitiveSegment } from '../../src/main/server-security'
 
 describe('resolveWithinRoot (path traversal guard)', () => {
   const root = path.resolve('/srv/site')
@@ -99,8 +99,19 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
     expect(isHostAllowed('evil.example.com:3001', local)).toBe(false)
   })
 
-  it('allows a missing Host header (HTTP/1.0 / non-rebinding clients)', () => {
-    expect(isHostAllowed(undefined, local)).toBe(true)
+  it('allows a missing Host header only when LAN sharing is OFF (TIM-318 / F28)', () => {
+    // localhost-only: HTTP/1.0 / curl without a Host is fine (not a rebinding vector).
+    expect(isHostAllowed(undefined, lanOff)).toBe(true)
+    expect(isHostAllowed('', lanOff)).toBe(true)
+    // LAN mode on: a Host-less raw client could reach the LAN-exposed server, so
+    // reject it (browsers always send Host, so legit access is unaffected).
+    expect(isHostAllowed(undefined, local)).toBe(false)
+    expect(isHostAllowed('', local)).toBe(false)
+  })
+
+  it('no longer allows 0.0.0.0 as a Host (TIM-318 / F33)', () => {
+    expect(isHostAllowed('0.0.0.0', local)).toBe(false)
+    expect(isHostAllowed('0.0.0.0:3001', lanOff)).toBe(false)
   })
 
   it('rejects a malformed bracketed host (unclosed bracket)', () => {
@@ -111,5 +122,95 @@ describe('isHostAllowed (DNS rebinding guard)', () => {
   it('is case-insensitive on the hostname', () => {
     const opts = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['MyApp.TryCloudflare.com'.toLowerCase()]), lanEnabled: true }
     expect(isHostAllowed('MYAPP.trycloudflare.COM', opts)).toBe(true)
+  })
+})
+
+describe('isWsUpgradeAllowed (WebSocket DNS-rebinding / CSWSH guard — TIM-311)', () => {
+  const lanOn = { localIps: new Set<string>(['192.168.1.50']), tunnelHosts: new Set<string>(), lanEnabled: true }
+  const lanOff = { localIps: new Set<string>(['192.168.1.50']), tunnelHosts: new Set<string>(), lanEnabled: false }
+  const tunnel = { localIps: new Set<string>(), tunnelHosts: new Set<string>(['myapp.trycloudflare.com']), lanEnabled: false }
+
+  it('allows a same-origin loopback upgrade (Host allowed, Origin matches)', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'http://127.0.0.1:3001' }, lanOn)).toBe(true)
+  })
+
+  it('allows a same-origin tunnel upgrade', () => {
+    expect(
+      isWsUpgradeAllowed({ host: 'myapp.trycloudflare.com', origin: 'https://myapp.trycloudflare.com' }, tunnel)
+    ).toBe(true)
+  })
+
+  it('rejects an upgrade whose Host is not in the allowlist (DNS rebinding)', () => {
+    // attacker.com rebinds to 127.0.0.1; the Host header still carries attacker.com.
+    expect(isWsUpgradeAllowed({ host: 'attacker.com', origin: 'http://attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('rejects a cross-origin upgrade even when the Host is allowed (CSWSH)', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'http://attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('allows a Host-allowed upgrade with no Origin (non-browser client)', () => {
+    // Mirrors isHostAllowed: the Host gate still applies; absent Origin does not bypass it.
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001' }, lanOn)).toBe(true)
+  })
+
+  it('still requires the Host gate when Origin is absent', () => {
+    expect(isWsUpgradeAllowed({ host: 'attacker.com' }, lanOn)).toBe(false)
+  })
+
+  it('rejects a malformed / opaque Origin (e.g. "null") even when Host is allowed', () => {
+    expect(isWsUpgradeAllowed({ host: '127.0.0.1:3001', origin: 'null' }, lanOn)).toBe(false)
+  })
+
+  it('mirrors the LAN gate: LAN-IP upgrade allowed only when lanEnabled is true', () => {
+    const lanReq = { host: '192.168.1.50:3001', origin: 'http://192.168.1.50:3001' }
+    expect(isWsUpgradeAllowed(lanReq, lanOn)).toBe(true)
+    expect(isWsUpgradeAllowed(lanReq, lanOff)).toBe(false)
+  })
+})
+
+describe('isSensitiveServePath (static-server dotfile blocklist — TIM-314 / F13)', () => {
+  it('blocks credential / VCS dotfiles and dirs', () => {
+    expect(isSensitiveServePath('/.env')).toBe(true)
+    expect(isSensitiveServePath('/.env.local')).toBe(true)
+    expect(isSensitiveServePath('/.env.production')).toBe(true)
+    expect(isSensitiveServePath('/.git/config')).toBe(true)
+    expect(isSensitiveServePath('/.git/HEAD')).toBe(true)
+    expect(isSensitiveServePath('/.ssh/id_rsa')).toBe(true)
+    expect(isSensitiveServePath('/.htpasswd')).toBe(true)
+    expect(isSensitiveServePath('/sub/dir/.aws/credentials')).toBe(true)
+  })
+
+  it('blocks URL-encoded dotfile traversal', () => {
+    expect(isSensitiveServePath('/%2egit/config')).toBe(true) // %2e → "."
+    expect(isSensitiveServePath('/.git/config?x=1')).toBe(true) // query stripped
+  })
+
+  it('is case-insensitive on the segment', () => {
+    expect(isSensitiveServePath('/.GIT/config')).toBe(true)
+  })
+
+  it('allows .well-known (ACME / domain verification) and normal assets', () => {
+    expect(isSensitiveServePath('/.well-known/acme-challenge/token')).toBe(false)
+    expect(isSensitiveServePath('/index.html')).toBe(false)
+    expect(isSensitiveServePath('/assets/app.js')).toBe(false)
+    expect(isSensitiveServePath('/')).toBe(false)
+    expect(isSensitiveServePath('/environment.css')).toBe(false) // not a dotfile
+  })
+})
+
+describe('containsSensitiveSegment (add-site / serve root guard — TIM-314 / F12)', () => {
+  it('blocks a root that IS or is under a sensitive dir (compromised-renderer addSite)', () => {
+    expect(containsSensitiveSegment('/Users/x/.ssh')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.ssh/keys')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.aws/credentials')).toBe(true)
+    expect(containsSensitiveSegment('/home/u/proj/.git')).toBe(true)
+    expect(containsSensitiveSegment('/Users/x/.config/app')).toBe(true)
+  })
+
+  it('allows normal project folders, including ones that merely CONTAIN a .git (F13 guards the files)', () => {
+    expect(containsSensitiveSegment('/Users/x/projects/myapp')).toBe(false)
+    expect(containsSensitiveSegment('/Volumes/external/site')).toBe(false) // out-of-home is fine (folder picker)
+    expect(containsSensitiveSegment('/opt/srv/www')).toBe(false)
   })
 })

@@ -9,6 +9,7 @@ import { stopQuickTunnel, hasTunnel as hasQuickTunnel } from './quick-tunnel'
 import { createLogger } from '../logger'
 import * as siteStore from '../store'
 import type { TunnelInfo, StoredTunnel } from '../../shared/types'
+import { isValidDomain } from '../../shared/types'
 import { waitForTunnelReady } from './tunnel-readiness'
 import { translateCloudflaredError, type TranslatedError } from './error-translator'
 import { ReconnectWindow } from './reconnect-window'
@@ -335,6 +336,14 @@ export async function bindFixedDomain(
   port: number,
   domain: string
 ): Promise<string> {
+  // TIM-317 (F20): validate the domain before it reaches the cloudflared argv
+  // (`tunnel route dns <id> <domain>`). This is the single choke point for both
+  // the IPC `bind-fixed-domain` handler and the api-server `/domain/bind` route,
+  // so an injection payload like `--config=/tmp/evil` is rejected here for both.
+  if (!isValidDomain(domain)) {
+    throw new Error('網域格式不正確')
+  }
+
   requireAuth()
 
   const binaryPath = await findBinary()

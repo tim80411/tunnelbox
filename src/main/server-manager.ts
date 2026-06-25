@@ -15,7 +15,7 @@ import { visitorTracker } from './visitor-tracker'
 import { getSettings } from './settings-store'
 import { handleConsoleMessage } from './remote-console'
 import { addEntry, clearEntries } from './request-logger'
-import { resolveWithinRoot, isHostAllowed, DEFAULT_WATCH_IGNORES } from './server-security'
+import { resolveWithinRoot, isHostAllowed, isWsUpgradeAllowed, isSensitiveServePath, containsSensitiveSegment, DEFAULT_WATCH_IGNORES } from './server-security'
 import type { StoredSite } from '../shared/types'
 
 const log = createLogger('ServerManager')
@@ -186,6 +186,30 @@ export class ServerManager {
         return
       }
 
+      // TIM-311: apply the same DNS-rebinding guard as the HTTP path, plus
+      // Origin validation (CSWSH). The WS upgrade shared this port with no
+      // guard, so a forged-Host / cross-origin upgrade could connect where an
+      // equivalent HTTP GET is 403'd. Read lanMode live from the server entry
+      // so a setSiteLanMode rebind is reflected immediately (mirrors the HTTP
+      // handler in startStaticServer).
+      const lanEnabled = this.servers.get(siteId)?.lanMode ?? false
+      if (
+        !isWsUpgradeAllowed(
+          { host: req.headers.host, origin: req.headers.origin },
+          {
+            localIps: this.getLocalIps(),
+            tunnelHosts: this.allowedTunnelHosts.get(siteId) ?? new Set(),
+            lanEnabled
+          }
+        )
+      ) {
+        log.warn(
+          `WS upgrade rejected for site "${siteId}": host=${req.headers.host ?? '(none)'} origin=${req.headers.origin ?? '(none)'}`
+        )
+        socket.destroy()
+        return
+      }
+
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req)
       })
@@ -274,6 +298,15 @@ export class ServerManager {
       throw new Error(`無法存取資料夾：${site.folderPath}。路徑不存在或權限不足`)
     }
 
+    // TIM-314 (F12): refuse to serve a sensitive directory (e.g. ~/.ssh, ~/.aws)
+    // even if a compromised renderer requested it over IPC. This is the single
+    // choke point all served static roots pass through (add-site, deep link,
+    // restore-on-launch). The folder picker may legitimately point outside HOME,
+    // so only sensitive path segments are blocked — not out-of-home locations.
+    if (containsSensitiveSegment(site.folderPath)) {
+      throw new Error(`基於安全考量，無法分享敏感目錄：${site.folderPath}`)
+    }
+
     const port = await this.allocatePort()
 
     // Create HTTP server with serve-handler, injecting hot reload script into HTML responses
@@ -290,6 +323,15 @@ export class ServerManager {
       })) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
         res.end('Forbidden: unrecognized Host header')
+        return
+      }
+
+      // TIM-314 (F13): serve-handler has no dotfile filter, so block requests
+      // for sensitive dotfiles/dirs (.env, .git, .ssh, .htpasswd, …) before
+      // they reach it — answer 404 so the file's existence isn't revealed.
+      if (isSensitiveServePath(req.url || '/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Not Found')
         return
       }
 
@@ -473,7 +515,16 @@ export class ServerManager {
   private async startProxyServer(site: { id: string; name: string; serveMode: 'proxy'; proxyTarget: string; lanMode?: boolean }): Promise<ProxySiteServer> {
     const port = await this.allocatePort()
 
-    const httpServer = createProxyServer(site.proxyTarget)
+    // TIM-315: guard the proxy path with the same DNS-rebinding allowlist as
+    // the static server. lanMode is read live so a setSiteLanMode rebind applies.
+    const httpServer = createProxyServer(site.proxyTarget, {
+      isHostAllowed: (host) =>
+        isHostAllowed(host, {
+          localIps: this.getLocalIps(),
+          tunnelHosts: this.allowedTunnelHosts.get(site.id) ?? new Set(),
+          lanEnabled: this.servers.get(site.id)?.lanMode ?? site.lanMode === true
+        })
+    })
 
     // Track visitor if request comes through tunnel
     httpServer.on('request', (req: http.IncomingMessage) => {

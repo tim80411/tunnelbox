@@ -197,6 +197,19 @@ export function migrateSite(raw: unknown): StoredSite {
 
 export const DOMAIN_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/
 
+/**
+ * Validate a custom domain before it is passed as a positional argument to the
+ * `cloudflared tunnel route dns` subcommand. DOMAIN_REGEX requires the value to
+ * start with an alphanumeric, so injection payloads like `--config=/tmp/evil`
+ * (which cloudflared would parse as a flag) and newline/metachar smuggling are
+ * rejected. Applied at the bindFixedDomain choke point. (TIM-317, F20)
+ */
+export function isValidDomain(domain: string): boolean {
+  if (typeof domain !== 'string') return false
+  const trimmed = domain.trim()
+  return trimmed.length > 0 && trimmed.length <= 253 && DOMAIN_REGEX.test(trimmed)
+}
+
 // --- Visitor Event ---
 
 export interface VisitorEvent {
