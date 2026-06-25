@@ -1,6 +1,7 @@
 import type { SiteInfo, ProxySiteInfo, CloudflareAuth, CloudflaredEnv, RequestLogEntry } from '../../../shared/types'
-import { siteMode, siteState, localLane, lanLane, SITE_STATE_LABEL } from '../utils/site-view'
+import { siteMode, siteState, primaryUrl, localLane, lanLane, SITE_STATE_LABEL } from '../utils/site-view'
 import ReachLane from './ReachLane'
+import CopyButton from './CopyButton'
 import TunnelControls from './TunnelControls'
 import RequestLogPanel from './RequestLogPanel'
 import TagEditor from './TagEditor'
@@ -59,6 +60,11 @@ const CopyMini = (
     <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" />
   </svg>
 )
+const OpenMini = (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6M10 14L21 3" />
+  </svg>
+)
 const FolderMini = (
   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -95,6 +101,9 @@ function SiteDetail(props: Props): React.ReactElement {
   const { site } = props
   const mode = siteMode(site)
   const state = siteState(site)
+  // The live URL this site points at — drives the header open/copy actions and
+  // the URL row. Null when stopped, so those affordances simply don't render.
+  const url = primaryUrl(site)
   const wanUrl = site.tunnel?.publicUrl
   const isProxy = site.serveMode === 'proxy'
   // TIM-227: show the custom-domain CNAME card when a named tunnel is bound.
@@ -127,8 +136,15 @@ function SiteDetail(props: Props): React.ReactElement {
               ) : (
                 <h3 onDoubleClick={() => props.onStartRename(site)} title="雙擊以重新命名">{site.name}</h3>
               )}
+              {url && (
+                <>
+                  <a className="btn-inline-copy" href={url} target="_blank" rel="noopener noreferrer" data-tooltip="開啟網站">{OpenMini}</a>
+                  <CopyButton variant="inline" text={url} tooltip="複製網址" />
+                </>
+              )}
               <span className={`md-statepill ${state}`}><span className="d" />{SITE_STATE_LABEL[state]}</span>
             </div>
+            {url && <div className="dh-url">{url}</div>}
             <div className="dh-path">
               <span className="p">{pathText(site)}</span>
               <button className="btn-inline-copy" data-tooltip="複製" onClick={() => navigator.clipboard.writeText(site.serveMode === 'proxy' ? site.proxyTarget : site.folderPath)}>{CopyMini}</button>
