@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import path from 'node:path'
 import os from 'node:os'
+import fs from 'node:fs'
 
 // Mock Electron modules before importing the handler
 vi.mock('electron', () => ({
@@ -103,6 +104,27 @@ describe('validateServePath', () => {
       process.chdir(home)
       const result = validateServePath('my-site')
       expect(result).toBeNull()
+    })
+  })
+
+  describe('symlink resolution (TIM-318 / F32)', () => {
+    const base = path.join(home, '.tb-f32-test')
+    beforeEach(() => fs.rmSync(base, { recursive: true, force: true }))
+    afterEach(() => fs.rmSync(base, { recursive: true, force: true }))
+
+    it('rejects a symlink under home that resolves into a sensitive dir', () => {
+      fs.mkdirSync(path.join(base, '.ssh'), { recursive: true })
+      const link = path.join(base, 'link')
+      fs.symlinkSync(path.join(base, '.ssh'), link, 'dir')
+      // String-only resolution sees ".../link" (no sensitive segment) and would
+      // ALLOW; realpath resolves to ".../.ssh" → rejected.
+      expect(validateServePath(link)).toContain('sensitive directory')
+    })
+
+    it('still allows a normal real directory under home (realpath both sides)', () => {
+      const dir = path.join(base, 'public')
+      fs.mkdirSync(dir, { recursive: true })
+      expect(validateServePath(dir)).toBeNull()
     })
   })
 })
