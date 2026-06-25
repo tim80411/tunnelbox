@@ -1,5 +1,7 @@
 import http from 'node:http'
+import https from 'node:https'
 import net from 'node:net'
+import tls from 'node:tls'
 import { createLogger } from './logger'
 import { acquireConnection, releaseConnection } from './rate-limiter'
 
@@ -51,6 +53,10 @@ function sanitizeRequestHeaders(
 
     if (HOP_BY_HOP_HEADERS.has(lower)) continue
     if (SENSITIVE_REQUEST_HEADERS.has(lower)) continue
+    // TIM-318 (F25): don't forward the client's Content-Length. The outgoing
+    // request recomputes framing from the piped body, so a client cannot pair a
+    // crafted Content-Length with Transfer-Encoding to attempt request smuggling.
+    if (lower === 'content-length') continue
 
     out[key] = value
   }
@@ -210,7 +216,7 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
 
     const targetPath = targetBasePath + (clientReq.url || '/')
 
-    const options: http.RequestOptions = {
+    const options: https.RequestOptions = {
       hostname: targetHost,
       port: targetPort,
       path: targetPath,
@@ -220,9 +226,13 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
         clientReq,
         targetUrl.host,
       ),
+      // TIM-318 (F16): for an https target, connect over TLS instead of silently
+      // sending plaintext to port 443. Upstreams are typically local dev servers
+      // with self-signed certs, so upstream cert validation is not enforced.
+      ...(isHttps ? { rejectUnauthorized: false } : {}),
     }
 
-    const proxyReq = http.request(options, (proxyRes) => {
+    const proxyReq = (isHttps ? https.request : http.request)(options, (proxyRes) => {
       httpServer.emit('proxy:success')
       const headers = sanitizeResponseHeaders(proxyRes.headers)
       clientRes.writeHead(proxyRes.statusCode || 502, headers)
@@ -285,7 +295,7 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
 
     const targetPath = targetBasePath + (clientReq.url || '/')
 
-    const proxySocket = net.connect(targetPort, targetHost, () => {
+    const onProxyConnect = (): void => {
       // Build the HTTP upgrade request to forward
       const reqHeaders = sanitizeRequestHeaders(
         clientReq.headers,
@@ -312,7 +322,13 @@ export function createProxyServer(target: string, serverOptions: ProxyServerOpti
 
       proxySocket.pipe(clientSocket as net.Socket)
       ;(clientSocket as net.Socket).pipe(proxySocket)
-    })
+    }
+
+    // TIM-318 (F16): tunnel the WS upgrade over TLS for an https target instead
+    // of a plaintext net socket. (Self-signed local dev upstreams not validated.)
+    const proxySocket: net.Socket = isHttps
+      ? tls.connect({ host: targetHost, port: targetPort, servername: targetHost, rejectUnauthorized: false }, onProxyConnect)
+      : net.connect(targetPort, targetHost, onProxyConnect)
 
     proxySocket.on('error', (err) => {
       log.error(`WebSocket proxy error for target ${target}:`, err.message)
