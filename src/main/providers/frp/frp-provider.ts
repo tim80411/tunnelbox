@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import type {
   TunnelProvider,
   ProviderEnv,
@@ -77,10 +76,12 @@ export class FrpProvider implements TunnelProvider {
     const proxyName = `tunnelbox-${siteId}`
     const tomlContent = this.generateToml(config.serverAddr, config.serverPort, config.authToken, proxyName, port, remotePort)
 
-    const tmpDir = path.join(os.tmpdir(), 'tunnelbox-frp')
-    fs.mkdirSync(tmpDir, { recursive: true })
-    const configPath = path.join(tmpDir, `frpc-${siteId}.toml`)
-    fs.writeFileSync(configPath, tomlContent, 'utf-8')
+    // TIM-317 (F26): write the frpc config under the per-user userData dir with
+    // 0700/0600 perms instead of a world-traversable shared /tmp directory, so
+    // another local user cannot read serverAddr / token or swap the file (TOCTOU).
+    const configPath = this.frpConfigPath(siteId)
+    fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(configPath, tomlContent, { encoding: 'utf-8', mode: 0o600 })
 
     // Set starting state
     const state: FrpTunnelState = {
@@ -211,7 +212,7 @@ export class FrpProvider implements TunnelProvider {
     this.tunnels.delete(siteId)
 
     // Cleanup temp config
-    const configPath = path.join(os.tmpdir(), 'tunnelbox-frp', `frpc-${siteId}.toml`)
+    const configPath = this.frpConfigPath(siteId)
     try { fs.unlinkSync(configPath) } catch { /* ignore */ }
   }
 
@@ -239,6 +240,11 @@ export class FrpProvider implements TunnelProvider {
   }
 
   // -- Private helpers --
+
+  /** Per-user, non-world-readable path for a site's frpc config (TIM-317 F26). */
+  private frpConfigPath(siteId: string): string {
+    return path.join(app.getPath('userData'), 'frp-config', `frpc-${siteId}.toml`)
+  }
 
   private generateToml(
     serverAddr: string,
