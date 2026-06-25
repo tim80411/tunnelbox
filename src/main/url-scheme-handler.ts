@@ -1,8 +1,8 @@
 import path from 'node:path'
-import os from 'node:os'
 import { app, BrowserWindow, dialog } from 'electron'
 import { addSiteFromPath } from './site-actions'
 import { createLogger } from './logger'
+import { validateServePath } from './server-security'
 import type { UrlAddResult } from '../shared/types'
 
 const log = createLogger('URLScheme')
@@ -90,33 +90,10 @@ function findTunnelboxUrl(argv: string[]): string | null {
   return argv.find((arg) => arg.startsWith('tunnelbox://')) ?? null
 }
 
-/** Directory names considered sensitive and never allowed to be served. */
-const SENSITIVE_DIRS = ['.ssh', '.gnupg', '.aws', '.azure', '.config', '.kube', '.docker', '.npmrc', '.env', '.git']
-
-/**
- * Validate that the resolved path is safe to serve.
- * Returns an error message if the path is rejected, or `null` if it is allowed.
- */
-export function validateServePath(rawPath: string): string | null {
-  const resolved = path.resolve(rawPath)
-  const home = os.homedir()
-
-  // Must be inside the user's home directory
-  if (!resolved.startsWith(home + path.sep) && resolved !== home) {
-    return `Path is outside your home directory: ${resolved}`
-  }
-
-  // Check every segment of the path relative to home for sensitive directory names
-  const relative = path.relative(home, resolved)
-  const segments = relative.split(path.sep)
-  for (const segment of segments) {
-    if (SENSITIVE_DIRS.includes(segment)) {
-      return `Path contains sensitive directory "${segment}": ${resolved}`
-    }
-  }
-
-  return null
-}
+// validateServePath moved to server-security.ts (dedupes SENSITIVE_DIRS and
+// adds realpath/symlink resolution — TIM-318 F32). Re-exported so existing
+// importers (and tests) keep working.
+export { validateServePath }
 
 async function processUrl(url: string): Promise<void> {
   try {

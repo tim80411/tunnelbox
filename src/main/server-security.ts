@@ -1,4 +1,6 @@
 import path from 'node:path'
+import os from 'node:os'
+import fs from 'node:fs'
 
 /**
  * Resolve a URL path against a root directory, guaranteeing the result stays
@@ -185,6 +187,45 @@ export const SENSITIVE_DIRS: readonly string[] = [
 export function containsSensitiveSegment(absPath: string): boolean {
   const segments = path.resolve(absPath).split(path.sep)
   return segments.some((s) => SENSITIVE_DIRS.includes(s))
+}
+
+/** realpath a path, falling back to the input if it doesn't exist yet. */
+function realpathOrSelf(p: string): string {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return p
+  }
+}
+
+/**
+ * Validate that a deep-link / external `tunnelbox://add?path=` target is safe to
+ * serve: it must resolve to a location inside the user's home directory and must
+ * not be (or be under) a sensitive directory. Returns an error message if
+ * rejected, or `null` if allowed. (Moved here from url-scheme-handler to dedupe
+ * SENSITIVE_DIRS and to be unit-testable.)
+ *
+ * TIM-318 (F32): resolve symlinks (realpath) on BOTH the input and home before
+ * comparing, so a symlink under home that points at e.g. ~/.ssh can't slip past
+ * a string-only check, and macOS firmlinks (/Users → /System/Volumes/Data/Users)
+ * don't make a legitimate in-home path look out-of-home.
+ */
+export function validateServePath(rawPath: string): string | null {
+  const resolved = realpathOrSelf(path.resolve(rawPath))
+  const home = realpathOrSelf(os.homedir())
+
+  if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+    return `Path is outside your home directory: ${resolved}`
+  }
+
+  const relative = path.relative(home, resolved)
+  for (const segment of relative.split(path.sep)) {
+    if (SENSITIVE_DIRS.includes(segment)) {
+      return `Path contains sensitive directory "${segment}": ${resolved}`
+    }
+  }
+
+  return null
 }
 
 /** Default watch-ignore globs for dev folders (TIM-229). */
