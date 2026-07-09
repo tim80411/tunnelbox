@@ -187,7 +187,7 @@ function SettingsPanel({
             <div className="settings-item">
               <div className="settings-item-info">
                 <span className="settings-item-label">訪客通知</span>
-                <span className="settings-item-desc">訪客透過 tunnel 到訪時顯示桌面通知</span>
+                <span className="settings-item-desc">有訪客透過 Tunnel 造訪時顯示桌面通知</span>
               </div>
               <label className="settings-toggle">
                 <input
@@ -202,7 +202,7 @@ function SettingsPanel({
             <div className="settings-item">
               <div className="settings-item-info">
                 <span className="settings-item-label">遠端主控台</span>
-                <span className="settings-item-desc">在注入 script 中攔截訪客端 console 輸出並回傳至本地 app</span>
+                <span className="settings-item-desc">攔截訪客瀏覽器的主控台輸出並回傳到本機顯示</span>
               </div>
               <label className="settings-toggle">
                 <input
