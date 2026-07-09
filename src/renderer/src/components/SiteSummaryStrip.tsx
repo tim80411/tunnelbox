@@ -11,7 +11,7 @@ function SiteSummaryStrip({ counts, filter, onFilterChange }: Props): React.Reac
     <div className="md-summary">
       <div className="stat">
         <div className="num">{counts.total}</div>
-        <div className="lbl">Sites</div>
+        <div className="lbl">網站</div>
       </div>
       <div className="stat">
         <div className="num"><span className="d" style={{ background: '#3fb069' }} />{counts.running}</div>

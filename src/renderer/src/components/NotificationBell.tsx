@@ -4,13 +4,13 @@ import { useNotificationCenter } from '../hooks/useNotificationCenter'
 function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp
   const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return '剛剛'
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 60) return `${minutes} 分鐘前`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hr ago`
+  if (hours < 24) return `${hours} 小時前`
   const days = Math.floor(hours / 24)
-  return `${days} day${days > 1 ? 's' : ''} ago`
+  return `${days} 天前`
 }
 
 function NotificationBell(): React.ReactElement {
@@ -51,7 +51,7 @@ function NotificationBell(): React.ReactElement {
         ref={buttonRef}
         className="btn btn-icon"
         onClick={handleToggle}
-        title="Notifications"
+        title="通知"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M8 1.5C8.4 1.5 8.7 1.8 8.7 2.2V2.6C10.6 3 12 4.7 12 6.7V10L13 11.5H3L4 10V6.7C4 4.7 5.4 3 7.3 2.6V2.2C7.3 1.8 7.6 1.5 8 1.5ZM6.5 12.5C6.5 13.3 7.2 14 8 14C8.8 14 9.5 13.3 9.5 12.5H6.5Z" fill="currentColor"/>
@@ -65,9 +65,9 @@ function NotificationBell(): React.ReactElement {
         <div ref={panelRef} className="notif-panel">
           <div className="notif-panel-header">
             <span className="notif-panel-title">
-              Notifications
+              通知
               {unreadCount > 0 && (
-                <span className="notif-count">{unreadCount > 99 ? '99+' : unreadCount} new</span>
+                <span className="notif-count">{unreadCount > 99 ? '99+' : unreadCount} 則新通知</span>
               )}
             </span>
             {unreadCount > 0 && (
@@ -77,7 +77,7 @@ function NotificationBell(): React.ReactElement {
                   markAllRead()
                 }}
               >
-                Mark all read
+                全部標為已讀
               </button>
             )}
           </div>
@@ -91,8 +91,8 @@ function NotificationBell(): React.ReactElement {
                     <path d="M13.7 21a2 2 0 0 1-3.4 0" />
                   </svg>
                 </div>
-                <p className="notif-empty-title">No notifications</p>
-                <p className="notif-empty-desc">Visitor activity on your public URLs will show up here.</p>
+                <p className="notif-empty-title">目前沒有通知</p>
+                <p className="notif-empty-desc">公開網址的訪客活動會顯示在這裡。</p>
               </div>
             ) : (
               notifications.map((item) => (
@@ -112,8 +112,8 @@ function NotificationBell(): React.ReactElement {
                     </svg>
                   </span>
                   <div className="notif-item-content">
-                    <div className="notif-item-site">New visitor · {item.siteName}</div>
-                    <div className="notif-item-ip">Visitor {item.visitorIp}</div>
+                    <div className="notif-item-site">新訪客 · {item.siteName}</div>
+                    <div className="notif-item-ip">訪客 {item.visitorIp}</div>
                     <div className="notif-item-time">{formatRelativeTime(item.timestamp)}</div>
                   </div>
                 </div>

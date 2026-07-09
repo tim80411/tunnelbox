@@ -23,7 +23,7 @@ function ShareCtaCard({ onShare }: Props): React.ReactElement {
   return (
     <div className="cta-card">
       <div className="ct"><span className="ci">{BoltIcon}</span>一鍵建立 Tunnel</div>
-      <div className="cd">此站目前僅在本機與區網可見。建立 Cloudflare Quick Tunnel 即可取得對外網址，免帳號、免設定。</div>
+      <div className="cd">此網站目前僅在本機與區網可見。建立 Cloudflare Quick Tunnel 即可取得公開網址，免帳號、免設定。</div>
       <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onShare}>
         {ShareIcon}立即分享
       </button>

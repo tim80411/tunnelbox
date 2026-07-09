@@ -23,7 +23,7 @@ export async function executePaste(
       try {
         await electron.addSite({ serveMode: 'static', name: folderName, folderPath: filePath })
       } catch (err) {
-        onError(err instanceof Error ? err.message : '新增網頁失敗')
+        onError(err instanceof Error ? err.message : '新增網站失敗')
       }
     }
     return
@@ -41,6 +41,6 @@ export async function executePaste(
   try {
     await electron.addSite({ serveMode: 'static', name: folderName, folderPath: text })
   } catch (err) {
-    onError(err instanceof Error ? err.message : '新增網頁失敗')
+    onError(err instanceof Error ? err.message : '新增網站失敗')
   }
 }

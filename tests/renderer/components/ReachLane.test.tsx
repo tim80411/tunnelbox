@@ -49,7 +49,7 @@ describe('ReachLane — LAN sharing toggle (TIM-225)', () => {
     } as SiteInfo)
     expect(html).toContain('http://192.168.1.24:3014')
     expect(html).toContain('lan-expose-warn')
-    expect(html).toContain('區網內任何人都能存取此站點')
+    expect(html).toContain('區網內任何人都能存取此網站')
     expect(html).toContain('關閉分享')
     expect(html).not.toContain('開啟分享')
   })

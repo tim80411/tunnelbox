@@ -49,7 +49,8 @@ function downloadFile(url: string, destPath: string): Promise<void> {
           ? response.headers.location[0]
           : response.headers.location
         if (!redirectUrl.startsWith('https://')) {
-          reject(new Error(`安全性錯誤：拒絕重新導向至非 HTTPS 網址：${redirectUrl}`))
+          log.error(`拒絕不安全的重新導向: ${redirectUrl}`)
+          reject(new Error('安全性錯誤：下載來源嘗試重新導向到不安全的網址，已拒絕。'))
           return
         }
         try {
@@ -75,12 +76,14 @@ function downloadFile(url: string, destPath: string): Promise<void> {
       })
       response.on('error', (err) => {
         writeStream.destroy()
-        reject(new Error(`寫入檔案失敗：${err instanceof Error ? err.message : String(err)}`))
+        log.error('寫入下載檔案失敗', err)
+        reject(new Error('下載檔案時發生錯誤，請重試。'))
       })
     })
 
     request.on('error', (err) => {
-      reject(new Error(`網路連線失敗：${err.message}`))
+      log.error('網路連線失敗', err)
+      reject(new Error('網路連線失敗，請檢查網路連線後重試。'))
     })
 
     request.end()
@@ -92,7 +95,7 @@ async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
   const { execFile } = await import('node:child_process')
   return new Promise((resolve, reject) => {
     execFile('tar', ['-xzf', tgzPath, '-C', destDir], (err) => {
-      if (err) reject(new Error(`解壓縮失敗：${err.message}`))
+      if (err) { log.error('解壓縮失敗', err); reject(new Error('解壓縮失敗，下載檔案可能已損毀，請重試。')) }
       else resolve()
     })
   })

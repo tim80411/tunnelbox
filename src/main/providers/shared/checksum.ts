@@ -16,7 +16,8 @@ export function downloadText(url: string): Promise<string> {
           ? response.headers.location[0]
           : response.headers.location
         if (!redirectUrl.startsWith('https://')) {
-          reject(new Error(`安全性錯誤：拒絕重新導向至非 HTTPS 網址：${redirectUrl}`))
+          log.error(`拒絕不安全的重新導向: ${redirectUrl}`)
+          reject(new Error('安全性錯誤：下載來源嘗試重新導向到不安全的網址，已拒絕。'))
           return
         }
         try {
@@ -41,12 +42,14 @@ export function downloadText(url: string): Promise<string> {
         resolve(body)
       })
       response.on('error', (err) => {
-        reject(new Error(`下載校驗檔失敗：${err instanceof Error ? err.message : String(err)}`))
+        log.error('下載校驗檔失敗', err)
+        reject(new Error('下載校驗檔失敗，請檢查網路連線後重試。'))
       })
     })
 
     request.on('error', (err) => {
-      reject(new Error(`網路連線失敗：${err.message}`))
+      log.error('網路連線失敗', err)
+      reject(new Error('網路連線失敗，請檢查網路連線後重試。'))
     })
 
     request.end()
@@ -113,11 +116,8 @@ export async function downloadAndVerifyChecksum(
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
     }
-    throw new Error(
-      `SHA256 校驗失敗：檔案可能已損毀或遭竄改\n` +
-      `  預期：${expectedHash}\n` +
-      `  實際：${actualHash}`,
-    )
+    log.error(`SHA256 校驗失敗 ${targetFilename}｜預期 ${expectedHash}｜實際 ${actualHash}`)
+    throw new Error('下載的檔案校驗失敗，可能已損毀或遭竄改，請重試。')
   }
 
   log.info(`Checksum verified for ${targetFilename}: ${actualHash}`)

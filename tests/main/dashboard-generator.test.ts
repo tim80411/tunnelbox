@@ -23,7 +23,7 @@ describe('DashboardGenerator', () => {
 
   it('generates empty state when no sites', () => {
     const html = generateDashboardHtml([])
-    expect(html).toContain('目前沒有正在分享的站點')
+    expect(html).toContain('目前沒有正在分享的網站')
   })
 
   it('includes group filter JS using URLSearchParams', () => {

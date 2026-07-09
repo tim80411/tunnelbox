@@ -9,9 +9,9 @@ function SiteDetailEmpty({ variant, siteName, onStart }: Props): React.ReactElem
     return (
       <div className="md-empty">
         <div className="eic">📦</div>
-        <div className="et">站點已停止</div>
+        <div className="et">網站已停止</div>
         <div className="ed">啟動「{siteName}」後即可取得本機、區域網路與公開網址。</div>
-        {onStart && <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={onStart}>啟動站點</button>}
+        {onStart && <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={onStart}>啟動網站</button>}
       </div>
     )
   }

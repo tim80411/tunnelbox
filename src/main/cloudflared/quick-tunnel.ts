@@ -304,7 +304,7 @@ export async function startQuickTunnel(siteId: string, port: number): Promise<st
   const existing = activeTunnels.get(siteId)
   if (existing && (existing.status === 'running' || existing.status === 'starting' || existing.status === 'verifying')) {
     if (existing.publicUrl) return existing.publicUrl
-    throw new Error('此網頁已有進行中的 Tunnel')
+    throw new Error('此網站已有進行中的 Tunnel')
   }
 
   const binaryPath = await findBinary()

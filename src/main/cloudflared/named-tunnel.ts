@@ -415,7 +415,7 @@ export async function unbindFixedDomain(siteId: string): Promise<void> {
   requireAuth()
 
   const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
-  if (!stored) throw new Error('找不到此網頁的 Tunnel')
+  if (!stored) throw new Error('找不到此網站的 Tunnel')
 
   // Stop if running
   const processId = `named-tunnel-${siteId}`
@@ -497,7 +497,7 @@ export async function startNamedTunnel(siteId: string, port: number): Promise<vo
   if (!binaryPath) throw new Error('cloudflared 尚未安裝')
 
   const stored = siteStore.getTunnels().find((t) => t.siteId === siteId)
-  if (!stored) throw new Error('找不到此網頁的 Named Tunnel')
+  if (!stored) throw new Error('找不到此網站的 Named Tunnel')
 
   const certPath = getCertForSite(siteId)
 

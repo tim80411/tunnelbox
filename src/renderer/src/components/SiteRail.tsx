@@ -53,8 +53,8 @@ function SiteRail({
           />
         </div>
         <div className="rail-meta">
-          <span>{totalCount} Sites</span>
-          <span>{runningCount} Running</span>
+          <span>{totalCount} 個網站</span>
+          <span>{runningCount} 運行中</span>
         </div>
       </div>
       <div className="rail-list">

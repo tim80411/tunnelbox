@@ -82,7 +82,7 @@ describe('importLicenseFromFile (US-105)', () => {
     const res = await importLicenseFromFile(src)
 
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toMatch(/signature/i)
+    if (!res.ok) expect(res.error).toMatch(/簽章/)
     expect(fs.existsSync(getLicensePath())).toBe(false)
     expect(tierGate.isPro()).toBe(false)
   })
@@ -94,7 +94,7 @@ describe('importLicenseFromFile (US-105)', () => {
 
     const res = await importLicenseFromFile(src)
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toMatch(/corrupt/i)
+    if (!res.ok) expect(res.error).toMatch(/損毀/)
     expect(fs.existsSync(getLicensePath())).toBe(false)
   })
 })

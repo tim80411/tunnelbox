@@ -153,7 +153,7 @@ export function registerIpcHandlers(
     try {
       // Validate name
       if (!params.name || !params.name.trim()) {
-        throw new Error('請輸入網頁名稱')
+        throw new Error('請輸入網站名稱')
       }
 
       const trimmedName = params.name.trim()
@@ -192,7 +192,7 @@ export function registerIpcHandlers(
           throw new Error('請選擇資料夾路徑')
         }
         if (existingServers.some((s) => s.serveMode === 'static' && s.folderPath === params.folderPath)) {
-          throw new Error('此路徑已被其他網頁使用')
+          throw new Error('此路徑已被其他網站使用')
         }
         storedSite = { id, name: trimmedName, serveMode: 'static', folderPath: params.folderPath }
       }
@@ -238,7 +238,7 @@ export function registerIpcHandlers(
   ipcMain.handle('rename-site', async (_event, id: string, newName: string) => {
     try {
       const trimmed = newName.trim()
-      if (!trimmed) throw new Error('請輸入網頁名稱')
+      if (!trimmed) throw new Error('請輸入網站名稱')
 
       const existingServers = serverManager.getServers()
       if (existingServers.some((s) => s.id !== id && s.name === trimmed)) {
@@ -246,7 +246,7 @@ export function registerIpcHandlers(
       }
 
       const server = serverManager.getServer(id)
-      if (!server) throw new Error(`Site not found: ${id}`)
+      if (!server) throw new Error(`找不到網站：${id}`)
 
       // Update runtime
       server.name = trimmed
@@ -306,7 +306,7 @@ export function registerIpcHandlers(
   ipcMain.handle('start-server', async (_event, id: string) => {
     try {
       const existing = serverManager.getServer(id)
-      if (!existing) throw new Error(`Site not found: ${id}`)
+      if (!existing) throw new Error(`找不到網站：${id}`)
       if (existing.status === 'running') return
 
       // Free users limited to 2 simultaneously-running sites (Friction #1, US-219).
@@ -316,7 +316,7 @@ export function registerIpcHandlers(
       }
 
       const storedSite = siteStore.getSites().find((s) => s.id === id)
-      if (!storedSite) throw new Error(`Stored site not found: ${id}`)
+      if (!storedSite) throw new Error(`找不到已儲存的網站：${id}`)
       await serverManager.startServer(storedSite)
       broadcastSiteUpdate()
     } catch (err) {
@@ -345,8 +345,8 @@ export function registerIpcHandlers(
   ipcMain.handle('open-in-browser', async (_event, id: string) => {
     try {
       const server = serverManager.getServer(id)
-      if (!server) throw new Error(`Site not found: ${id}`)
-      if (server.status !== 'running') throw new Error('Server is not running')
+      if (!server) throw new Error(`找不到網站：${id}`)
+      if (server.status !== 'running') throw new Error('伺服器未在運行')
       await shell.openExternal(`http://localhost:${server.port}`)
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to open in browser')
@@ -436,7 +436,7 @@ export function registerIpcHandlers(
   ipcMain.handle('start-quick-tunnel', async (_event, siteId: string) => {
     try {
       const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
+      if (!server) throw new Error('找不到此網站')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const url = await cfProvider.startTunnel(siteId, server.port, { mode: 'quick' })
@@ -561,7 +561,7 @@ export function registerIpcHandlers(
       setSiteAccount(siteId, accountId)
       broadcastSiteUpdate()
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : '設定站點帳號失敗')
+      throw new Error(err instanceof Error ? err.message : '設定網站帳號失敗')
     }
   })
 
@@ -579,7 +579,7 @@ export function registerIpcHandlers(
   ipcMain.handle('bind-fixed-domain', async (_event, siteId: string, domain: string) => {
     try {
       const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
+      if (!server) throw new Error('找不到此網站')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const url = await cfProvider.bindDomain!(siteId, server.port, domain)
@@ -603,7 +603,7 @@ export function registerIpcHandlers(
   ipcMain.handle('start-named-tunnel', async (_event, siteId: string) => {
     try {
       const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
+      if (!server) throw new Error('找不到此網站')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       await cfProvider.startTunnel(siteId, server.port, { mode: 'named' })
@@ -681,7 +681,7 @@ export function registerIpcHandlers(
   ipcMain.handle('start-frp-tunnel', async (_event, siteId: string, opts?: Record<string, unknown>) => {
     try {
       const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
+      if (!server) throw new Error('找不到此網站')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const frpProvider = tunnelManager.get('frp')
@@ -756,7 +756,7 @@ export function registerIpcHandlers(
   ipcMain.handle('start-bore-tunnel', async (_event, siteId: string, opts?: Record<string, unknown>) => {
     try {
       const server = serverManager.getServer(siteId)
-      if (!server) throw new Error('找不到此網頁')
+      if (!server) throw new Error('找不到此網站')
       if (server.status !== 'running') throw new Error('本地伺服器尚未啟動')
 
       const boreProvider = tunnelManager.get('bore')

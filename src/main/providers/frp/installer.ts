@@ -1,6 +1,9 @@
 import { getLocalBinaryPath } from './detector'
 import { installBinary, extractTarGz } from '../shared/binary-installer'
 import type { BinaryInstallerConfig } from '../shared/binary-installer'
+import { createLogger } from '../../logger'
+
+const log = createLogger('FrpInstaller')
 
 const RELEASES_BASE = 'https://github.com/fatedier/frp/releases/latest/download'
 
@@ -21,7 +24,7 @@ function getFrpInstallerConfig(): BinaryInstallerConfig {
         const { execFile } = await import('node:child_process')
         await new Promise<void>((resolve, reject) => {
           execFile('tar', ['-xf', archivePath, '-C', destDir, '--strip-components=1'], (err) => {
-            if (err) reject(new Error(`解壓縮失敗：${err.message}`))
+            if (err) { log.error('解壓縮失敗', err); reject(new Error('解壓縮失敗，下載檔案可能已損毀，請重試。')) }
             else resolve()
           })
         })

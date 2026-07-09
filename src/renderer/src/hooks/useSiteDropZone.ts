@@ -83,7 +83,7 @@ export function useSiteDropZone({ onError, onLicenseFile }: UseSiteDropZoneOptio
       try {
         await window.electron.addSite({ serveMode: 'static', name: folderName, folderPath: droppedPath })
       } catch (err) {
-        onError(err instanceof Error ? err.message : '新增網頁失敗')
+        onError(err instanceof Error ? err.message : '新增網站失敗')
       }
     },
     [onError, onLicenseFile]

@@ -52,7 +52,7 @@ describe('railUrl', () => {
     expect(railUrl(staticRunningLanOnly)).toBe('192.168.1.24:3022')
   })
   it('shows stopped hint with port for stopped site', () => {
-    expect(railUrl(proxyPassthroughStopped)).toBe('已停止 · Port 8787')
+    expect(railUrl(proxyPassthroughStopped)).toBe('已停止 · 連接埠 8787')
   })
 })
 
@@ -100,7 +100,7 @@ describe('filterSites', () => {
 describe('localLane / lanLane', () => {
   it('local active when running', () => {
     expect(localLane(staticRunningShared)).toEqual({
-      state: 'active', url: 'http://localhost:3014', sub: '僅本機可存取 · Port 3014'
+      state: 'active', url: 'http://localhost:3014', sub: '僅本機可存取 · 連接埠 3014'
     })
   })
   it('local off when stopped', () => {

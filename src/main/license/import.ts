@@ -4,11 +4,14 @@ import path from 'node:path'
 import { verifyLicense, getLicensePath } from './verifier'
 import { tierGate } from './tier-gate'
 import type { ImportResult } from '../../shared/license-types'
+import { createLogger } from '../logger'
+
+const log = createLogger('License')
 
 const REASON_MESSAGE: Record<string, string> = {
-  no_license: 'License file not found.',
-  invalid_signature: 'License signature invalid.',
-  license_corrupted: 'License file is corrupted or missing required fields.'
+  no_license: '找不到授權檔。',
+  invalid_signature: '授權簽章無效。',
+  license_corrupted: '授權檔已損毀或缺少必要欄位。'
 }
 
 /**
@@ -22,7 +25,7 @@ const REASON_MESSAGE: Record<string, string> = {
 export async function importLicenseFromFile(sourcePath: string): Promise<ImportResult> {
   const result = await verifyLicense(sourcePath)
   if (!result.valid) {
-    return { ok: false, error: REASON_MESSAGE[result.reason] ?? 'License is invalid.' }
+    return { ok: false, error: REASON_MESSAGE[result.reason] ?? '授權無效。' }
   }
 
   const dest = getLicensePath()
@@ -30,7 +33,8 @@ export async function importLicenseFromFile(sourcePath: string): Promise<ImportR
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.copyFileSync(sourcePath, dest)
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save license.' }
+    log.error('儲存授權檔失敗', err)
+    return { ok: false, error: '無法儲存授權檔。' }
   }
 
   await tierGate.refresh() // broadcasts tier-gate:changed to every renderer

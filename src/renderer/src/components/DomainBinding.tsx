@@ -62,10 +62,10 @@ function DomainBinding({ domain, tunnelId, tunnelError }: Props): React.ReactEle
           若你的網域不是由 Cloudflare 代管，請到 DNS 服務商新增以下 CNAME 記錄。Cloudflare 代管的網域已自動建立。
         </p>
         <div className="kv db-record">
-          <div className="kvi"><div className="k">Type</div><div className="v">CNAME</div></div>
-          <div className="kvi"><div className="k">Name</div><div className="v">{domain}</div></div>
+          <div className="kvi"><div className="k">類型</div><div className="v">CNAME</div></div>
+          <div className="kvi"><div className="k">名稱</div><div className="v">{domain}</div></div>
           <div className="kvi">
-            <div className="k">Target</div>
+            <div className="k">目標</div>
             <div className="v db-target">
               <span>{cnameTarget}</span>
               <CopyButton text={cnameTarget} tooltip="複製 CNAME 目標" variant="icon" />

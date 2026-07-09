@@ -99,7 +99,7 @@ function RemoteConsolePanel({
       <div className="settings-overlay" data-dismiss onClick={onClose} />
       <aside className="remote-console-panel">
         <div className="settings-header">
-          <h2 className="panel-title">Remote Console</h2>
+          <h2 className="panel-title">遠端主控台</h2>
           <button className="panel-close" onClick={onClose}>
             x
           </button>
@@ -107,7 +107,7 @@ function RemoteConsolePanel({
 
         {!enabled ? (
           <div className="remote-console-disabled">
-            Remote console is disabled. Enable it in Settings.
+            遠端主控台已停用，請至設定中開啟。
           </div>
         ) : (
           <>
@@ -119,18 +119,18 @@ function RemoteConsolePanel({
                     className={`remote-console-filter-btn${filter === level ? ' active' : ''}`}
                     onClick={() => setFilter(level)}
                   >
-                    {level === 'all' ? 'All' : level.toUpperCase()}
+                    {level === 'all' ? '全部' : level.toUpperCase()}
                   </button>
                 ))}
               </div>
               <button className="btn btn-sm" onClick={handleClear}>
-                Clear
+                清除
               </button>
             </div>
             <div className="remote-console-list" ref={listRef}>
               {filtered.length === 0 ? (
                 <div className="remote-console-empty">
-                  No console output yet. Waiting for visitors...
+                  尚無主控台輸出，等待訪客連線…
                 </div>
               ) : (
                 filtered.map((entry, i) => (

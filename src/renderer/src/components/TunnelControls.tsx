@@ -209,11 +209,11 @@ function TunnelControls({
       : tunnel?.status === 'error'
         ? (tunnel.errorMessage || 'Tunnel 發生錯誤')
         : isSelfHosted
-          ? (!isRunning ? '啟動站點後可使用' : '尚未公開')
+          ? (!isRunning ? '啟動網站後可使用' : '尚未公開')
           : !cloudflaredAvailable
             ? '需安裝 cloudflared'
             : !isRunning
-              ? '啟動站點後可使用'
+              ? '啟動網站後可使用'
               : '尚未公開'
 
   // Info tooltip
@@ -306,7 +306,7 @@ function TunnelControls({
                     }}
                     disabled={!!(tunnel && tunnel.status !== 'stopped' && tunnel.status !== 'error')}
                   >
-                    切換 Provider（目前：{isBore ? 'bore' : isFrp ? 'frp' : 'Cloudflare'}）
+                    切換 Tunnel 服務（目前：{isBore ? 'bore' : isFrp ? 'frp' : 'Cloudflare'}）
                   </button>
                   {!isSelfHosted && (
                     <>
@@ -408,7 +408,7 @@ function TunnelControls({
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">設定預設網域</h2>
             <p className="confirm-text" style={{ marginBottom: '8px' }}>
-              設定後，按下 ▶ 將直接使用此網域啟動固定 Tunnel。留空可清除預設網域。
+              設定後，按啟動鈕（▶）將直接使用此網域啟動固定 Tunnel。留空可清除預設網域。
             </p>
             {defaultDomainError && <div className="modal-error">{defaultDomainError}</div>}
             <div className="form-group">
@@ -416,7 +416,7 @@ function TunnelControls({
                 預設網域
                 <span
                   className="form-hint"
-                  data-tooltip="網域需由 Cloudflare 託管 DNS。設定後不會立即綁定，僅在按下 ▶ 時使用。"
+                  data-tooltip="網域需由 Cloudflare 託管 DNS。設定後不會立即綁定，僅在按啟動鈕（▶）時使用。"
                 >
                   ⓘ
                 </span>

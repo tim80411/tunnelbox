@@ -9,9 +9,9 @@ export function useUrlAddNotification({ onSuccess, onError }: UseUrlAddNotificat
   useEffect(() => {
     const unsub = window.electron.onUrlAddResult((result) => {
       if (result.success) {
-        onSuccess(`Site "${result.siteName}" added successfully`)
+        onSuccess(`已成功新增網站「${result.siteName}」`)
       } else {
-        onError(result.errorMessage || 'Failed to add site from Finder')
+        onError(result.errorMessage || '無法從 Finder 新增網站')
       }
     })
     return unsub

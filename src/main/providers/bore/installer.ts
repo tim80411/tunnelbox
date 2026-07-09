@@ -1,6 +1,9 @@
 import { getLocalBinaryPath } from './detector'
 import { installBinary, extractTarGz } from '../shared/binary-installer'
 import type { BinaryInstallerConfig } from '../shared/binary-installer'
+import { createLogger } from '../../logger'
+
+const log = createLogger('BoreInstaller')
 
 /**
  * bore release assets contain the version in the filename (e.g., bore-v0.6.0-x86_64-apple-darwin.tar.gz).
@@ -28,7 +31,10 @@ async function fetchLatestTag(): Promise<string> {
         }
       })
     })
-    request.on('error', (err) => reject(new Error(`網路連線失敗：${err.message}`)))
+    request.on('error', (err) => {
+      log.error('網路連線失敗', err)
+      reject(new Error('網路連線失敗，請檢查網路連線後重試。'))
+    })
     request.end()
   })
 }
@@ -63,7 +69,7 @@ function getBoreInstallerConfig(tag: string): BinaryInstallerConfig {
         const { execFile } = await import('node:child_process')
         await new Promise<void>((resolve, reject) => {
           execFile('tar', ['-xf', archivePath, '-C', destDir], (err) => {
-            if (err) reject(new Error(`解壓縮失敗：${err.message}`))
+            if (err) { log.error('解壓縮失敗', err); reject(new Error('解壓縮失敗，下載檔案可能已損毀，請重試。')) }
             else resolve()
           })
         })

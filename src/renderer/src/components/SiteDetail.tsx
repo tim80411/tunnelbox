@@ -84,7 +84,7 @@ const LanIcon = (
 function pathText(site: SiteInfo): string {
   if (site.serveMode === 'proxy') {
     const p = site as ProxySiteInfo
-    return p.passthrough ? `Direct → Port ${p.passthroughPort}` : `Proxy → ${p.proxyTarget}`
+    return p.passthrough ? `直接轉發 → 連接埠 ${p.passthroughPort}` : `反向代理 → ${p.proxyTarget}`
   }
   return site.folderPath
 }
@@ -161,7 +161,7 @@ function SiteDetail(props: Props): React.ReactElement {
               <button className="btn btn-sm btn-primary" onClick={() => props.onStartServer(site.id)}>啟動</button>
             )}
             {props.consoleEnabled && site.serveMode === 'static' && (
-              <button className="btn btn-sm" disabled={site.status !== 'running'} onClick={() => props.onOpenConsole(site.id)} title="開啟遠端 Console">Console</button>
+              <button className="btn btn-sm" disabled={site.status !== 'running'} onClick={() => props.onOpenConsole(site.id)} title="開啟遠端主控台">主控台</button>
             )}
             <button className="btn btn-sm btn-danger" onClick={() => props.onRemove(site)}>移除</button>
           </div>
@@ -215,11 +215,11 @@ function SiteDetail(props: Props): React.ReactElement {
 
         <div className="md-lower">
           <div className="col-main">
-            <div className="section-label">站點資訊</div>
+            <div className="section-label">網站資訊</div>
             <div className="kv">
-              <div className="kvi"><div className="k">Mode</div><div className="v">{mode === 'static' ? '靜態檔案' : mode === 'proxy' ? '反向代理' : 'Direct'}</div></div>
-              <div className="kvi"><div className="k">Port</div><div className="v">{site.port}</div></div>
-              <div className="kvi"><div className="k">Provider</div><div className="v">{site.providerType ?? 'cloudflare'}</div></div>
+              <div className="kvi"><div className="k">模式</div><div className="v">{mode === 'static' ? '靜態檔案' : mode === 'proxy' ? '反向代理' : '直接轉發'}</div></div>
+              <div className="kvi"><div className="k">連接埠</div><div className="v">{site.port}</div></div>
+              <div className="kvi"><div className="k">Tunnel 服務</div><div className="v">{site.providerType ?? 'cloudflare'}</div></div>
               <div className="kvi"><div className="k">狀態</div><div className="v">{SITE_STATE_LABEL[state]}</div></div>
             </div>
             <TagEditor siteId={site.id} tags={site.tags ?? []} />
@@ -235,7 +235,7 @@ function SiteDetail(props: Props): React.ReactElement {
             </div>
           ) : canShareToWan ? (
             <div className="col-side">
-              <div className="section-label">分享到公開網路</div>
+              <div className="section-label">公開分享</div>
               <ShareCtaCard onShare={() => { void props.onShare(site.id) }} />
             </div>
           ) : null}
