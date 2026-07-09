@@ -133,7 +133,7 @@ async function handleTunnelQuick(req: http.IncomingMessage, res: http.ServerResp
   const gateResult = checkShareGate(serverManager, siteId)
   if (!gateResult.allowed) {
     json(res, 403, {
-      error: 'Free 一次只能同時運行 2 個 site。請升級 Pro 或停掉現有 site。',
+      error: 'Free 適合單次展示，可同時運行 2 個網站；如需更多並行，請升級 Pro，或先停掉現有網站。',
       code: 'SHARE_LIMIT_EXCEEDED'
     })
     return

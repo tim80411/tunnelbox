@@ -51,7 +51,7 @@ describe('SiteRail — per-row quick actions', () => {
     expect(html).not.toContain('開啟網站')
     expect(html).not.toContain('複製網址')
     // ...but the row itself still renders, with its stopped hint
-    expect(html).toContain('已停止 · Port 8787')
+    expect(html).toContain('已停止 · 連接埠 8787')
   })
 
   it('renders a mixed list: only the reachable row carries actions', () => {

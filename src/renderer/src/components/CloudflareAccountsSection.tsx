@@ -142,7 +142,7 @@ function CloudflareAccountsSection({ state, isPro, onAdd, onRemove, onSetActive,
                     )}
                     {isActive && <span className="cf-account-badge">使用中</span>}
                     {isInactive && (
-                      <span className="cf-account-badge cf-account-badge-inactive" title="Pro 用於 agency / multi-client 工作流">
+                      <span className="cf-account-badge cf-account-badge-inactive" title="Pro 用於接案 / 多客戶工作流">
                         不可切換
                       </span>
                     )}
@@ -178,7 +178,7 @@ function CloudflareAccountsSection({ state, isPro, onAdd, onRemove, onSetActive,
         </button>
 
         {!isPro && accounts.length >= 1 && (
-          <p className="cf-accounts-hint">Free 適合個人專案；Pro 用於 agency / multi-client 工作流</p>
+          <p className="cf-accounts-hint">Free 適合個人專案；Pro 用於接案 / 多客戶工作流</p>
         )}
       </div>
 
@@ -187,26 +187,26 @@ function CloudflareAccountsSection({ state, isPro, onAdd, onRemove, onSetActive,
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">新增 Cloudflare 帳號</h2>
             <p className="confirm-text">
-              Free 一次只能登入 1 個 Cloudflare 帳號。
+              Free 一次使用 1 個 Cloudflare 帳號。
             </p>
             <p className="confirm-text" style={{ marginTop: '4px', color: 'var(--color-text-muted)' }}>
-              Free 適合個人專案；Pro 用於 agency / multi-client 工作流。
+              Free 適合個人專案；Pro 用於接案 / 多客戶工作流。
             </p>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowFreeBlockDialog(false)}>
-                Cancel
+                取消
               </button>
               <button
                 className="btn"
                 onClick={handleFreeSignOutAndAdd}
               >
-                Sign out current &amp; add new
+                登出目前帳號並新增其他帳號
               </button>
               <button
                 className="btn btn-primary"
                 onClick={() => setShowFreeBlockDialog(false)}
               >
-                Upgrade to Pro
+                升級 Pro
               </button>
             </div>
           </div>
@@ -237,7 +237,7 @@ function CloudflareAccountsSection({ state, isPro, onAdd, onRemove, onSetActive,
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">移除帳號</h2>
             <p className="confirm-text">
-              移除帳號 {accountDisplayLabel(removeTarget)} 將影響所有綁定此帳號的站點，這些站點需重新選擇帳號才能使用 Named Tunnel。要繼續嗎？
+              移除帳號 {accountDisplayLabel(removeTarget)} 將影響所有綁定此帳號的網站，這些網站需重新選擇帳號才能使用 Named Tunnel。要繼續嗎？
             </p>
             <div className="modal-actions">
               <button className="btn" onClick={() => setRemoveTarget(null)}>

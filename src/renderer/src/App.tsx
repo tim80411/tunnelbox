@@ -111,7 +111,7 @@ function App(): React.ReactElement {
       const siteList = await window.electron.getSites()
       setSites(siteList)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sites')
+      setError(err instanceof Error ? err.message : '載入網站失敗')
     }
   }, [])
 
@@ -209,7 +209,7 @@ function App(): React.ReactElement {
         }
       }
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to select folder')
+      setAddError(err instanceof Error ? err.message : '選擇資料夾失敗')
     }
   }, [newSiteName])
 
@@ -217,13 +217,13 @@ function App(): React.ReactElement {
     setAddError(null)
 
     if (!newSiteName.trim()) {
-      setAddError('請輸入網頁名稱')
+      setAddError('請輸入網站名稱')
       return
     }
 
     if (newServeMode === 'proxy') {
       if (!newProxyTarget.trim()) {
-        setAddError('請輸入 Proxy 目標 URL 或 Port')
+        setAddError('請輸入反向代理目標 URL 或連接埠')
         return
       }
     } else {
@@ -247,7 +247,7 @@ function App(): React.ReactElement {
       }
       setShowAddModal(false)
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to add site')
+      setAddError(err instanceof Error ? err.message : '新增網站失敗')
     } finally {
       setAdding(false)
     }
@@ -258,7 +258,7 @@ function App(): React.ReactElement {
       setError(null)
       await window.electron.removeSite(id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove site')
+      setError(err instanceof Error ? err.message : '移除網站失敗')
     }
   }, [])
 
@@ -267,7 +267,7 @@ function App(): React.ReactElement {
       setError(null)
       await window.electron.openInBrowser(site.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to open in browser')
+      setError(err instanceof Error ? err.message : '在瀏覽器開啟失敗')
     }
   }, [])
 
@@ -300,7 +300,7 @@ function App(): React.ReactElement {
       setError(null)
       await withShareGate(id, () => window.electron.startServer(id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start server')
+      setError(err instanceof Error ? err.message : '啟動伺服器失敗')
     }
   }, [withShareGate])
 
@@ -309,7 +309,7 @@ function App(): React.ReactElement {
       setError(null)
       await window.electron.stopServer(id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stop server')
+      setError(err instanceof Error ? err.message : '停止伺服器失敗')
     }
   }, [])
 
@@ -320,7 +320,7 @@ function App(): React.ReactElement {
       if (site.status === 'running') await window.electron.stopServer(site.id)
       await window.electron.startServer(site.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to restart server')
+      setError(err instanceof Error ? err.message : '重新啟動伺服器失敗')
     }
   }, [])
 
@@ -433,7 +433,7 @@ function App(): React.ReactElement {
       setError(null)
       await window.electron.setSiteProvider(siteId, provider)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '切換 Provider 失敗')
+      setError(err instanceof Error ? err.message : '切換 Tunnel 服務失敗')
       throw err
     }
   }, [])
@@ -553,10 +553,10 @@ function App(): React.ReactElement {
       setInstallingQuickAction(true)
       await window.electron.installQuickAction()
       setQuickActionInstalled(true)
-      setSuccessMessage('Right-click menu installed! Right-click a folder to add it to TunnelBox.')
+      setSuccessMessage('已安裝右鍵選單！在資料夾上按右鍵即可新增到 TunnelBox。')
       setTimeout(() => setSuccessMessage(null), 5000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to install Quick Action')
+      setError(err instanceof Error ? err.message : '安裝 Quick Action 失敗')
     } finally {
       setInstallingQuickAction(false)
     }
@@ -734,16 +734,16 @@ function App(): React.ReactElement {
               className="btn btn-sm"
               onClick={handleInstallQuickAction}
               disabled={installingQuickAction}
-              title="Install right-click context menu integration"
+              title="安裝右鍵選單整合功能"
             >
-              {installingQuickAction ? 'Installing...' : 'Setup Right-Click'}
+              {installingQuickAction ? '安裝中…' : '設定右鍵選單'}
             </button>
           )}
           <NotificationBell />
           <button
             className="btn btn-icon"
             onClick={() => setShowShareHistory((v) => !v)}
-            title="Share History"
+            title="分享紀錄"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 1C4.1 1 1 4.1 1 8C1 11.9 4.1 15 8 15C11.9 15 15 11.9 15 8C15 4.1 11.9 1 8 1ZM8 13.5C4.9 13.5 2.5 11.1 2.5 8C2.5 4.9 4.9 2.5 8 2.5C11.1 2.5 13.5 4.9 13.5 8C13.5 11.1 11.1 13.5 8 13.5ZM8.5 4.5H7V9L11 11.3L11.8 10L8.5 8.2V4.5Z" fill="currentColor"/>
@@ -752,7 +752,7 @@ function App(): React.ReactElement {
           <button
             className="btn btn-icon"
             onClick={() => setShowSettings((v) => !v)}
-            title="Settings"
+            title="設定"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M6.5 1L6.2 2.6C5.8 2.8 5.4 3 5.1 3.3L3.5 2.7L2 5.3L3.3 6.4C3.3 6.6 3.2 6.8 3.2 7C3.2 7.2 3.2 7.4 3.3 7.6L2 8.7L3.5 11.3L5.1 10.7C5.4 11 5.8 11.2 6.2 11.4L6.5 13H9.5L9.8 11.4C10.2 11.2 10.6 11 10.9 10.7L12.5 11.3L14 8.7L12.7 7.6C12.7 7.4 12.8 7.2 12.8 7C12.8 6.8 12.8 6.6 12.7 6.4L14 5.3L12.5 2.7L10.9 3.3C10.6 3 10.2 2.8 9.8 2.6L9.5 1H6.5ZM8 5C9.1 5 10 5.9 10 7C10 8.1 9.1 9 8 9C6.9 9 6 8.1 6 7C6 5.9 6.9 5 8 5Z" fill="currentColor"/>
@@ -775,16 +775,16 @@ function App(): React.ReactElement {
           }}
         >
           <span style={{ flex: 1 }}>
-            您的 Pro 授權已停止更新；目前版本仍可繼續無限期使用。要拿到新功能請續訂。
+            你的 Pro 授權已停止更新；目前版本仍可繼續無限期使用。要拿到新功能請續訂。
           </span>
           <button
             className="btn btn-sm btn-primary"
             onClick={() => window.open('https://tunnelbox.teachers-assist.com/#pricing', '_blank')}
           >
-            Renew
+            續訂
           </button>
           <button className="btn btn-sm" onClick={handleDismissRenewBanner}>
-            Dismiss
+            忽略
           </button>
         </div>
       )}
@@ -837,9 +837,9 @@ function App(): React.ReactElement {
             {isDraggingOver && <div className="site-list-drop-hint">拖曳資料夾至此新增</div>}
             <div className="site-list-empty">
               <div className="empty-icon">📂</div>
-              <p className="empty-title">尚未建立任何網頁</p>
-              <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個網頁</p>
-              <button className="btn btn-primary" onClick={openAddModal}>+ 新增網頁</button>
+              <p className="empty-title">尚未建立任何網站</p>
+              <p className="empty-desc">拖曳資料夾至此，或點擊下方按鈕來建立你的第一個網站</p>
+              <button className="btn btn-primary" onClick={openAddModal}>+ 新增網站</button>
             </div>
           </div>
         </div>
@@ -1070,7 +1070,7 @@ function App(): React.ReactElement {
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                 </span>
-                Add New Site
+                新增網站
               </h2>
               <button className="panel-close" onClick={closeAddModal}>×</button>
             </div>
@@ -1081,11 +1081,11 @@ function App(): React.ReactElement {
               )}
 
               <div className="form-group">
-                <label className="form-label">Name</label>
+                <label className="form-label">名稱</label>
                 <input
                   className="form-input"
                   type="text"
-                  placeholder="My Website"
+                  placeholder="我的網站"
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
                   autoFocus
@@ -1093,65 +1093,65 @@ function App(): React.ReactElement {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Service Mode</label>
+                <label className="form-label">服務模式</label>
                 <div className="serve-mode-toggle">
                   <button
                     className={`serve-mode-btn${newServeMode === 'static' ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('static'); setNewPassthrough(false) }}
                     type="button"
                   >
-                    Static<small>Static files</small>
+                    靜態檔案<small>提供資料夾檔案</small>
                   </button>
                   <button
                     className={`serve-mode-btn${newServeMode === 'proxy' && !newPassthrough ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('proxy'); setNewPassthrough(false) }}
                     type="button"
                   >
-                    Proxy<small>Reverse proxy</small>
+                    反向代理<small>轉發到本機服務</small>
                   </button>
                   <button
                     className={`serve-mode-btn${newServeMode === 'proxy' && newPassthrough ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('proxy'); setNewPassthrough(true) }}
                     type="button"
                   >
-                    Direct<small>Port forward</small>
+                    直接轉發<small>直接指向連接埠</small>
                   </button>
                 </div>
               </div>
 
               {newServeMode === 'static' ? (
                 <div className="form-group">
-                  <label className="form-label">Folder Path</label>
+                  <label className="form-label">資料夾路徑</label>
                   <div className="form-row">
                     <input
                       className="form-input"
                       type="text"
-                      placeholder="Select a folder..."
+                      placeholder="選擇資料夾…"
                       value={newSitePath}
                       readOnly
                     />
                     <button className="btn" onClick={handleSelectFolder}>
-                      Browse
+                      瀏覽
                     </button>
                   </div>
-                  <span className="form-field-hint">TunnelBox serves the static files in this folder directly.</span>
+                  <span className="form-field-hint">TunnelBox 會直接提供此資料夾內的靜態檔案。</span>
                 </div>
               ) : (
                 <div className="form-group">
                   <label className="form-label">
-                    {newPassthrough ? 'Port' : 'Proxy Target'}
+                    {newPassthrough ? '連接埠' : '反向代理目標'}
                   </label>
                   <input
                     className="form-input"
                     type="text"
-                    placeholder={newPassthrough ? '3000' : 'http://localhost:3000 or 3000'}
+                    placeholder={newPassthrough ? '3000' : 'http://localhost:3000 或 3000'}
                     value={newProxyTarget}
                     onChange={(e) => setNewProxyTarget(e.target.value)}
                   />
                   <span className="form-field-hint">
                     {newPassthrough
-                      ? 'Tunnel points directly to this port — no local proxy server.'
-                      : 'Forwards requests to a local server that is already running.'}
+                      ? 'Tunnel 會直接指向此連接埠，不經過本機的反向代理伺服器。'
+                      : '將請求轉發到已在執行中的本機伺服器。'}
                   </span>
                 </div>
               )}
@@ -1159,7 +1159,7 @@ function App(): React.ReactElement {
 
             <div className="modal-foot">
               <button className="btn" onClick={closeAddModal}>
-                Cancel
+                取消
               </button>
               <button
                 className="btn btn-primary"
@@ -1169,7 +1169,7 @@ function App(): React.ReactElement {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                {adding ? 'Adding...' : 'Create Site'}
+                {adding ? '新增中…' : '建立網站'}
               </button>
             </div>
           </div>
@@ -1180,12 +1180,12 @@ function App(): React.ReactElement {
       {showUpgradePro && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowUpgradePro(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Upgrade to Pro</h2>
+            <h2 className="modal-title">升級 Pro</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
-              Pro is for 24/7 share mode, multi-client parallel workflows, and more.
+              Pro 適用於 24/7 分享模式、多客戶並行工作流等場景。
             </p>
             <div className="modal-actions">
-              <button className="btn" onClick={() => setShowUpgradePro(false)}>Maybe later</button>
+              <button className="btn" onClick={() => setShowUpgradePro(false)}>稍後再說</button>
               <button
                 className="btn btn-primary"
                 onClick={() => {
@@ -1193,7 +1193,7 @@ function App(): React.ReactElement {
                   window.open('https://tunnelbox.teachers-assist.com/#pricing', '_blank')
                 }}
               >
-                Get Pro
+                取得 Pro
               </button>
             </div>
           </div>
@@ -1204,12 +1204,12 @@ function App(): React.ReactElement {
       {proActivated && (
         <div className="modal-overlay" data-dismiss onClick={() => setProActivated(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Pro activated 🎉</h2>
+            <h2 className="modal-title">Pro 已啟用</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
-              Thanks for supporting TunnelBox. Pro is now active for <strong>{proActivated.email}</strong>.
+              感謝支持 TunnelBox。Pro 已為 <strong>{proActivated.email}</strong> 啟用。
             </p>
             <div className="modal-actions">
-              <button className="btn btn-primary" onClick={() => setProActivated(null)}>Done</button>
+              <button className="btn btn-primary" onClick={() => setProActivated(null)}>完成</button>
             </div>
           </div>
         </div>
@@ -1219,12 +1219,12 @@ function App(): React.ReactElement {
       {pendingLicenseReplace && (
         <div className="modal-overlay" data-dismiss onClick={() => setPendingLicenseReplace(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Replace existing Pro license?</h2>
+            <h2 className="modal-title">要取代現有的 Pro 授權嗎？</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
-              You already have an active Pro license. Importing this file will replace it.
+              你已經有一個啟用中的 Pro 授權。匯入此檔案將取代它。
             </p>
             <div className="modal-actions">
-              <button className="btn" onClick={() => setPendingLicenseReplace(null)}>Cancel</button>
+              <button className="btn" onClick={() => setPendingLicenseReplace(null)}>取消</button>
               <button
                 className="btn btn-primary"
                 onClick={() => {
@@ -1233,7 +1233,7 @@ function App(): React.ReactElement {
                   void runLicenseImport(p)
                 }}
               >
-                Replace
+                取代
               </button>
             </div>
           </div>
@@ -1244,12 +1244,12 @@ function App(): React.ReactElement {
       {downloadsLicensePrompt && (
         <div className="modal-overlay" data-dismiss onClick={() => setDownloadsLicensePrompt(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Activate Pro?</h2>
+            <h2 className="modal-title">要啟用 Pro 嗎？</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
-              Found a license file in your Downloads. Import it to activate Pro?
+              在你的下載資料夾中找到授權檔案。要匯入並啟用 Pro 嗎？
             </p>
             <div className="modal-actions">
-              <button className="btn" onClick={() => setDownloadsLicensePrompt(null)}>Not now</button>
+              <button className="btn" onClick={() => setDownloadsLicensePrompt(null)}>暫時不要</button>
               <button
                 className="btn btn-primary"
                 onClick={() => {
@@ -1258,7 +1258,7 @@ function App(): React.ReactElement {
                   void runLicenseImport(p)
                 }}
               >
-                Activate
+                啟用
               </button>
             </div>
           </div>

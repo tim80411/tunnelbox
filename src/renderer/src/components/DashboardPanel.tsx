@@ -57,32 +57,32 @@ function DashboardPanel({ sites }: DashboardPanelProps): React.ReactElement {
 
   return (
     <div className="dashboard-panel">
-      <h3 className="dashboard-title">Dashboard</h3>
+      <h3 className="dashboard-title">儀表板</h3>
       {!dashboardSiteId ? (
         <button
           className="btn btn-sm"
           onClick={handleGenerate}
           disabled={generating || tunnelSiteCount === 0}
-          title={tunnelSiteCount === 0 ? 'At least one site must be sharing via tunnel' : ''}
+          title={tunnelSiteCount === 0 ? '需要至少一個網站正在透過 Tunnel 分享' : ''}
         >
-          {generating ? 'Generating...' : `Generate Dashboard (${tunnelSiteCount} sites)`}
+          {generating ? '產生中…' : `產生儀表板（${tunnelSiteCount} 個網站）`}
         </button>
       ) : (
         <div className="dashboard-controls">
-          <p className="dashboard-hint">Dashboard site created. Start a tunnel on it to share.</p>
+          <p className="dashboard-hint">儀表板網站已建立，啟動 Tunnel 即可分享。</p>
           <div className="dashboard-actions">
-            <button className="btn btn-sm" onClick={handleGenerate}>Regenerate</button>
-            <button className="btn btn-sm btn-danger" onClick={handleRemove}>Remove</button>
+            <button className="btn btn-sm" onClick={handleGenerate}>重新產生</button>
+            <button className="btn btn-sm btn-danger" onClick={handleRemove}>移除</button>
           </div>
           {dashboardPublicUrl && allTags.length > 0 && (
             <div className="dashboard-group-urls">
-              <p className="dashboard-group-label">Group filter URLs:</p>
+              <p className="dashboard-group-label">依標籤篩選的網址：</p>
               {allTags.map((tag) => (
                 <div key={tag} className="dashboard-group-url-row">
                   <span className="tag-chip">{tag}</span>
                   <CopyButton
                     text={`${dashboardPublicUrl}?group=${encodeURIComponent(tag)}`}
-                    tooltip={`Copy filtered URL for "${tag}"`}
+                    tooltip={`複製「${tag}」的篩選網址`}
                   />
                 </div>
               ))}

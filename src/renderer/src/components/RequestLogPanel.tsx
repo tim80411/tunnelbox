@@ -55,14 +55,14 @@ function RequestLogPanel({
   return (
     <div className="request-log-panel">
       <div className="request-log-header">
-        <span className="request-log-title">Request Log</span>
+        <span className="request-log-title">請求日誌</span>
         <button className="btn btn-sm" onClick={onClear}>
-          Clear
+          清除
         </button>
       </div>
       <div className="request-log-list" ref={listRef}>
         {entries.length === 0 ? (
-          <div className="request-log-empty">No requests yet</div>
+          <div className="request-log-empty">尚無請求記錄</div>
         ) : (
           entries.map((entry) => (
             <div

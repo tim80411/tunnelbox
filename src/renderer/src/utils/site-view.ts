@@ -67,7 +67,7 @@ export function primaryUrl(site: SiteInfo): string | null {
 export function railUrl(site: SiteInfo): string {
   const u = primaryUrl(site)
   if (u) return stripScheme(u)
-  return isPassthrough(site) ? `已停止 · Port ${site.port}` : '已停止'
+  return isPassthrough(site) ? `已停止 · 連接埠 ${site.port}` : '已停止'
 }
 
 export function summarizeSites(sites: SiteInfo[]): SiteCounts {
@@ -99,14 +99,14 @@ export function filterSites(sites: SiteInfo[], query: string, filter: SiteFilter
 
 export function localLane(site: SiteInfo): LaneVM {
   if (site.status !== 'running' || !site.url) {
-    return { state: 'off', placeholder: '啟動站點後可使用' }
+    return { state: 'off', placeholder: '啟動網站後可使用' }
   }
-  return { state: 'active', url: site.url, sub: `僅本機可存取 · Port ${site.port}` }
+  return { state: 'active', url: site.url, sub: `僅本機可存取 · 連接埠 ${site.port}` }
 }
 
 export function lanLane(site: SiteInfo): LaneVM {
   if (site.status !== 'running') {
-    return { state: 'off', placeholder: '啟動站點後可使用' }
+    return { state: 'off', placeholder: '啟動網站後可使用' }
   }
   // TIM-225: LAN sharing is off by default (server bound to localhost only).
   // Checked before lanUrl — with LAN off there is no reachable區網 address,

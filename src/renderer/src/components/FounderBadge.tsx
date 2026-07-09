@@ -8,7 +8,7 @@ function FounderBadge({ founderTier, size = 'default' }: FounderBadgeProps): Rea
   return (
     <span
       className="founder-badge"
-      title={`First 100 buyers — permanent Founder identity`}
+      title={`前 100 名永久 Founder 身份`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

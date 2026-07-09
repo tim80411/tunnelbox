@@ -34,9 +34,9 @@ function formatDuration(start: string, end: string | null): string {
 }
 
 const FILTERS: { key: ShareFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'In Progress' },
-  { key: 'ended', label: 'Ended' }
+  { key: 'all', label: '全部' },
+  { key: 'active', label: '進行中' },
+  { key: 'ended', label: '已結束' }
 ]
 
 function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.ReactElement | null {
@@ -67,7 +67,7 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
                 <path d="M12 7v5l3 2" />
               </svg>
             </span>
-            Share History
+            分享紀錄
           </h2>
           <button className="panel-close" onClick={onClose}>×</button>
         </div>
@@ -86,14 +86,14 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
             ))}
           </div>
           <div className="share-bar-right">
-            <span className="share-bar-count">{records.length} records · {activeCount} active</span>
+            <span className="share-bar-count">{records.length} 筆紀錄 · {activeCount} 進行中</span>
             <button
               className="btn btn-sm"
               onClick={exportCsv}
               disabled={records.length === 0}
-              title={records.length === 0 ? 'No records to export' : 'Export to CSV'}
+              title={records.length === 0 ? '沒有可匯出的紀錄' : '匯出為 CSV'}
             >
-              Export CSV
+              匯出 CSV
             </button>
           </div>
         </div>
@@ -103,7 +103,7 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
 
           {loading ? (
             <div className="share-history-empty">
-              <p className="empty-desc">Loading...</p>
+              <p className="empty-desc">載入中…</p>
             </div>
           ) : records.length === 0 ? (
             <div className="share-history-empty">
@@ -113,13 +113,13 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
                   <path d="M12 7v5l3 2" />
                 </svg>
               </div>
-              <p className="empty-title">No share history yet</p>
-              <p className="empty-desc">Share records will appear here after you start a tunnel.</p>
+              <p className="empty-title">尚無分享紀錄</p>
+              <p className="empty-desc">啟動 Tunnel 分享後，紀錄會顯示在這裡。</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="share-history-empty">
-              <p className="empty-title">No {filter === 'active' ? 'in-progress' : 'ended'} shares</p>
-              <p className="empty-desc">Try a different filter.</p>
+              <p className="empty-title">{filter === 'active' ? '沒有進行中的分享' : '沒有已結束的分享'}</p>
+              <p className="empty-desc">試試切換篩選條件。</p>
             </div>
           ) : (
             <div className="share-history-list">
@@ -130,7 +130,7 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
                   : record.abnormalEnd
                     ? 'share-status--warning'
                     : 'share-status--ended'
-                const statusLabel = live ? 'In Progress' : record.abnormalEnd ? 'Abnormal End' : 'Ended'
+                const statusLabel = live ? '進行中' : record.abnormalEnd ? '異常結束' : '已結束'
                 return (
                   <div key={record.id} className={`share-row${live ? ' share-row--live' : ''}`}>
                     <span className={`share-provider-badge share-provider-badge--${record.providerType}`}>
@@ -148,17 +148,17 @@ function ShareHistoryPanel({ open, onClose }: ShareHistoryPanelProps): React.Rea
                     </div>
                     <div
                       className="share-meta"
-                      title={`Started ${formatTime(record.startedAt)}${record.endedAt ? `\nEnded ${formatTime(record.endedAt)}` : ''}`}
+                      title={`開始於 ${formatTime(record.startedAt)}${record.endedAt ? `\n結束於 ${formatTime(record.endedAt)}` : ''}`}
                     >
                       <span className="tm">
-                        {live ? `Started ${formatShort(record.startedAt)}` : `Ended ${formatShort(record.endedAt!)}`}
+                        {live ? `開始於 ${formatShort(record.startedAt)}` : `結束於 ${formatShort(record.endedAt!)}`}
                       </span>
                       <span className="tm">
-                        {formatDuration(record.startedAt, record.endedAt)}{live ? ' elapsed' : ''}
+                        {live ? `已進行 ${formatDuration(record.startedAt, record.endedAt)}` : formatDuration(record.startedAt, record.endedAt)}
                       </span>
                     </div>
                     <div className="share-act">
-                      <CopyButton text={record.tunnelUrl} tooltip="Copy URL" />
+                      <CopyButton text={record.tunnelUrl} tooltip="複製網址" />
                     </div>
                   </div>
                 )

@@ -57,19 +57,19 @@ function RequestDetailPanel({
             className={`request-detail-tab${activeTab === 'request-headers' ? ' active' : ''}`}
             onClick={() => setActiveTab('request-headers')}
           >
-            Request Headers
+            請求標頭
           </button>
           <button
             className={`request-detail-tab${activeTab === 'request-body' ? ' active' : ''}`}
             onClick={() => setActiveTab('request-body')}
           >
-            Request Body
+            請求內容
           </button>
           <button
             className={`request-detail-tab${activeTab === 'response-headers' ? ' active' : ''}`}
             onClick={() => setActiveTab('response-headers')}
           >
-            Response Headers
+            回應標頭
           </button>
         </div>
 
@@ -77,7 +77,7 @@ function RequestDetailPanel({
           {activeTab === 'request-headers' && (
             <div className="request-detail-section">
               {requestHeaders.length === 0 ? (
-                <div className="request-detail-empty">No request headers</div>
+                <div className="request-detail-empty">沒有請求標頭</div>
               ) : (
                 <table className="request-detail-table">
                   <tbody>
@@ -97,15 +97,15 @@ function RequestDetailPanel({
             <div className="request-detail-section">
               {entry.requestBodyTruncated && (
                 <div className="request-detail-notice">
-                  Body truncated (original size: {entry.requestBodySize} bytes)
+                  內容已截斷（原始大小：{entry.requestBodySize} 位元組）
                 </div>
               )}
               {!entry.requestBody ? (
-                <div className="request-detail-empty">No request body</div>
+                <div className="request-detail-empty">沒有請求內容</div>
               ) : (
                 <>
                   <div className="request-detail-body-actions">
-                    <CopyButton text={formattedBody} tooltip="Copy body" />
+                    <CopyButton text={formattedBody} tooltip="複製內容" />
                   </div>
                   <pre className="request-detail-body">{formattedBody}</pre>
                 </>
@@ -116,7 +116,7 @@ function RequestDetailPanel({
           {activeTab === 'response-headers' && (
             <div className="request-detail-section">
               {responseHeaders.length === 0 ? (
-                <div className="request-detail-empty">No response headers</div>
+                <div className="request-detail-empty">沒有回應標頭</div>
               ) : (
                 <table className="request-detail-table">
                   <tbody>

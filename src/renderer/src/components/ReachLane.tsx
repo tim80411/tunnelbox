@@ -48,7 +48,7 @@ function ReachLane({ kind, title, subtitle, icon, vm, onRefresh, lanMode, runnin
         {vm.sub && <div className="sub">{vm.sub}</div>}
         {canToggleLan && lanOn && (
           <div className="lan-expose-warn" role="note">
-            <span aria-hidden="true">⚠</span> 區網內任何人都能存取此站點
+            <span aria-hidden="true">⚠</span> 區網內任何人都能存取此網站
           </div>
         )}
       </div>

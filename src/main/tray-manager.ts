@@ -52,7 +52,7 @@ export function updateTrayMenu(sites: SiteInfo[]): void {
   const menuItems: Electron.MenuItemConstructorOptions[] = []
 
   if (sites.length === 0) {
-    menuItems.push({ label: '尚無站點', enabled: false })
+    menuItems.push({ label: '尚無網站', enabled: false })
   } else {
     for (const site of sites) {
       let sublabel = ''

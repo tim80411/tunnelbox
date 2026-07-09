@@ -6,34 +6,34 @@
  *   ❌ "Pro lets you close the screen" / "Free can't run in background"
  */
 export const DAEMON_COPY = {
-  firstCloseTitle: 'TunnelBox will stop sharing when you close',
+  firstCloseTitle: '關閉視窗後 TunnelBox 會停止分享',
 
   firstCloseBody:
-    'Free mode is designed for one-shot demos — closing the window stops all active shares and exits the app. ' +
-    'Upgrade to Pro for 24/7 share mode: close the window and your shares keep running in the background.',
+    'Free 適合單次展示：關閉視窗會停止所有進行中的分享並結束應用程式。' +
+    '升級 Pro 使用 24/7 分享模式，關閉視窗後分享仍會在背景持續執行。',
 
-  quitLabel: 'Quit & Stop Shares',
+  quitLabel: '結束並停止分享',
 
-  cancelLabel: 'Cancel',
+  cancelLabel: '取消',
 
-  upgradeLabel: 'Upgrade to Pro — Keep Shares Running',
+  upgradeLabel: '升級 Pro，讓分享持續執行',
 
-  dontShowAgainLabel: "Got it — don't show this again",
+  dontShowAgainLabel: '了解，不要再顯示',
 
-  menuRunInBackgroundPro: 'Run in Background',
+  menuRunInBackgroundPro: '在背景執行',
 
-  menuRunInBackgroundFree: 'Run in Background',
+  menuRunInBackgroundFree: '在背景執行',
 
   menuRunInBackgroundTooltip:
-    'Pro mode keeps shares running 24/7 — ideal for API endpoints and long-running demos.',
+    'Pro 的 24/7 分享模式讓分享持續執行，適合 API 端點與長時間展示。',
 
-  launchAtStartupLabel: 'Launch at startup',
+  launchAtStartupLabel: '開機時啟動',
 
   launchAtStartupDesc:
-    'Start TunnelBox automatically when you log in, restore active shares, and run in the background (Pro).',
+    'Pro：登入系統時自動啟動 TunnelBox、還原進行中的分享並在背景執行。',
 
   downgradeNotification:
-    'Your Pro license is no longer active. TunnelBox has returned to one-shot demo mode — the main window is now visible. Active shares continue until you close the window.',
+    '你的 Pro 授權已失效。TunnelBox 已回到單次展示模式，主視窗會重新顯示；進行中的分享會持續到你關閉視窗為止。',
 } as const
 
 export type DaemonCopy = typeof DAEMON_COPY

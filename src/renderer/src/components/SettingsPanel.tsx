@@ -97,7 +97,7 @@ function SettingsPanel({
       case 'downloading': return `下載中... ${updateState.percent}%`
       case 'ready': return `v${updateState.version} 已就緒，待重新啟動`
       case 'not-available': return '已是最新版本'
-      case 'error': return `檢查失敗：${updateState.message}`
+      case 'error': return '檢查更新失敗，請稍後再試'
       default: return ''
     }
   })()
@@ -110,18 +110,18 @@ function SettingsPanel({
         <div className="modal-head">
           <h2 className="modal-head-title">
             <span className="modal-head-ic">{GEAR_ICON}</span>
-            Settings
+            設定
           </h2>
           <button className="panel-close" onClick={onClose}>×</button>
         </div>
 
         <div className="modal-body">
           {/* ── General ──────────────────────────────────────────── */}
-          <div className="settings-section-label">General</div>
+          <div className="settings-section-label">一般</div>
           <div className="settings-group">
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Auto-start servers</span>
+                <span className="settings-item-label">自動啟動伺服器</span>
                 <span className="settings-item-desc">啟動應用程式時自動啟動所有伺服器</span>
               </div>
               <label className="settings-toggle">
@@ -136,8 +136,8 @@ function SettingsPanel({
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Default serve mode</span>
-                <span className="settings-item-desc">新增站點時的預設模式</span>
+                <span className="settings-item-label">預設服務模式</span>
+                <span className="settings-item-desc">新增網站時的預設模式</span>
               </div>
               <div className="seg">
                 {(['static', 'proxy'] as ServeMode[]).map((mode) => (
@@ -147,7 +147,7 @@ function SettingsPanel({
                     className={`seg-btn${settings.defaultServeMode === mode ? ' active' : ''}`}
                     onClick={() => onUpdate({ defaultServeMode: mode })}
                   >
-                    {mode === 'static' ? 'Static' : 'Proxy'}
+                    {mode === 'static' ? '靜態檔案' : '反向代理'}
                   </button>
                 ))}
               </div>
@@ -159,7 +159,7 @@ function SettingsPanel({
                   {DAEMON_COPY.launchAtStartupLabel}
                   {!isPro && (
                     <span className="pro-tag" style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
-                      Pro = 24/7 share mode
+                      Pro = 24/7 分享模式
                     </span>
                   )}
                 </span>
@@ -182,12 +182,12 @@ function SettingsPanel({
           </div>
 
           {/* ── Notifications & Monitoring ───────────────────────── */}
-          <div className="settings-section-label">Notifications &amp; Monitoring</div>
+          <div className="settings-section-label">通知與監控</div>
           <div className="settings-group">
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Visitor notifications</span>
-                <span className="settings-item-desc">訪客透過 tunnel 到訪時顯示桌面通知</span>
+                <span className="settings-item-label">訪客通知</span>
+                <span className="settings-item-desc">有訪客透過 Tunnel 造訪時顯示桌面通知</span>
               </div>
               <label className="settings-toggle">
                 <input
@@ -201,8 +201,8 @@ function SettingsPanel({
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Remote console</span>
-                <span className="settings-item-desc">在注入 script 中攔截訪客端 console 輸出並回傳至本地 app</span>
+                <span className="settings-item-label">遠端主控台</span>
+                <span className="settings-item-desc">攔截訪客瀏覽器的主控台輸出並回傳到本機顯示</span>
               </div>
               <label className="settings-toggle">
                 <input
@@ -216,8 +216,8 @@ function SettingsPanel({
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Request log limit</span>
-                <span className="settings-item-desc">每個 Proxy 站點保留的最大請求記錄數</span>
+                <span className="settings-item-label">請求日誌上限</span>
+                <span className="settings-item-desc">每個反向代理網站保留的最大請求記錄數</span>
               </div>
               <input
                 className="settings-select"
@@ -232,7 +232,7 @@ function SettingsPanel({
           </div>
 
           {/* ── Providers ────────────────────────────────────────── */}
-          <div className="settings-section-label">Providers</div>
+          <div className="settings-section-label">Tunnel 服務</div>
           <ProviderTabs tabs={[
             {
               key: 'cloudflare',
@@ -305,11 +305,11 @@ function SettingsPanel({
           ]} />
 
           {/* ── About ────────────────────────────────────────────── */}
-          <div className="settings-section-label">About</div>
+          <div className="settings-section-label">關於</div>
           <div className="settings-group">
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Version</span>
+                <span className="settings-item-label">版本</span>
                 <span className="settings-item-desc">v{appVersion || '...'}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -321,7 +321,7 @@ function SettingsPanel({
                 )}
                 {!isPro && onActivatePro && (
                   <button className="btn btn-sm btn-primary" onClick={onActivatePro}>
-                    Activate Pro
+                    啟用 Pro
                   </button>
                 )}
               </div>
@@ -331,7 +331,7 @@ function SettingsPanel({
             {isPro && tierState?.purchaserEmail && (
               <div className="settings-item">
                 <div className="settings-item-info">
-                  <span className="settings-item-label">Licensed to</span>
+                  <span className="settings-item-label">授權對象</span>
                   <span className="settings-item-desc">{tierState.purchaserEmail}</span>
                 </div>
               </div>
@@ -339,7 +339,7 @@ function SettingsPanel({
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <span className="settings-item-label">Updates</span>
+                <span className="settings-item-label">更新</span>
                 {updateStatusText && (
                   <span className="settings-item-desc">{updateStatusText}</span>
                 )}

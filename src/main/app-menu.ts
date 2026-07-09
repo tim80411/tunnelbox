@@ -28,7 +28,7 @@ export function setAppMenu(): void {
               { role: 'about' as const },
               { type: 'separator' as const },
               {
-                label: 'Settings...',
+                label: '設定...',
                 accelerator: 'Cmd+,',
                 click: (): void => sendToFocusedWindow('menu:open-settings')
               },
@@ -47,17 +47,17 @@ export function setAppMenu(): void {
 
     // File
     {
-      label: 'File',
+      label: '檔案',
       submenu: [
         {
-          label: 'New Site',
+          label: '新增網站',
           accelerator: 'CmdOrCtrl+N',
           click: (): void => sendToFocusedWindow('menu:add-site')
         },
         ...(!isMac
           ? [
               {
-                label: 'Settings',
+                label: '設定',
                 accelerator: 'Ctrl+,',
                 click: (): void => sendToFocusedWindow('menu:open-settings')
               }
@@ -70,7 +70,7 @@ export function setAppMenu(): void {
 
     // Edit (required for native text editing on macOS)
     {
-      label: 'Edit',
+      label: '編輯',
       submenu: [
         { role: 'undo' as const },
         { role: 'redo' as const },
@@ -84,21 +84,21 @@ export function setAppMenu(): void {
 
     // Sites
     {
-      label: 'Sites',
+      label: '網站',
       submenu: [
         {
-          label: 'Open in Browser',
+          label: '在瀏覽器中開啟',
           accelerator: 'CmdOrCtrl+O',
           click: (): void => sendToFocusedWindow('menu:open-in-browser')
         },
         {
-          label: 'Restart Server',
+          label: '重新啟動伺服器',
           accelerator: 'CmdOrCtrl+R',
           click: (): void => sendToFocusedWindow('menu:restart-server')
         },
         { type: 'separator' as const },
         {
-          label: 'Remove Site',
+          label: '移除網站',
           accelerator: 'CmdOrCtrl+Backspace',
           click: (): void => sendToFocusedWindow('menu:remove-site')
         }
@@ -107,7 +107,7 @@ export function setAppMenu(): void {
 
     // Window
     {
-      label: 'Window',
+      label: '視窗',
       submenu: [
         { role: 'minimize' as const },
         { role: 'zoom' as const },
@@ -135,10 +135,10 @@ export function setAppMenu(): void {
 
     // Help
     {
-      label: 'Help',
+      label: '說明',
       submenu: [
         {
-          label: 'Keyboard Shortcuts',
+          label: '鍵盤快捷鍵',
           accelerator: 'CmdOrCtrl+/',
           click: (): void => sendToFocusedWindow('menu:show-shortcuts')
         }

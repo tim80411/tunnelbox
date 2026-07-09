@@ -20,7 +20,7 @@ export function generateDashboardHtml(sites: DashboardSiteEntry[]): string {
     return `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="utf-8"><title>TunnelBox Dashboard</title>
 <style>body{font-family:system-ui,sans-serif;margin:0;padding:40px;background:#f8f9fa;text-align:center;color:#666}h1{color:#333}</style>
-</head><body><h1>TunnelBox Dashboard</h1><p>目前沒有正在分享的站點</p></body></html>`
+</head><body><h1>TunnelBox Dashboard</h1><p>目前沒有正在分享的網站</p></body></html>`
   }
 
   return `<!DOCTYPE html>
@@ -56,7 +56,7 @@ var filterBar=document.getElementById('filter-bar');
 if(groupFilter){filterBar.style.display='block';filterBar.textContent='Filtered by: '+groupFilter;}
 var filtered=groupFilter?SITES.filter(function(s){return s.tags.indexOf(groupFilter)!==-1}):SITES;
 if(filtered.length===0){
-  var empty=document.createElement('div');empty.className='empty';empty.textContent='沒有符合條件的站點';
+  var empty=document.createElement('div');empty.className='empty';empty.textContent='沒有符合條件的網站';
   container.appendChild(empty);
 }else{
   filtered.forEach(function(s){

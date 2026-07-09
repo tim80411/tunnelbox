@@ -98,7 +98,7 @@ const frpProvider: ProviderDefinition<FrpServerConfig> = {
     },
     {
       key: 'authToken',
-      label: '驗證金鑰',
+      label: 'Token',
       type: 'password',
       placeholder: '（選填）',
       required: false
@@ -140,7 +140,7 @@ const boreProvider: ProviderDefinition<BoreServerConfig> = {
     },
     {
       key: 'secret',
-      label: '密鑰',
+      label: 'Secret',
       type: 'password',
       placeholder: '（選填）',
       required: false

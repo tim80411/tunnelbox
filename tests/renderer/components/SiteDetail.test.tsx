@@ -76,6 +76,6 @@ describe('SiteDetail — header open/copy + URL row', () => {
     expect(html).not.toContain('開啟網站')
     expect(html).not.toContain('複製網址')
     // the folder-path row's own copy control is unaffected
-    expect(html).toContain('Direct → Port 8787')
+    expect(html).toContain('直接轉發 → 連接埠 8787')
   })
 })

@@ -7,26 +7,26 @@ const isMac = navigator.platform.toUpperCase().includes('MAC')
 const mod = isMac ? '⌘' : 'Ctrl'
 
 const shortcuts = [
-  { section: 'General' },
-  { keys: `${mod} N`, label: 'New Site' },
-  { keys: `${mod} ,`, label: 'Settings' },
-  { keys: `${mod} /`, label: 'Keyboard Shortcuts' },
-  { keys: 'Esc', label: 'Close Panel / Modal' },
+  { section: '一般' },
+  { keys: `${mod} N`, label: '新增網站' },
+  { keys: `${mod} ,`, label: '設定' },
+  { keys: `${mod} /`, label: '鍵盤快捷鍵' },
+  { keys: 'Esc', label: '關閉面板／視窗' },
 
-  { section: 'Sites' },
-  { keys: '↑ / ↓', label: 'Navigate Sites' },
-  { keys: `${mod} O`, label: 'Open in Browser' },
-  { keys: `${mod} R`, label: 'Restart Server' },
-  { keys: `${mod} ⌫`, label: 'Remove Site' },
-  { keys: `${mod} V`, label: 'Paste Path to Add Site' },
+  { section: '網站' },
+  { keys: '↑ / ↓', label: '切換網站' },
+  { keys: `${mod} O`, label: '在瀏覽器中開啟' },
+  { keys: `${mod} R`, label: '重新啟動伺服器' },
+  { keys: `${mod} ⌫`, label: '移除網站' },
+  { keys: `${mod} V`, label: '貼上路徑以新增網站' },
 
-  { section: 'Window' },
-  { keys: `${mod} W`, label: isMac ? 'Close Window' : 'Close' },
-  { keys: `${mod} M`, label: 'Minimize' },
+  { section: '視窗' },
+  { keys: `${mod} W`, label: isMac ? '關閉視窗' : '關閉' },
+  { keys: `${mod} M`, label: '最小化' },
   ...(isMac
     ? [
-        { keys: '⌘ H', label: 'Hide TunnelBox' },
-        { keys: '⌘ Q', label: 'Quit' }
+        { keys: '⌘ H', label: '隱藏 TunnelBox' },
+        { keys: '⌘ Q', label: '結束 TunnelBox' }
       ]
     : [])
 ] as Array<{ section?: string; keys?: string; label?: string }>
@@ -37,7 +37,7 @@ function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps): React.ReactElem
       {open && <div className="shortcuts-overlay" data-dismiss onClick={onClose} />}
       <aside className={`shortcuts-panel${open ? ' shortcuts-panel-open' : ''}`}>
         <div className="shortcuts-panel-header">
-          <h2 className="panel-title">Keyboard Shortcuts</h2>
+          <h2 className="panel-title">鍵盤快捷鍵</h2>
           <button className="panel-close" onClick={onClose}>×</button>
         </div>
 

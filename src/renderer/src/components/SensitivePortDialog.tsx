@@ -25,9 +25,9 @@ function SensitivePortDialog({
   return (
     <div className="modal-overlay" data-dismiss onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title">確認分享敏感 Port</h2>
+        <h2 className="modal-title">確認分享敏感連接埠</h2>
         <p className="confirm-text" style={{ marginBottom: '12px' }}>
-          「{siteName}」即將把 <strong>Port {port}（{serviceName}）</strong> 公開到網際網路。
+          「{siteName}」即將把 <strong>連接埠 {port}（{serviceName}）</strong> 公開到網際網路。
           這類服務通常不應對外公開，暴露後任何人都可能嘗試連線。確定要繼續分享嗎？
         </p>
 
@@ -35,12 +35,12 @@ function SensitivePortDialog({
           style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', marginBottom: '14px', cursor: 'pointer' }}
         >
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          不再為 Port {port} 詢問
+          不再為連接埠 {port} 詢問
         </label>
 
         <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
           <button className="btn btn-danger" onClick={() => onConfirm(remember)}>
-            仍要分享 Port {port}
+            仍要分享連接埠 {port}
           </button>
           <button className="btn" onClick={onCancel}>
             取消
