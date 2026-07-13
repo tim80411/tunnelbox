@@ -4,6 +4,7 @@ import type { SiteInfo, AuthStatus, CloudflaredEnv } from '../../../shared/types
 import CopyButton from './CopyButton'
 import QrButton from './QrButton'
 import ProviderSelectModal from './ProviderSelectModal'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface TunnelControlsProps {
   site: SiteInfo
@@ -65,6 +66,11 @@ function TunnelControls({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showOverflowMenu])
+
+  // Dialog focus management (D2-4) for this component's modals.
+  const domainDialogRef = useDialogFocus<HTMLDivElement>(showDomainModal)
+  const defaultDomainDialogRef = useDialogFocus<HTMLDivElement>(showDefaultDomainModal)
+  const unbindDialogRef = useDialogFocus<HTMLDivElement>(showUnbindConfirm)
 
   const handleBindDomain = useCallback(async () => {
     const trimmed = domainInput.trim()
@@ -376,7 +382,7 @@ function TunnelControls({
       {/* Domain binding modal */}
       {showDomainModal && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowDomainModal(false)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="公開（固定網域）" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="公開（固定網域）" ref={domainDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">公開（固定網域）</h2>
             {domainError && <div className="modal-error">{domainError}</div>}
             <div className="form-group">
@@ -399,7 +405,6 @@ function TunnelControls({
                   setDomainInput(e.target.value)
                   setDomainError(null)
                 }}
-                autoFocus
               />
             </div>
             <div className="modal-actions">
@@ -421,7 +426,7 @@ function TunnelControls({
       {/* Default domain modal */}
       {showDefaultDomainModal && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowDefaultDomainModal(false)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="設定預設網域" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="設定預設網域" ref={defaultDomainDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">設定預設網域</h2>
             <p className="confirm-text" style={{ marginBottom: '8px' }}>
               設定後，按啟動鈕（▶）將直接使用此網域啟動固定 Tunnel。留空可清除預設網域。
@@ -447,7 +452,6 @@ function TunnelControls({
                   setDefaultDomainInput(e.target.value)
                   setDefaultDomainError(null)
                 }}
-                autoFocus
               />
             </div>
             <div className="modal-actions">
@@ -469,7 +473,7 @@ function TunnelControls({
       {/* Unbind Confirmation Modal */}
       {showUnbindConfirm && (
         <div className="modal-overlay" data-dismiss={!unbinding ? true : undefined} onClick={() => { if (!unbinding) setShowUnbindConfirm(false) }}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="確認解除綁定" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="確認解除綁定" ref={unbindDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認解除綁定</h2>
             <p className="confirm-text">
               {unbinding

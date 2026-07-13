@@ -1,12 +1,11 @@
 import type { SiteInfo, ProxySiteInfo, CloudflareAuth, CloudflaredEnv, RequestLogEntry } from '../../../shared/types'
-import { siteMode, siteState, primaryUrl, localLane, lanLane, SITE_STATE_LABEL } from '../utils/site-view'
+import { siteMode, siteState, primaryUrl, localLane, lanLane, SITE_STATE_LABEL, RAIL_MODE_LABEL } from '../utils/site-view'
 import ReachLane from './ReachLane'
 import CopyButton from './CopyButton'
 import TunnelControls from './TunnelControls'
 import RequestLogPanel from './RequestLogPanel'
 import TagEditor from './TagEditor'
 import QrButton from './QrButton'
-import ShareCtaCard from './ShareCtaCard'
 import DomainBinding from './DomainBinding'
 
 interface Props {
@@ -109,11 +108,6 @@ function SiteDetail(props: Props): React.ReactElement {
   // TIM-227: show the custom-domain CNAME card when a named tunnel is bound.
   const namedDomain =
     site.tunnel?.type === 'named' && site.tunnel.publicUrl ? safeHost(site.tunnel.publicUrl) : null
-  // CTA gate: mirror the WAN lane's Quick Tunnel share availability so the button is never a dead control.
-  // onShare → startQuickTunnel (Cloudflare-only), so restrict to the Cloudflare provider; frp/bore share via the WAN lane.
-  const isCloudflareProvider = (site.providerType ?? 'cloudflare') === 'cloudflare'
-  const tunnelInactive = !site.tunnel || site.tunnel.status === 'stopped' || site.tunnel.status === 'error'
-  const canShareToWan = site.status === 'running' && isCloudflareProvider && props.cloudflaredAvailable && tunnelInactive
 
   return (
     <div className="detail">
@@ -121,7 +115,7 @@ function SiteDetail(props: Props): React.ReactElement {
         <div className="dh-top">
           <div>
             <div className="dh-name">
-              <span className={`md-modebadge ${mode}`}>{mode}</span>
+              <span className={`md-modebadge ${mode}`}>{RAIL_MODE_LABEL[mode]}</span>
               {props.renamingId === site.id ? (
                 <form className="dh-rename-form" onSubmit={(e) => { e.preventDefault(); props.onConfirmRename() }}>
                   <input
@@ -232,11 +226,6 @@ function SiteDetail(props: Props): React.ReactElement {
                 <QrButton url={wanUrl} title="公開網址 QR" subtitle="掃描即可在手機開啟" />
                 <span className="qr-inline-hint">掃描 QR 直接造訪公開網址</span>
               </div>
-            </div>
-          ) : canShareToWan ? (
-            <div className="col-side">
-              <div className="section-label">公開分享</div>
-              <ShareCtaCard onShare={() => { void props.onShare(site.id) }} />
             </div>
           ) : null}
         </div>

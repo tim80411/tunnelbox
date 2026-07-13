@@ -135,6 +135,10 @@ describe('localLane / lanLane', () => {
 describe('label maps', () => {
   it('has the three states and modes', () => {
     expect(SITE_STATE_LABEL.share).toBe('分享中')
-    expect(RAIL_MODE_LABEL.direct).toBe('Dir')
+    // Unified Chinese mode labels (was English Sta/Pxy/Dir) — one label system
+    // shared by the rail chip and the detail-header badge.
+    expect(RAIL_MODE_LABEL.static).toBe('靜態')
+    expect(RAIL_MODE_LABEL.proxy).toBe('代理')
+    expect(RAIL_MODE_LABEL.direct).toBe('轉發')
   })
 })

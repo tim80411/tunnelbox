@@ -32,6 +32,7 @@ import { useUrlAddNotification } from './hooks/useUrlAddNotification'
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation'
 import { useMenuCommands } from './hooks/useMenuCommands'
 import { isAnyOverlayOpen } from './utils/overlay-gate'
+import { useDialogFocus } from './hooks/useDialogFocus'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -731,6 +732,17 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [])
 
+  // Dialog focus management (D2-4): move focus into the dialog on open, restore
+  // it on close, and trap Tab within — including the un-dismissable update wall.
+  const addModalRef = useDialogFocus<HTMLDivElement>(showAddModal)
+  const confirmRemoveRef = useDialogFocus<HTMLDivElement>(!!confirmRemove)
+  const updateReadyRef = useDialogFocus<HTMLDivElement>(updateState.phase === 'ready')
+  const forceUpdateRef = useDialogFocus<HTMLDivElement>(!!forceUpdate?.blocked)
+  const upgradeProRef = useDialogFocus<HTMLDivElement>(showUpgradePro)
+  const proActivatedRef = useDialogFocus<HTMLDivElement>(!!proActivated)
+  const licenseReplaceRef = useDialogFocus<HTMLDivElement>(!!pendingLicenseReplace)
+  const downloadsLicenseRef = useDialogFocus<HTMLDivElement>(!!downloadsLicensePrompt)
+
 
   // Drop a pending inline-rename if the detail pane stops showing that exact running site
   // (e.g. the site is stopped, or the filter fallback switches the detail to another site).
@@ -874,7 +886,7 @@ function App(): React.ReactElement {
       ]} />
 
       {updateState.phase === 'available' && (
-        <div className="success-bar">
+        <div className="success-bar" role="status" aria-live="polite">
           新版本 v{updateState.version} 可供下載
           <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={downloadUpdate}>
             下載更新
@@ -884,7 +896,7 @@ function App(): React.ReactElement {
       )}
 
       {updateState.phase === 'downloading' && (
-        <div className="success-bar">
+        <div className="success-bar" role="status" aria-live="polite">
           正在下載更新... {updateState.percent}%
         </div>
       )}
@@ -1038,7 +1050,7 @@ function App(): React.ReactElement {
       {/* Confirm Remove Modal */}
       {confirmRemove && (
         <div className="modal-overlay" data-dismiss onClick={() => setConfirmRemove(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="確認刪除" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="確認刪除" ref={confirmRemoveRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認刪除</h2>
             <p className="confirm-text">
               確定要刪除「{confirmRemove.name}」嗎？此操作將停止對應的伺服器，但不會刪除本地檔案。
@@ -1064,7 +1076,7 @@ function App(): React.ReactElement {
       {/* Update Ready — Restart to Install */}
       {updateState.phase === 'ready' && (
         <div className="modal-overlay" data-dismiss onClick={dismissUpdate}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="更新已就緒" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="更新已就緒" ref={updateReadyRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">更新已就緒</h2>
             <p className="confirm-text">
               版本 v{updateState.version} 已下載完成。重新啟動 TunnelBox 以完成安裝。
@@ -1080,7 +1092,7 @@ function App(): React.ReactElement {
       {/* Force Update — Cannot be dismissed */}
       {forceUpdate?.blocked && (
         <div className="modal-overlay">
-          <div className="modal" role="dialog" aria-modal="true" aria-label="必須更新">
+          <div className="modal" role="dialog" aria-modal="true" aria-label="必須更新" ref={forceUpdateRef} tabIndex={-1}>
             <h2 className="modal-title">必須更新</h2>
             <p className="confirm-text">
               {forceUpdate.config?.message || '此版本已不再支援，請更新至最新版本。'}
@@ -1126,7 +1138,7 @@ function App(): React.ReactElement {
       {/* Add Site Modal */}
       {showAddModal && (
         <div className="modal-overlay" data-dismiss onClick={closeAddModal}>
-          <div className="modal modal--add" role="dialog" aria-modal="true" aria-label="新增網站" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal--add" role="dialog" aria-modal="true" aria-label="新增網站" ref={addModalRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <h2 className="modal-head-title">
                 <span className="modal-head-ic">
@@ -1153,7 +1165,7 @@ function App(): React.ReactElement {
                   placeholder="我的網站"
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
-                  autoFocus
+                  data-autofocus
                 />
               </div>
 
@@ -1252,7 +1264,7 @@ function App(): React.ReactElement {
       {/* Upgrade Pro Modal */}
       {showUpgradePro && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowUpgradePro(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="升級 Pro" ref={upgradeProRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">升級 Pro</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
               Pro 適用於 24/7 分享模式、多客戶並行工作流等場景。
@@ -1276,7 +1288,7 @@ function App(): React.ReactElement {
       {/* Pro activated confirmation (US-105) */}
       {proActivated && (
         <div className="modal-overlay" data-dismiss onClick={() => setProActivated(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Pro 已啟用" ref={proActivatedRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Pro 已啟用</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
               感謝支持 TunnelBox。Pro 已為 <strong>{proActivated.email}</strong> 啟用。
@@ -1291,7 +1303,7 @@ function App(): React.ReactElement {
       {/* Replace existing license confirm (US-105 scenario 5) */}
       {pendingLicenseReplace && (
         <div className="modal-overlay" data-dismiss onClick={() => setPendingLicenseReplace(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="要取代現有的 Pro 授權嗎？" ref={licenseReplaceRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">要取代現有的 Pro 授權嗎？</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
               你已經有一個啟用中的 Pro 授權。匯入此檔案將取代它。
@@ -1316,7 +1328,7 @@ function App(): React.ReactElement {
       {/* Found-in-Downloads prompt (US-105 path 3) */}
       {downloadsLicensePrompt && (
         <div className="modal-overlay" data-dismiss onClick={() => setDownloadsLicensePrompt(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="要啟用 Pro 嗎？" ref={downloadsLicenseRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">要啟用 Pro 嗎？</h2>
             <p className="confirm-text" style={{ marginBottom: 12 }}>
               在你的下載資料夾中找到授權檔案。要匯入並啟用 Pro 嗎？

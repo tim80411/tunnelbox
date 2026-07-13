@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface QrButtonProps {
   url: string
@@ -13,6 +14,7 @@ const QR_OPTIONS: QRCode.QRCodeToDataURLOptions = { width: 280, margin: 1 }
 function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [dataUrl, setDataUrl] = useState('')
+  const qrDialogRef = useDialogFocus<HTMLDivElement>(open)
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +48,7 @@ function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps)
       </button>
       {open && (
         <div className="modal-overlay" data-dismiss onClick={() => setOpen(false)}>
-          <div className="modal qr-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+          <div className="modal qr-modal" role="dialog" aria-modal="true" aria-label={title} ref={qrDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">{title}</h2>
             {dataUrl && (
               <img className="qr-modal__img" src={dataUrl} width={280} height={280} alt="QR Code" />

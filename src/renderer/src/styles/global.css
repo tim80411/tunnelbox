@@ -2885,7 +2885,7 @@ html, body, #root {
 .md-statepill.stop { color: var(--text-tertiary); background: var(--bg-muted); border-color: var(--border-subtle); }
 .md-statepill.stop .d { background: var(--border-hard); }
 
-.md-modebadge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--radius); border: 1px solid; white-space: nowrap; }
+.md-modebadge { font-family: var(--font-sans); font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 2px 7px; border-radius: var(--radius); border: 1px solid; white-space: nowrap; }
 .md-modebadge.static { color: var(--info-text); background: var(--info-bg); border-color: var(--info-bd, var(--info-text)); }
 .md-modebadge.proxy { color: var(--accent); background: var(--accent-dim); border-color: var(--accent-line, var(--accent)); }
 .md-modebadge.direct { color: var(--success); background: var(--success-bg); border-color: var(--success-bd, var(--success)); }

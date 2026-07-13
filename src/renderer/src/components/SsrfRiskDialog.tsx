@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface SsrfRiskDialogProps {
   siteName: string
@@ -29,9 +30,10 @@ function SsrfRiskDialog({
   onCancel
 }: SsrfRiskDialogProps): React.ReactElement {
   const [remember, setRemember] = useState(false)
+  const dialogRef = useDialogFocus<HTMLDivElement>(true)
   return (
     <div className="modal-overlay" data-dismiss onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="確認分享敏感網路位址" ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2 className="modal-title">確認分享敏感網路位址</h2>
         <p className="confirm-text" style={{ marginBottom: '12px' }}>
           「{siteName}」的代理目標 <strong>{hostname}</strong> {RISK_TEXT[risk]} 確定要繼續分享嗎？
