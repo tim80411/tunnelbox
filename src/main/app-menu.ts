@@ -98,6 +98,22 @@ export function setAppMenu(): void {
         },
         { type: 'separator' as const },
         {
+          label: '公開分享',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: (): void => sendToFocusedWindow('menu:share')
+        },
+        {
+          label: '停止公開',
+          accelerator: 'CmdOrCtrl+Shift+X',
+          click: (): void => sendToFocusedWindow('menu:stop-sharing')
+        },
+        {
+          label: '複製網址',
+          accelerator: 'CmdOrCtrl+Shift+C',
+          click: (): void => sendToFocusedWindow('menu:copy-url')
+        },
+        { type: 'separator' as const },
+        {
           label: '移除網站',
           accelerator: 'CmdOrCtrl+Backspace',
           click: (): void => sendToFocusedWindow('menu:remove-site')

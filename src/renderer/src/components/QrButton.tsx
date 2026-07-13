@@ -46,7 +46,7 @@ function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps)
       </button>
       {open && (
         <div className="modal-overlay" data-dismiss onClick={() => setOpen(false)}>
-          <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal qr-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">{title}</h2>
             {dataUrl && (
               <img className="qr-modal__img" src={dataUrl} width={280} height={280} alt="QR Code" />

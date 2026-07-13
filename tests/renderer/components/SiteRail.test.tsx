@@ -68,3 +68,43 @@ describe('SiteRail — search field a11y', () => {
     expect(html).toContain('type="search"')
   })
 })
+
+// D2-2: rows were <div onClick> — unreachable by keyboard/SR. They must form a
+// real listbox so an assistive-tech user can perceive and select sites.
+describe('SiteRail — listbox semantics (D2-2)', () => {
+  function renderSelected(): string {
+    return renderToStaticMarkup(
+      createElement(SiteRail, {
+        sites: [sharing, stopped],
+        totalCount: 2,
+        runningCount: 1,
+        selectedSiteId: 'a',
+        query: '',
+        onQueryChange: () => {},
+        onSelect: () => {},
+        onAddSite: () => {},
+        onOpenSettings: () => {}
+      })
+    )
+  }
+
+  it('the list is a labelled, focusable listbox', () => {
+    const html = renderSelected()
+    expect(html).toContain('role="listbox"')
+    expect(html).toContain('aria-label="網站清單"')
+    expect(html).toContain('tabindex="0"')
+  })
+
+  it('every row is an option with a stable id', () => {
+    const html = renderSelected()
+    expect(html).toContain('role="option"')
+    expect(html).toContain('id="site-opt-a"')
+    expect(html).toContain('id="site-opt-b"')
+  })
+
+  it('exactly the selected row is aria-selected and is the active descendant', () => {
+    const html = renderSelected()
+    expect((html.match(/aria-selected="true"/g) ?? []).length).toBe(1)
+    expect(html).toContain('aria-activedescendant="site-opt-a"')
+  })
+})

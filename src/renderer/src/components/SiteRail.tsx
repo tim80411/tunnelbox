@@ -59,7 +59,17 @@ function SiteRail({
           <span>{runningCount} 運行中</span>
         </div>
       </div>
-      <div className="rail-list">
+      <div
+        className="rail-list"
+        role={sites.length ? 'listbox' : undefined}
+        aria-label={sites.length ? '網站清單' : undefined}
+        tabIndex={sites.length ? 0 : undefined}
+        aria-activedescendant={
+          selectedSiteId && sites.some((s) => s.id === selectedSiteId)
+            ? `site-opt-${selectedSiteId}`
+            : undefined
+        }
+      >
         {sites.length === 0 ? (
           <div className="rail-empty">沒有符合的網站</div>
         ) : (
@@ -69,6 +79,9 @@ function SiteRail({
             return (
               <div
                 key={s.id}
+                id={`site-opt-${s.id}`}
+                role="option"
+                aria-selected={selectedSiteId === s.id}
                 className={`railitem${selectedSiteId === s.id ? ' on' : ''}`}
                 data-site-id={s.id}
                 onClick={() => onSelect(s.id)}

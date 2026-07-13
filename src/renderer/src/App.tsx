@@ -16,7 +16,7 @@ import SiteSummaryStrip from './components/SiteSummaryStrip'
 import SiteRail from './components/SiteRail'
 import SiteDetail from './components/SiteDetail'
 import SiteDetailEmpty from './components/SiteDetailEmpty'
-import { summarizeSites, filterSites, type SiteFilter } from './utils/site-view'
+import { summarizeSites, filterSites, primaryUrl, type SiteFilter } from './utils/site-view'
 import NotificationBell from './components/NotificationBell'
 import { useSettings } from './hooks/useSettings'
 import { useRequestLog } from './hooks/useRequestLog'
@@ -549,6 +549,41 @@ function App(): React.ReactElement {
     setTimeout(() => setSuccessMessage(null), 3000)
   }, [])
 
+  // Keyboard-accelerator handlers (⌘⇧S / ⌘⇧X / ⌘⇧C). They mirror the WAN
+  // lane's play/stop logic so the primary Share/Stop actions — which had no
+  // shortcut at all (D3-1) — and Copy-URL are reachable without the mouse.
+  const handleMenuShare = useCallback((site: SiteInfo) => {
+    if (site.status !== 'running') return
+    const t = site.tunnel
+    const inactive = !t || t.status === 'stopped' || t.status === 'error'
+    if (!inactive) return
+    if (site.providerType === 'bore') void handleStartBoreTunnel(site.id)
+    else if (site.providerType === 'frp') void handleStartFrpTunnel(site.id)
+    else if (t?.type === 'named') void handleStartNamedTunnel(site.id)
+    else void handleShareSite(site.id)
+  }, [handleShareSite, handleStartFrpTunnel, handleStartBoreTunnel, handleStartNamedTunnel])
+
+  const handleMenuStop = useCallback((site: SiteInfo) => {
+    const t = site.tunnel
+    if (!t || (t.status !== 'running' && t.status !== 'reconnecting' && t.status !== 'verifying')) return
+    if (site.providerType !== 'frp' && site.providerType !== 'bore' && t.type === 'named') {
+      void handleStopNamedTunnel(site.id)
+    } else {
+      void handleStopSharing(site.id)
+    }
+  }, [handleStopNamedTunnel, handleStopSharing])
+
+  const handleCopyUrl = useCallback((site: SiteInfo) => {
+    const url = primaryUrl(site)
+    if (!url) return
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        setSuccessMessage('已複製網址')
+        setTimeout(() => setSuccessMessage(null), 2000)
+      })
+      .catch(() => setError('複製網址失敗'))
+  }, [])
+
   const handleInstallQuickAction = useCallback(async () => {
     try {
       setInstallingQuickAction(true)
@@ -677,7 +712,10 @@ function App(): React.ReactElement {
     onOpenInBrowser: handleOpenInBrowser,
     onRestartServer: handleRestartServer,
     onRemoveSite: handleRemoveSiteConfirm,
-    onShowShortcuts: handleShowShortcuts
+    onShowShortcuts: handleShowShortcuts,
+    onShareSite: handleMenuShare,
+    onStopSharing: handleMenuStop,
+    onCopyUrl: handleCopyUrl
   })
 
   // Esc closes the topmost open modal/panel by clicking its [data-dismiss] overlay
@@ -816,16 +854,16 @@ function App(): React.ReactElement {
       )}
 
       {successMessage && (
-        <div className="success-bar">
+        <div className="success-bar" role="status" aria-live="polite">
           {successMessage}
-          <button className="success-close" onClick={() => setSuccessMessage(null)}>×</button>
+          <button className="success-close" aria-label="關閉" onClick={() => setSuccessMessage(null)}>×</button>
         </div>
       )}
 
       {error && (
-        <div className="error-bar">
+        <div className="error-bar" role="alert">
           {error}
-          <button className="error-close" onClick={() => setError(null)}>×</button>
+          <button className="error-close" aria-label="關閉" onClick={() => setError(null)}>×</button>
         </div>
       )}
 
@@ -1000,7 +1038,7 @@ function App(): React.ReactElement {
       {/* Confirm Remove Modal */}
       {confirmRemove && (
         <div className="modal-overlay" data-dismiss onClick={() => setConfirmRemove(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="確認刪除" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認刪除</h2>
             <p className="confirm-text">
               確定要刪除「{confirmRemove.name}」嗎？此操作將停止對應的伺服器，但不會刪除本地檔案。
@@ -1026,7 +1064,7 @@ function App(): React.ReactElement {
       {/* Update Ready — Restart to Install */}
       {updateState.phase === 'ready' && (
         <div className="modal-overlay" data-dismiss onClick={dismissUpdate}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="更新已就緒" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">更新已就緒</h2>
             <p className="confirm-text">
               版本 v{updateState.version} 已下載完成。重新啟動 TunnelBox 以完成安裝。
@@ -1042,7 +1080,7 @@ function App(): React.ReactElement {
       {/* Force Update — Cannot be dismissed */}
       {forceUpdate?.blocked && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" role="dialog" aria-modal="true" aria-label="必須更新">
             <h2 className="modal-title">必須更新</h2>
             <p className="confirm-text">
               {forceUpdate.config?.message || '此版本已不再支援，請更新至最新版本。'}
@@ -1088,7 +1126,7 @@ function App(): React.ReactElement {
       {/* Add Site Modal */}
       {showAddModal && (
         <div className="modal-overlay" data-dismiss onClick={closeAddModal}>
-          <div className="modal modal--add" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal--add" role="dialog" aria-modal="true" aria-label="新增網站" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <h2 className="modal-head-title">
                 <span className="modal-head-ic">

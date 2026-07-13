@@ -15,6 +15,9 @@ const shortcuts = [
 
   { section: '網站' },
   { keys: '↑ / ↓', label: '切換網站' },
+  { keys: `${mod} ⇧ S`, label: '公開分享' },
+  { keys: `${mod} ⇧ X`, label: '停止公開' },
+  { keys: `${mod} ⇧ C`, label: '複製網址' },
   { keys: `${mod} O`, label: '在瀏覽器中開啟' },
   { keys: `${mod} R`, label: '重新啟動伺服器' },
   { keys: `${mod} ⌫`, label: '移除網站' },

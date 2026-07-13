@@ -13,6 +13,9 @@ interface UseMenuCommandsOptions {
   onRestartServer: (site: SiteInfo) => void
   onRemoveSite: (site: SiteInfo) => void
   onShowShortcuts: () => void
+  onShareSite: (site: SiteInfo) => void
+  onStopSharing: (site: SiteInfo) => void
+  onCopyUrl: (site: SiteInfo) => void
 }
 
 export function useMenuCommands(options: UseMenuCommandsOptions): void {
@@ -48,6 +51,24 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
 
     const unsubShortcuts = window.electron.onMenuShowShortcuts(() => optionsRef.current.onShowShortcuts())
 
+    const unsubShare = window.electron.onMenuShare(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onShareSite(site)
+    })
+
+    const unsubStopSharing = window.electron.onMenuStopSharing(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onStopSharing(site)
+    })
+
+    const unsubCopyUrl = window.electron.onMenuCopyUrl(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onCopyUrl(site)
+    })
+
     return () => {
       unsubAdd()
       unsubSettings()
@@ -55,6 +76,9 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
       unsubRestart()
       unsubRemove()
       unsubShortcuts()
+      unsubShare()
+      unsubStopSharing()
+      unsubCopyUrl()
     }
   }, [])
 }
