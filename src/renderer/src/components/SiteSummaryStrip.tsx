@@ -27,9 +27,9 @@ function SiteSummaryStrip({ counts, filter, onFilterChange }: Props): React.Reac
       </div>
       <div className="spacer" />
       <div className="md-filter">
-        <button className={filter === 'all' ? 'on' : ''} onClick={() => onFilterChange('all')}>全部</button>
-        <button className={filter === 'share' ? 'on' : ''} onClick={() => onFilterChange('share')}>分享中</button>
-        <button className={filter === 'stop' ? 'on' : ''} onClick={() => onFilterChange('stop')}>停止</button>
+        <button className={filter === 'all' ? 'on' : ''} aria-pressed={filter === 'all'} onClick={() => onFilterChange('all')}>全部</button>
+        <button className={filter === 'share' ? 'on' : ''} aria-pressed={filter === 'share'} onClick={() => onFilterChange('share')}>分享中</button>
+        <button className={filter === 'stop' ? 'on' : ''} aria-pressed={filter === 'stop'} onClick={() => onFilterChange('stop')}>停止</button>
       </div>
     </div>
   )
