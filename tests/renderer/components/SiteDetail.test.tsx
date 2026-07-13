@@ -79,3 +79,12 @@ describe('SiteDetail — header open/copy + URL row', () => {
     expect(html).toContain('直接轉發 → 連接埠 8787')
   })
 })
+
+describe('SiteDetail — stable surface for stopped sites (A)', () => {
+  it('a stopped site still renders the 移除 button, a 啟動 action, and its site info', () => {
+    const html = renderDetail(stopped)
+    expect(html).toContain('移除')
+    expect(html).toContain('啟動')
+    expect(html).toContain('直接轉發 → 連接埠 8787')
+  })
+})

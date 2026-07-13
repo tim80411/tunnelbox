@@ -747,7 +747,10 @@ function App(): React.ReactElement {
   // Drop a pending inline-rename if the detail pane stops showing that exact running site
   // (e.g. the site is stopped, or the filter fallback switches the detail to another site).
   useEffect(() => {
-    const renamingVisible = !!detailSite && detailSite.status !== 'stopped' && detailSite.id === renamingId
+    // A: stopped sites now render in the detail pane too, so an inline rename
+    // must survive a running→stopped transition. Only drop the rename when the
+    // detail pane no longer shows that exact site at all.
+    const renamingVisible = !!detailSite && detailSite.id === renamingId
     if (renamingId && !renamingVisible) setRenamingId(null)
   }, [detailSite, renamingId])
 
@@ -934,7 +937,7 @@ function App(): React.ReactElement {
               onAddSite={openAddModal}
               onOpenSettings={() => setShowSettings((v) => !v)}
             />
-            {detailSite && detailSite.status !== 'stopped' ? (
+            {detailSite ? (
               <SiteDetail
                 site={detailSite}
                 onOpenInBrowser={handleOpenInBrowser}
@@ -973,10 +976,8 @@ function App(): React.ReactElement {
                 watcherUnhealthy={unhealthyWatchers.has(detailSite.id)}
                 onRestartWatcher={() => handleRestartWatcher(detailSite.id)}
               />
-            ) : detailSite ? (
-              <SiteDetailEmpty variant="stopped" siteName={detailSite.name} onStart={() => handleStartServer(detailSite.id)} />
             ) : (
-              <SiteDetailEmpty variant="none" />
+              <SiteDetailEmpty />
             )}
           </div>
         </>
