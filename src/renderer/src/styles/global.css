@@ -2815,6 +2815,7 @@ html, body, #root {
 .md { display: flex; flex: 1; min-height: 0; background: var(--bg-root); }
 .rail { width: 294px; flex-shrink: 0; border-right: 1px solid var(--border-default); display: flex; flex-direction: column; background: var(--bg-sunken); }
 .rail-head { padding: 13px 14px; border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 10px; }
+.rail-add { width: 100%; justify-content: center; }
 .rail-search { display: flex; align-items: center; gap: 7px; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: var(--radius); padding: 6px 9px; color: var(--text-tertiary); }
 .rail-search input { border: none; background: none; outline: none; font-size: 12px; font-family: var(--font-sans); width: 100%; color: var(--text-primary); }
 .rail-meta { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
@@ -2839,8 +2840,7 @@ html, body, #root {
    off while hidden avoids mis-clicks. */
 .railitem .ract { display: flex; align-items: center; gap: 4px; flex-shrink: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s, visibility .12s; }
 .railitem:hover .ract, .railitem.on .ract { opacity: 1; visibility: visible; pointer-events: auto; }
-.rail-foot { padding: 10px 12px; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; }
-.rail-foot .btn-primary { flex: 1; justify-content: center; }
+.rail-foot { padding: 10px 12px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 8px; }
 
 .detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .detail-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--border-subtle); }

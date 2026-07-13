@@ -54,6 +54,7 @@ function SiteRail({
             onChange={(e) => onQueryChange(e.target.value)}
           />
         </div>
+        <button className="btn btn-primary btn-sm rail-add" onClick={onAddSite}>{PlusIcon}新增網站</button>
         <div className="rail-meta">
           <span>{totalCount} 個網站</span>
           <span>{runningCount} 運行中</span>
@@ -106,7 +107,6 @@ function SiteRail({
         )}
       </div>
       <div className="rail-foot">
-        <button className="btn btn-primary btn-sm" onClick={onAddSite}>{PlusIcon}新增網站</button>
         <button className="btn btn-icon" title="系統設定" onClick={onOpenSettings}>{GearIcon}</button>
       </div>
     </div>

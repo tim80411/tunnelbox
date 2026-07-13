@@ -108,3 +108,18 @@ describe('SiteRail — listbox semantics (D2-2)', () => {
     expect(html).toContain('aria-activedescendant="site-opt-a"')
   })
 })
+
+describe('SiteRail — add-site button placement (B)', () => {
+  it('the add button lives in rail-head, and rail-foot holds only settings', () => {
+    const html = renderRail([sharing])
+    const headIdx = html.indexOf('class="rail-head"')
+    const listIdx = html.indexOf('class="rail-list"')
+    const addIdx = html.indexOf('新增網站')
+    expect(headIdx).toBeGreaterThanOrEqual(0)
+    expect(addIdx).toBeGreaterThan(headIdx)
+    expect(addIdx).toBeLessThan(listIdx)
+    const footHtml = html.slice(html.indexOf('class="rail-foot"'))
+    expect(footHtml).not.toContain('新增網站')
+    expect(footHtml).toContain('系統設定')
+  })
+})
