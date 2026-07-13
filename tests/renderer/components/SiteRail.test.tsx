@@ -29,7 +29,11 @@ function renderRail(sites: SiteInfo[]): string {
       onQueryChange: () => {},
       onSelect: () => {},
       onAddSite: () => {},
-      onOpenSettings: () => {}
+      onOpenSettings: () => {},
+      onStartServer: () => {},
+      onStopServer: () => {},
+      onStartRename: () => {},
+      onRemove: () => {}
     })
   )
 }
@@ -45,12 +49,12 @@ describe('SiteRail — per-row quick actions', () => {
     expect(html).toContain('複製網址')
   })
 
-  it('a stopped row shows neither action (no reachable URL)', () => {
+  it('a stopped row still gets the ⋯ more-actions trigger, but no open/copy', () => {
     const html = renderRail([stopped])
-    expect(html).not.toContain('class="ract"')
-    expect(html).not.toContain('開啟網站')
+    expect(html).toContain('class="ract"')       // .ract now renders on every row
+    expect(html).toContain('更多動作')             // the ⋯ trigger is present
+    expect(html).not.toContain('開啟網站')          // but with no URL there is no open/copy
     expect(html).not.toContain('複製網址')
-    // ...but the row itself still renders, with its stopped hint
     expect(html).toContain('已停止 · 連接埠 8787')
   })
 
@@ -83,7 +87,11 @@ describe('SiteRail — listbox semantics (D2-2)', () => {
         onQueryChange: () => {},
         onSelect: () => {},
         onAddSite: () => {},
-        onOpenSettings: () => {}
+        onOpenSettings: () => {},
+        onStartServer: () => {},
+        onStopServer: () => {},
+        onStartRename: () => {},
+        onRemove: () => {}
       })
     )
   }

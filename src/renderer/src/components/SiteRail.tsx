@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import type { SiteInfo } from '../../../shared/types'
 import { siteMode, siteState, railUrl, primaryUrl, RAIL_MODE_LABEL } from '../utils/site-view'
 import CopyButton from './CopyButton'
+import SiteRowMenu from './SiteRowMenu'
+import type { MenuActionKey } from '../utils/site-row-menu'
 
 interface Props {
   sites: SiteInfo[]          // already filtered
@@ -12,6 +15,10 @@ interface Props {
   onSelect: (id: string) => void
   onAddSite: () => void
   onOpenSettings: () => void
+  onStartServer: (id: string) => void
+  onStopServer: (id: string) => void
+  onStartRename: (site: SiteInfo) => void
+  onRemove: (site: SiteInfo) => void
 }
 
 const SearchIcon = (
@@ -36,11 +43,25 @@ const OpenIcon = (
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6M10 14L21 3" />
   </svg>
 )
+const DotsIcon = (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+    <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+  </svg>
+)
 
 function SiteRail({
   sites, totalCount, runningCount, selectedSiteId, query,
-  onQueryChange, onSelect, onAddSite, onOpenSettings
+  onQueryChange, onSelect, onAddSite, onOpenSettings,
+  onStartServer, onStopServer, onStartRename, onRemove
 }: Props): React.ReactElement {
+  const [menu, setMenu] = useState<{ site: SiteInfo; x: number; y: number } | null>(null)
+
+  const handleMenuAction = (key: MenuActionKey, s: SiteInfo): void => {
+    if (key === 'toggle') { s.status === 'running' ? onStopServer(s.id) : onStartServer(s.id) }
+    else if (key === 'rename') { onStartRename(s) }
+    else if (key === 'remove') { onRemove(s) }
+  }
+
   return (
     <div className="rail">
       <div className="rail-head">
@@ -86,20 +107,33 @@ function SiteRail({
                 className={`railitem${selectedSiteId === s.id ? ' on' : ''}`}
                 data-site-id={s.id}
                 onClick={() => onSelect(s.id)}
+                onContextMenu={(e) => { e.preventDefault(); onSelect(s.id); setMenu({ site: s, x: e.clientX, y: e.clientY }) }}
               >
                 <span className={`rdot ${siteState(s)}`} />
                 <div className="rinfo">
                   <div className="rname">{s.name}</div>
                   <div className="rurl">{railUrl(s)}</div>
                 </div>
-                {url && (
-                  // stopPropagation so acting on a row's URL doesn't also select it
-                  // (the open link's own navigation still fires).
-                  <div className="ract" onClick={(e) => e.stopPropagation()}>
-                    <a className="btn-inline-copy" href={url} target="_blank" rel="noopener noreferrer" data-tooltip="開啟網站">{OpenIcon}</a>
-                    <CopyButton variant="inline" text={url} tooltip="複製網址" />
-                  </div>
-                )}
+                {/* stopPropagation so acting on a row's actions doesn't also select it. */}
+                <div className="ract" onClick={(e) => e.stopPropagation()}>
+                  {url && (
+                    <>
+                      <a className="btn-inline-copy" href={url} target="_blank" rel="noopener noreferrer" data-tooltip="開啟網站">{OpenIcon}</a>
+                      <CopyButton variant="inline" text={url} tooltip="複製網址" />
+                    </>
+                  )}
+                  <button
+                    className="btn-inline-copy railitem-more"
+                    aria-label={`${s.name} 更多動作`}
+                    aria-haspopup="menu"
+                    data-tooltip="更多動作"
+                    onClick={(e) => {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      onSelect(s.id)
+                      setMenu({ site: s, x: r.right, y: r.bottom })
+                    }}
+                  >{DotsIcon}</button>
+                </div>
                 <span className={`rmode ${mode}`}>{RAIL_MODE_LABEL[mode]}</span>
               </div>
             )
@@ -109,6 +143,14 @@ function SiteRail({
       <div className="rail-foot">
         <button className="btn btn-icon" title="系統設定" onClick={onOpenSettings}>{GearIcon}</button>
       </div>
+      {menu && (
+        <SiteRowMenu
+          site={menu.site}
+          anchor={{ x: menu.x, y: menu.y }}
+          onAction={handleMenuAction}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   )
 }

@@ -936,6 +936,10 @@ function App(): React.ReactElement {
               onSelect={setSelectedSiteId}
               onAddSite={openAddModal}
               onOpenSettings={() => setShowSettings((v) => !v)}
+              onStartServer={handleStartServer}
+              onStopServer={handleStopServer}
+              onStartRename={handleStartRename}
+              onRemove={setConfirmRemove}
             />
             {detailSite ? (
               <SiteDetail
