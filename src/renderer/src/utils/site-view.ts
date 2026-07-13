@@ -26,9 +26,9 @@ export const SITE_STATE_LABEL: Record<SiteState, string> = {
 }
 
 export const RAIL_MODE_LABEL: Record<SiteMode, string> = {
-  static: 'Sta',
-  proxy: 'Pxy',
-  direct: 'Dir'
+  static: '靜態',
+  proxy: '代理',
+  direct: '轉發'
 }
 
 function isPassthrough(site: SiteInfo): boolean {

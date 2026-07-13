@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface SensitivePortDialogProps {
   siteName: string
@@ -22,9 +23,10 @@ function SensitivePortDialog({
   onCancel,
 }: SensitivePortDialogProps): React.ReactElement {
   const [remember, setRemember] = useState(false)
+  const dialogRef = useDialogFocus<HTMLDivElement>(true)
   return (
     <div className="modal-overlay" data-dismiss onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="確認分享敏感連接埠" ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2 className="modal-title">確認分享敏感連接埠</h2>
         <p className="confirm-text" style={{ marginBottom: '12px' }}>
           「{siteName}」即將把 <strong>連接埠 {port}（{serviceName}）</strong> 公開到網際網路。

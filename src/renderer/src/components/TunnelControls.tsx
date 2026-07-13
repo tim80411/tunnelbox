@@ -4,6 +4,7 @@ import type { SiteInfo, AuthStatus, CloudflaredEnv } from '../../../shared/types
 import CopyButton from './CopyButton'
 import QrButton from './QrButton'
 import ProviderSelectModal from './ProviderSelectModal'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface TunnelControlsProps {
   site: SiteInfo
@@ -65,6 +66,11 @@ function TunnelControls({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showOverflowMenu])
+
+  // Dialog focus management (D2-4) for this component's modals.
+  const domainDialogRef = useDialogFocus<HTMLDivElement>(showDomainModal)
+  const defaultDomainDialogRef = useDialogFocus<HTMLDivElement>(showDefaultDomainModal)
+  const unbindDialogRef = useDialogFocus<HTMLDivElement>(showUnbindConfirm)
 
   const handleBindDomain = useCallback(async () => {
     const trimmed = domainInput.trim()
@@ -185,6 +191,11 @@ function TunnelControls({
         ? '恢復公開'
         : '公開分享'
 
+  // Concise label for the visible primary share button (D1-1): the headline
+  // action reads as a real labelled button when the site is shareable, instead
+  // of a 12px play glyph. The detailed variant stays in playTooltip/aria-label.
+  const shareLabel = isNamed && tunnel?.status === 'stopped' ? '恢復公開' : '公開分享'
+
   // Stop button
   const canStop = tunnel?.status === 'running' || tunnel?.status === 'reconnecting' || tunnel?.status === 'verifying'
   const handleStop = () => {
@@ -270,16 +281,23 @@ function TunnelControls({
         </div>
 
         <div className="dlane-act">
-          <span className="btn btn-icon btn-icon--info" data-tooltip={infoTooltip}>
+          <button type="button" className="btn btn-icon btn-icon--info" aria-label={infoTooltip} data-tooltip={infoTooltip}>
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </span>
+          </button>
           {wanUrl && (
             <CopyButton text={wanUrl} tooltip="複製公開網址" variant="icon" />
           )}
-          <button className="btn btn-icon" onClick={handlePlay} disabled={!canPlay} data-tooltip={playTooltip}>
-            <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
-          </button>
-          <button className="btn btn-icon" onClick={handleStop} disabled={!canStop} data-tooltip={isNamed ? '暫停公開' : '停止公開'}>
+          {canPlay && !wanUrl ? (
+            <button className="btn btn-primary btn-sm dlane-share-btn" onClick={handlePlay} aria-label={playTooltip} data-tooltip={playTooltip}>
+              <svg width="11" height="11" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
+              {shareLabel}
+            </button>
+          ) : (
+            <button className="btn btn-icon" onClick={handlePlay} disabled={!canPlay} aria-label={playTooltip} data-tooltip={playTooltip}>
+              <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
+            </button>
+          )}
+          <button className="btn btn-icon" onClick={handleStop} disabled={!canStop} aria-label={isNamed ? '暫停公開' : '停止公開'} data-tooltip={isNamed ? '暫停公開' : '停止公開'}>
             <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
           </button>
           <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
@@ -288,6 +306,9 @@ function TunnelControls({
               <button
                 className="btn btn-icon"
                 onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+                aria-label="更多選項"
+                aria-haspopup="menu"
+                aria-expanded={showOverflowMenu}
                 data-tooltip="更多選項"
               >
                 <svg width="12" height="12" viewBox="0 0 10 10">
@@ -361,11 +382,11 @@ function TunnelControls({
       {/* Domain binding modal */}
       {showDomainModal && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowDomainModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="公開（固定網域）" ref={domainDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">公開（固定網域）</h2>
             {domainError && <div className="modal-error">{domainError}</div>}
             <div className="form-group">
-              <label className="form-label">
+              <label className="form-label" htmlFor="bind-domain-input">
                 網域
                 <span
                   className="form-hint"
@@ -375,6 +396,7 @@ function TunnelControls({
                 </span>
               </label>
               <input
+                id="bind-domain-input"
                 className="form-input"
                 type="text"
                 placeholder="dev.example.com"
@@ -383,7 +405,6 @@ function TunnelControls({
                   setDomainInput(e.target.value)
                   setDomainError(null)
                 }}
-                autoFocus
               />
             </div>
             <div className="modal-actions">
@@ -405,14 +426,14 @@ function TunnelControls({
       {/* Default domain modal */}
       {showDefaultDomainModal && (
         <div className="modal-overlay" data-dismiss onClick={() => setShowDefaultDomainModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="設定預設網域" ref={defaultDomainDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">設定預設網域</h2>
             <p className="confirm-text" style={{ marginBottom: '8px' }}>
               設定後，按啟動鈕（▶）將直接使用此網域啟動固定 Tunnel。留空可清除預設網域。
             </p>
             {defaultDomainError && <div className="modal-error">{defaultDomainError}</div>}
             <div className="form-group">
-              <label className="form-label">
+              <label className="form-label" htmlFor="default-domain-input">
                 預設網域
                 <span
                   className="form-hint"
@@ -422,6 +443,7 @@ function TunnelControls({
                 </span>
               </label>
               <input
+                id="default-domain-input"
                 className="form-input"
                 type="text"
                 placeholder="dev.example.com"
@@ -430,7 +452,6 @@ function TunnelControls({
                   setDefaultDomainInput(e.target.value)
                   setDefaultDomainError(null)
                 }}
-                autoFocus
               />
             </div>
             <div className="modal-actions">
@@ -452,7 +473,7 @@ function TunnelControls({
       {/* Unbind Confirmation Modal */}
       {showUnbindConfirm && (
         <div className="modal-overlay" data-dismiss={!unbinding ? true : undefined} onClick={() => { if (!unbinding) setShowUnbindConfirm(false) }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="確認解除綁定" ref={unbindDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">確認解除綁定</h2>
             <p className="confirm-text">
               {unbinding

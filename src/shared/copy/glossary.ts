@@ -12,8 +12,9 @@
  *
  * 語言政策（2026-07 決議）：UI 全繁中；下列**專有名詞保留英文**——
  *   TunnelBox / Cloudflare / frp / bore / cloudflared / frpc / Pro / Free / QR Code /
- *   CNAME / DNS / URL / Token / Secret；規格保留的技術縮寫（Local / LAN / WAN / Sta / Pxy /
- *   Dir / Reach / Request Log）依 master-detail-ui-b-plan 規格辦理。
+ *   CNAME / DNS / URL / Token / Secret；規格保留的技術縮寫（Local / LAN / WAN /
+ *   Reach / Request Log）依 master-detail-ui-b-plan 規格辦理。模式標籤 static/proxy/direct
+ *   已於 2026-07 統一為中文（靜態／代理／轉發），不再保留 Sta/Pxy/Dir。
  */
 
 export interface Term {
@@ -70,7 +71,7 @@ export const TERMS: Record<string, Term> = {
 /**
  * load-bearing 常數，定義於 src/renderer/src/utils/site-view.ts，**勿在文案 loop 改**：
  *   SITE_STATE_LABEL = { run:'運行中', share:'分享中', stop:'已停止' }
- *   RAIL_MODE_LABEL  = { static:'Sta', proxy:'Pxy', direct:'Dir' }（規格保留英文縮寫）
+ *   RAIL_MODE_LABEL  = { static:'靜態', proxy:'代理', direct:'轉發' }（2026-07 統一中文；rail chip 與詳情 badge 共用）
  */
 
 export interface BannedTerm {

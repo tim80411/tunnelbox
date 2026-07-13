@@ -428,6 +428,9 @@ export interface ElectronAPI {
   onMenuRestartServer: (callback: () => void) => () => void
   onMenuRemoveSite: (callback: () => void) => () => void
   onMenuShowShortcuts: (callback: () => void) => () => void
+  onMenuShare: (callback: () => void) => () => void
+  onMenuStopSharing: (callback: () => void) => () => void
+  onMenuCopyUrl: (callback: () => void) => () => void
 
   // Pro friction dialogs (push from main)
   onOpenUpgradeDialog: (callback: () => void) => () => void

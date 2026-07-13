@@ -4,12 +4,18 @@ import type { SiteInfo } from '../../../shared/types'
 interface UseMenuCommandsOptions {
   sites: SiteInfo[]
   selectedSiteId: string | null
+  /** When a modal/overlay is open, site-targeting menu commands (open/restart/
+   *  remove) are suppressed so e.g. ⌘⌫ can't delete a site behind the modal (K1). */
+  isModalOpen?: boolean
   onAddSite: () => void
   onOpenSettings: () => void
   onOpenInBrowser: (site: SiteInfo) => void
   onRestartServer: (site: SiteInfo) => void
   onRemoveSite: (site: SiteInfo) => void
   onShowShortcuts: () => void
+  onShareSite: (site: SiteInfo) => void
+  onStopSharing: (site: SiteInfo) => void
+  onCopyUrl: (site: SiteInfo) => void
 }
 
 export function useMenuCommands(options: UseMenuCommandsOptions): void {
@@ -26,21 +32,42 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
     const unsubSettings = window.electron.onMenuOpenSettings(() => optionsRef.current.onOpenSettings())
 
     const unsubOpen = window.electron.onMenuOpenInBrowser(() => {
+      if (optionsRef.current.isModalOpen) return
       const site = findSelected()
       if (site && site.status === 'running') optionsRef.current.onOpenInBrowser(site)
     })
 
     const unsubRestart = window.electron.onMenuRestartServer(() => {
+      if (optionsRef.current.isModalOpen) return
       const site = findSelected()
       if (site) optionsRef.current.onRestartServer(site)
     })
 
     const unsubRemove = window.electron.onMenuRemoveSite(() => {
+      if (optionsRef.current.isModalOpen) return
       const site = findSelected()
       if (site) optionsRef.current.onRemoveSite(site)
     })
 
     const unsubShortcuts = window.electron.onMenuShowShortcuts(() => optionsRef.current.onShowShortcuts())
+
+    const unsubShare = window.electron.onMenuShare(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onShareSite(site)
+    })
+
+    const unsubStopSharing = window.electron.onMenuStopSharing(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onStopSharing(site)
+    })
+
+    const unsubCopyUrl = window.electron.onMenuCopyUrl(() => {
+      if (optionsRef.current.isModalOpen) return
+      const site = findSelected()
+      if (site) optionsRef.current.onCopyUrl(site)
+    })
 
     return () => {
       unsubAdd()
@@ -49,6 +76,9 @@ export function useMenuCommands(options: UseMenuCommandsOptions): void {
       unsubRestart()
       unsubRemove()
       unsubShortcuts()
+      unsubShare()
+      unsubStopSharing()
+      unsubCopyUrl()
     }
   }, [])
 }

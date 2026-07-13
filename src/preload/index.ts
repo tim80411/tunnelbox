@@ -106,6 +106,24 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener('menu:show-shortcuts', handler)
   },
 
+  onMenuShare: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:share', handler)
+    return () => ipcRenderer.removeListener('menu:share', handler)
+  },
+
+  onMenuStopSharing: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:stop-sharing', handler)
+    return () => ipcRenderer.removeListener('menu:stop-sharing', handler)
+  },
+
+  onMenuCopyUrl: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('menu:copy-url', handler)
+    return () => ipcRenderer.removeListener('menu:copy-url', handler)
+  },
+
   onOpenUpgradeDialog: (callback: () => void): (() => void) => {
     const handler = (): void => callback()
     ipcRenderer.on('open-upgrade-dialog', handler)

@@ -1,4 +1,5 @@
 import type { SiteInfo } from '../../../shared/types'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 interface ConcurrentSharesDialogProps {
   targetSite: SiteInfo
@@ -15,9 +16,10 @@ function ConcurrentSharesDialog({
   onUpgrade,
   onCancel,
 }: ConcurrentSharesDialogProps): React.ReactElement {
+  const dialogRef = useDialogFocus<HTMLDivElement>(true)
   return (
     <div className="modal-overlay" data-dismiss onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="切換分享對象" ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2 className="modal-title">切換分享對象</h2>
         <p className="confirm-text" style={{ marginBottom: '12px' }}>
           Free 適合單次展示的工作流，可同時分享 2 個網站。
