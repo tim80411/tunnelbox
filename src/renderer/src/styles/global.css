@@ -2837,8 +2837,8 @@ html, body, #root {
 /* Per-row quick actions: hidden until hover (or when the row is selected) so the
    rail stays clean. opacity keeps the slot reserved (no layout shift); pointer-events
    off while hidden avoids mis-clicks. */
-.railitem .ract { display: flex; align-items: center; gap: 4px; flex-shrink: 0; opacity: 0; pointer-events: none; transition: opacity .12s; }
-.railitem:hover .ract, .railitem.on .ract { opacity: 1; pointer-events: auto; }
+.railitem .ract { display: flex; align-items: center; gap: 4px; flex-shrink: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s, visibility .12s; }
+.railitem:hover .ract, .railitem.on .ract { opacity: 1; visibility: visible; pointer-events: auto; }
 .rail-foot { padding: 10px 12px; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; }
 .rail-foot .btn-primary { flex: 1; justify-content: center; }
 
