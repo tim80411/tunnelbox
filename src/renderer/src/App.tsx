@@ -1050,8 +1050,8 @@ function App(): React.ReactElement {
       {/* Confirm Remove Modal */}
       {confirmRemove && (
         <div className="modal-overlay" data-dismiss onClick={() => setConfirmRemove(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="確認刪除" ref={confirmRemoveRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">確認刪除</h2>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="確認移除" ref={confirmRemoveRef} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">確認移除</h2>
             <p className="confirm-text">
               確定要刪除「{confirmRemove.name}」嗎？此操作將停止對應的伺服器，但不會刪除本地檔案。
             </p>
@@ -1066,7 +1066,7 @@ function App(): React.ReactElement {
                   setConfirmRemove(null)
                 }}
               >
-                確認刪除
+                確認移除
               </button>
             </div>
           </div>
