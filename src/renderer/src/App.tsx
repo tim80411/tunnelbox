@@ -31,6 +31,7 @@ import { usePasteToAdd } from './hooks/usePasteToAdd'
 import { useUrlAddNotification } from './hooks/useUrlAddNotification'
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation'
 import { useMenuCommands } from './hooks/useMenuCommands'
+import { isAnyOverlayOpen } from './utils/overlay-gate'
 
 function App(): React.ReactElement {
   const [sites, setSites] = useState<SiteInfo[]>([])
@@ -618,11 +619,50 @@ function App(): React.ReactElement {
   usePasteToAdd({ onError: setError })
   useUrlAddNotification({ onSuccess: handleUrlAddSuccess, onError: setError })
 
-  const isModalOpen = showAddModal || showSettings || showShortcuts || showShareHistory || !!confirmRemove || !!shareGateDialog || !!sensitivePortDialog || !!proActivated || !!pendingLicenseReplace || !!downloadsLicensePrompt
+  // Single source of truth for shortcut gating (see utils/overlay-gate). Now
+  // includes the blocking overlays (force-update wall, update-ready, upgrade-pro)
+  // and the remote console that were previously absent — so ↑/↓ and the
+  // destructive ⌘⌫ can no longer fire behind them (K1).
+  const isModalOpen = isAnyOverlayOpen({
+    addModal: showAddModal,
+    settings: showSettings,
+    shortcuts: showShortcuts,
+    shareHistory: showShareHistory,
+    confirmRemove: !!confirmRemove,
+    shareGate: !!shareGateDialog,
+    sensitivePort: !!sensitivePortDialog,
+    ssrfRisk: !!ssrfRiskDialog,
+    proActivated: !!proActivated,
+    pendingLicenseReplace: !!pendingLicenseReplace,
+    downloadsLicensePrompt: !!downloadsLicensePrompt,
+    upgradePro: showUpgradePro,
+    updateReady: updateState.phase === 'ready',
+    forceUpdateBlocked: !!forceUpdate?.blocked,
+    remoteConsole: !!consoleForSiteId
+  })
   const { selectedSiteId, setSelectedSiteId, listRef } = useKeyboardNavigation({
     sites,
     disabled: isModalOpen
   })
+
+  // Selection + derived view-model for the master-detail layout. Computed here
+  // (above useMenuCommands) so menu commands target the *visible* site
+  // (effectiveSelectedId), not the raw selectedSiteId which is null on launch —
+  // otherwise ⌘O/⌘R/⌘⌫ silently no-op while the detail pane clearly shows a site (D3-3).
+  const selectedSite = useMemo(() => sites.find((s) => s.id === selectedSiteId) ?? null, [sites, selectedSiteId])
+  const counts = useMemo(() => summarizeSites(sites), [sites])
+  const filteredSites = useMemo(() => filterSites(sites, searchQuery, filter), [sites, searchQuery, filter])
+  // When the selected site is filtered out, fall back to the first visible site.
+  const effectiveSelectedId = useMemo(
+    () => (selectedSite && filteredSites.some((s) => s.id === selectedSite.id))
+      ? selectedSite.id
+      : (filteredSites[0]?.id ?? null),
+    [selectedSite, filteredSites]
+  )
+  const detailSite = useMemo(
+    () => sites.find((s) => s.id === effectiveSelectedId) ?? null,
+    [sites, effectiveSelectedId]
+  )
 
   const handleOpenSettings = useCallback(() => setShowSettings((v) => !v), [])
   const handleRemoveSiteConfirm = useCallback((site: SiteInfo) => setConfirmRemove(site), [])
@@ -630,7 +670,8 @@ function App(): React.ReactElement {
 
   useMenuCommands({
     sites,
-    selectedSiteId,
+    selectedSiteId: effectiveSelectedId,
+    isModalOpen,
     onAddSite: openAddModal,
     onOpenSettings: handleOpenSettings,
     onOpenInBrowser: handleOpenInBrowser,
@@ -652,21 +693,6 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [])
 
-  // Selection + derived view-model for the master-detail layout
-  const selectedSite = useMemo(() => sites.find((s) => s.id === selectedSiteId) ?? null, [sites, selectedSiteId])
-  const counts = useMemo(() => summarizeSites(sites), [sites])
-  const filteredSites = useMemo(() => filterSites(sites, searchQuery, filter), [sites, searchQuery, filter])
-  // When the selected site is filtered out, fall back to the first visible site.
-  const effectiveSelectedId = useMemo(
-    () => (selectedSite && filteredSites.some((s) => s.id === selectedSite.id))
-      ? selectedSite.id
-      : (filteredSites[0]?.id ?? null),
-    [selectedSite, filteredSites]
-  )
-  const detailSite = useMemo(
-    () => sites.find((s) => s.id === effectiveSelectedId) ?? null,
-    [sites, effectiveSelectedId]
-  )
 
   // Drop a pending inline-rename if the detail pane stops showing that exact running site
   // (e.g. the site is stopped, or the filter fallback switches the detail to another site).
@@ -1081,8 +1107,9 @@ function App(): React.ReactElement {
               )}
 
               <div className="form-group">
-                <label className="form-label">名稱</label>
+                <label className="form-label" htmlFor="add-site-name">名稱</label>
                 <input
+                  id="add-site-name"
                   className="form-input"
                   type="text"
                   placeholder="我的網站"
@@ -1094,11 +1121,13 @@ function App(): React.ReactElement {
 
               <div className="form-group">
                 <label className="form-label">服務模式</label>
-                <div className="serve-mode-toggle">
+                <div className="serve-mode-toggle" role="radiogroup" aria-label="服務模式">
                   <button
                     className={`serve-mode-btn${newServeMode === 'static' ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('static'); setNewPassthrough(false) }}
                     type="button"
+                    role="radio"
+                    aria-checked={newServeMode === 'static'}
                   >
                     靜態檔案<small>提供資料夾檔案</small>
                   </button>
@@ -1106,6 +1135,8 @@ function App(): React.ReactElement {
                     className={`serve-mode-btn${newServeMode === 'proxy' && !newPassthrough ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('proxy'); setNewPassthrough(false) }}
                     type="button"
+                    role="radio"
+                    aria-checked={newServeMode === 'proxy' && !newPassthrough}
                   >
                     反向代理<small>轉發到本機服務</small>
                   </button>
@@ -1113,6 +1144,8 @@ function App(): React.ReactElement {
                     className={`serve-mode-btn${newServeMode === 'proxy' && newPassthrough ? ' active' : ''}`}
                     onClick={() => { setNewServeMode('proxy'); setNewPassthrough(true) }}
                     type="button"
+                    role="radio"
+                    aria-checked={newServeMode === 'proxy' && newPassthrough}
                   >
                     直接轉發<small>直接指向連接埠</small>
                   </button>
@@ -1121,9 +1154,10 @@ function App(): React.ReactElement {
 
               {newServeMode === 'static' ? (
                 <div className="form-group">
-                  <label className="form-label">資料夾路徑</label>
+                  <label className="form-label" htmlFor="add-site-path">資料夾路徑</label>
                   <div className="form-row">
                     <input
+                      id="add-site-path"
                       className="form-input"
                       type="text"
                       placeholder="選擇資料夾…"
@@ -1138,10 +1172,11 @@ function App(): React.ReactElement {
                 </div>
               ) : (
                 <div className="form-group">
-                  <label className="form-label">
+                  <label className="form-label" htmlFor="add-site-target">
                     {newPassthrough ? '連接埠' : '反向代理目標'}
                   </label>
                   <input
+                    id="add-site-target"
                     className="form-input"
                     type="text"
                     placeholder={newPassthrough ? '3000' : 'http://localhost:3000 或 3000'}

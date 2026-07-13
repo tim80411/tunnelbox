@@ -38,6 +38,7 @@ function CopyButton({ text, tooltip, disabled, variant = 'icon' }: CopyButtonPro
     <button
       className={className}
       onClick={handleClick}
+      aria-label={currentTooltip}
       data-tooltip={currentTooltip}
       data-copied={copied || failed ? '' : undefined}
       disabled={disabled}

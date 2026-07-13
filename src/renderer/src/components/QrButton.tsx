@@ -30,6 +30,7 @@ function QrButton({ url, title = 'QR Code', subtitle, disabled }: QrButtonProps)
       <button
         className="btn-icon"
         onClick={() => setOpen(true)}
+        aria-label="顯示 QR Code"
         data-tooltip="顯示 QR Code"
         disabled={disabled}
       >

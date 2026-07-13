@@ -24,7 +24,7 @@
   /* Text — warm charcoal */
   --text-primary: #2d2926;
   --text-secondary: #6b6560;
-  --text-tertiary: #a9a29a;
+  --text-tertiary: #736d65;        /* darkened for WCAG AA contrast (was #a9a29a ≈ 2.5:1 on cream — failed) */
   --text-on-accent: #ffffff;
 
   /* Accent — Lavender Violet */
@@ -565,6 +565,7 @@ html, body, #root {
 }
 
 [data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after,
 [data-tooltip][data-copied]::after {
   opacity: 1;
 }
@@ -2938,3 +2939,38 @@ html, body, #root {
 .db-msg { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin: 6px 0; }
 .db-msg.db-err { color: var(--danger); }
 .db-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ── Keyboard focus visibility (WCAG 2.4.7) ────────────────────────
+   Nothing in the app showed a focus ring on buttons, links or rows, so
+   keyboard users were navigating blind. A single visible ring for the
+   keyboard-only :focus-visible state, plus higher-specificity overrides for
+   controls that null their outline at base or on :focus. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+.rail-search input:focus-visible,
+.form-input:focus-visible,
+.domain-input:focus-visible,
+.settings-select:focus-visible,
+.site-rename-input:focus-visible,
+.dh-rename-input:focus-visible,
+.railitem:focus-visible,
+.serve-mode-btn:focus-visible,
+.overflow-menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ── Respect the reduced-motion preference (WCAG 2.3.3, quality floor) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

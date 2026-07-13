@@ -60,3 +60,11 @@ describe('SiteRail — per-row quick actions', () => {
     expect(html.match(/開啟網站/g)?.length).toBe(1)
   })
 })
+
+describe('SiteRail — search field a11y', () => {
+  it('the search input is a labelled search field', () => {
+    const html = renderRail([sharing])
+    expect(html).toContain('aria-label="搜尋網站"')
+    expect(html).toContain('type="search"')
+  })
+})

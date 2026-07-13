@@ -270,16 +270,16 @@ function TunnelControls({
         </div>
 
         <div className="dlane-act">
-          <span className="btn btn-icon btn-icon--info" data-tooltip={infoTooltip}>
+          <button type="button" className="btn btn-icon btn-icon--info" aria-label={infoTooltip} data-tooltip={infoTooltip}>
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </span>
+          </button>
           {wanUrl && (
             <CopyButton text={wanUrl} tooltip="複製公開網址" variant="icon" />
           )}
-          <button className="btn btn-icon" onClick={handlePlay} disabled={!canPlay} data-tooltip={playTooltip}>
+          <button className="btn btn-icon" onClick={handlePlay} disabled={!canPlay} aria-label={playTooltip} data-tooltip={playTooltip}>
             <svg width="12" height="12" viewBox="0 0 10 10"><polygon points="2,1 2,9 9,5" fill="currentColor"/></svg>
           </button>
-          <button className="btn btn-icon" onClick={handleStop} disabled={!canStop} data-tooltip={isNamed ? '暫停公開' : '停止公開'}>
+          <button className="btn btn-icon" onClick={handleStop} disabled={!canStop} aria-label={isNamed ? '暫停公開' : '停止公開'} data-tooltip={isNamed ? '暫停公開' : '停止公開'}>
             <svg width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="currentColor"/></svg>
           </button>
           <QrButton url={wanUrl || ''} disabled={!wanUrl} title="WAN QR Code" />
@@ -288,6 +288,9 @@ function TunnelControls({
               <button
                 className="btn btn-icon"
                 onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+                aria-label="更多選項"
+                aria-haspopup="menu"
+                aria-expanded={showOverflowMenu}
                 data-tooltip="更多選項"
               >
                 <svg width="12" height="12" viewBox="0 0 10 10">
@@ -365,7 +368,7 @@ function TunnelControls({
             <h2 className="modal-title">公開（固定網域）</h2>
             {domainError && <div className="modal-error">{domainError}</div>}
             <div className="form-group">
-              <label className="form-label">
+              <label className="form-label" htmlFor="bind-domain-input">
                 網域
                 <span
                   className="form-hint"
@@ -375,6 +378,7 @@ function TunnelControls({
                 </span>
               </label>
               <input
+                id="bind-domain-input"
                 className="form-input"
                 type="text"
                 placeholder="dev.example.com"
@@ -412,7 +416,7 @@ function TunnelControls({
             </p>
             {defaultDomainError && <div className="modal-error">{defaultDomainError}</div>}
             <div className="form-group">
-              <label className="form-label">
+              <label className="form-label" htmlFor="default-domain-input">
                 預設網域
                 <span
                   className="form-hint"
@@ -422,6 +426,7 @@ function TunnelControls({
                 </span>
               </label>
               <input
+                id="default-domain-input"
                 className="form-input"
                 type="text"
                 placeholder="dev.example.com"

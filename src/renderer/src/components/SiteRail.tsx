@@ -47,6 +47,8 @@ function SiteRail({
         <div className="rail-search">
           {SearchIcon}
           <input
+            type="search"
+            aria-label="搜尋網站"
             placeholder="搜尋網站…"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
